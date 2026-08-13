@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Entities — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Entities</h1>
+    <a href="/entities/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Entity</a>
+  </header>
+
+  {% if entities.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No entities yet. <a href="/entities/new" class="text-slate-800 underline">Create one</a> to enable consolidated reporting.
+    </div>
+  {% else %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {% for e in entities %}
+        <a href="/entities/{{ e.id }}/consolidated" class="block rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+          <div class="text-sm font-semibold text-slate-800">{{ e.name }}</div>
+          {% if !e.legal_name.is_empty() %}
+            <div class="mt-1 text-xs text-slate-500">{{ e.legal_name }}</div>
+          {% endif %}
+          {% if !e.tax_id.is_empty() %}
+            <div class="mt-1 text-xs text-slate-500">Tax ID: {{ e.tax_id }}</div>
+          {% endif %}
+          <div class="mt-2 text-xs text-slate-400">{{ e.ledger_count }} ledger{% if e.ledger_count != 1 %}s{% endif %}</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

@@ -214,6 +214,18 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::inventory::list),
         )
         .route(
+            "/entities",
+            get(handlers::entities::list),
+        )
+        .route(
+            "/entities/new",
+            get(handlers::entities::new_page).post(handlers::entities::create),
+        )
+        .route(
+            "/entities/{id}/consolidated",
+            get(handlers::entities::consolidated),
+        )
+        .route(
             "/ledgers/{id}/inventory/new",
             get(handlers::inventory::new_page).post(handlers::inventory::create),
         )

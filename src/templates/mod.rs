@@ -9,6 +9,7 @@ pub mod common;
 pub mod contacts;
 pub mod dashboard;
 pub mod documents;
+pub mod entities;
 pub mod error;
 pub mod fixed_assets;
 pub mod import;
