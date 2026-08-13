@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Accounts — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Chart of accounts</h1>
+      <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/accounts/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New account</a>
+  </header>
+
+  {% if groups.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">No accounts yet.</div>
+  {% endif %}
+
+  {% for group in groups %}
+    <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+        {{ group.account_type }}s
+      </header>
+      <!-- Desktop table -->
+      <table class="w-full text-sm hidden md:table">
+        <thead class="text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Code</th>
+            <th class="text-left px-4 py-2">Name</th>
+            <th class="text-right px-4 py-2 tabular">Balance</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for a in group.accounts %}
+            <tr>
+              <td class="px-4 py-2 text-slate-500 tabular">{{ a.code.as_deref().unwrap_or("") }}</td>
+              <td class="px-4 py-2 font-medium text-slate-800">
+                {{ a.name }}
+                {% if a.is_archived %}<span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">archived</span>{% endif %}
+              </td>
+              <td class="px-4 py-2 text-right tabular">
+                {% if let Some(b) = balances.get(&a.id) %}
+                  <span class="text-slate-800">{{ a.currency }} {{ b }}</span>
+                {% else %}
+                  <span class="text-slate-400">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <!-- Mobile cards -->
+      <ul class="md:hidden divide-y divide-slate-100">
+        {% for a in group.accounts %}
+          <li class="px-4 py-3 flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium text-slate-800">{{ a.name }}</div>
+              <div class="text-xs text-slate-500">{{ a.code.as_deref().unwrap_or("") }}</div>
+            </div>
+            <div class="text-sm tabular">
+              {% if let Some(b) = balances.get(&a.id) %}
+                {{ a.currency }} {{ b }}
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endfor %}
+</main>
+{% endblock %}

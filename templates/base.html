@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{% block title %}OpenAccounting{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="/static/htmx.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+      }
+    }
+  }
+</script>
+<style>
+  [x-cloak] { display: none !important; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  /* HTMX loading indicator */
+  .htmx-request .htmx-indicator { display: inline-block; }
+  .htmx-indicator { display: none; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body class="h-full bg-slate-50 text-slate-800 antialiased flex flex-col">
+{% block body %}{% endblock %}
+</body>
+</html>

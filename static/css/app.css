@@ -1,0 +1,9 @@
+/* OpenAccounting — small hand-written CSS utilities */
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact scrollbar for tables on small screens */
+.scrollbar-thin::-webkit-scrollbar { height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }

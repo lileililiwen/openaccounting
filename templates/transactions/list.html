@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Transactions — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold">Transactions</h1>
+      <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New transaction</a>
+  </header>
+
+  <form method="get" action="/ledgers/{{ ledger_id }}/transactions" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">From</span>
+      <input type="date" name="from" value="{{ filter.from }}" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">To</span>
+      <input type="date" name="to" value="{{ filter.to }}" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm flex-1 min-w-[10rem]">
+      <span class="block text-xs text-slate-500">Search description / payee</span>
+      <input name="q" value="{{ filter.q }}" class="w-full rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Filter</button>
+    <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 px-2 py-1.5">Reset</a>
+  </form>
+
+  {% if transactions.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No transactions match. <a href="/ledgers/{{ ledger_id }}/transactions/new" class="text-slate-800 underline">Record one</a>.
+    </div>
+  {% else %}
+    <!-- Desktop table -->
+    <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Date</th>
+            <th class="text-left px-4 py-2">Description</th>
+            <th class="text-left px-4 py-2">Payee</th>
+            <th class="text-left px-4 py-2">Tags</th>
+            <th class="text-right px-4 py-2">Amount</th>
+            <th class="text-right px-4 py-2">Files</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for t in transactions %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-2 tabular text-slate-500">{{ t.date }}</td>
+              <td class="px-4 py-2">
+                <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="font-medium text-slate-800 hover:underline">{{ t.description }}</a>
+              </td>
+              <td class="px-4 py-2 text-slate-600">{{ t.payee }}</td>
+              <td class="px-4 py-2 text-xs text-slate-500">
+                {% for tag in t.tags %}<span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 mr-1">{{ tag }}</span>{% endfor %}
+              </td>
+              <td class="px-4 py-2 text-right tabular font-medium">{{ t.currency }} {{ t.total }}</td>
+              <td class="px-4 py-2 text-right text-slate-500">{{ t.doc_count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <!-- Mobile cards -->
+    <ul class="md:hidden space-y-2">
+      {% for t in transactions %}
+        <li>
+          <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="block rounded-xl bg-white border border-slate-200 p-3">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-medium text-slate-800">{{ t.description }}</div>
+              <div class="text-sm tabular font-semibold">{{ t.currency }} {{ t.total }}</div>
+            </div>
+            <div class="mt-1 text-xs text-slate-500">{{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}{% if t.doc_count > 0 %} · 📎 {{ t.doc_count }}{% endif %}</div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</main>
+{% endblock %}

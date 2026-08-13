@@ -1,0 +1,37 @@
+schema: spec-driven
+
+# Project context — shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge.
+context: |
+  Tech stack: Rust (edition 2021, single binary), Axum 0.8, sqlx 0.8 (PostgreSQL),
+  axum-login 0.17, tower-sessions 0.14 (Postgres-backed), Askama 0.13 templates,
+  HTMX 1.x (vendored), Tailwind CSS (Play CDN in dev).
+  Money: rust_decimal throughout; convert to f64 only at SVG render time.
+  Domain model: double-entry bookkeeping (ledgers → accounts → transactions → postings).
+  Invariant Σ debits == Σ credits enforced in (1) handler, (2) Postgres trigger, (3) report logic.
+  Built upon vito (https://github.com/9-8-7-6/vito, MIT) — see NOTICE and README for credit.
+
+# Per-artifact rules — used by the apply phase.
+rules:
+  proposal:
+    - "Keep proposals under 2 pages; focus on WHY, not HOW."
+    - "Every change MUST list its new capabilities with kebab-case names."
+  spec:
+    - "Every requirement MUST have at least one Scenario with WHEN/THEN."
+    - "Scenarios use bullet list (- **WHEN** ... - **THEN** ...)."
+    - "Requirements are normative: use SHALL/SHOULD/MAY and not 'will'."
+  design:
+    - "Always include a Decisions section with WHY, not just WHAT."
+    - "Every Risk/Trade-off must have a Mitigation on the same line."
+    - "If a new external dependency is added, document at least one alternative considered."
+  tasks:
+    - "Tasks MUST be grouped under ## numbered headings (## 1. Testing, ## 2. Implementation, ...)."
+    - "The Testing group is always present and always first."
+    - "Every checkbox is `- [ ] X.Y Description` (number-dot-number, hyphen, space, bracket, space)."
+    - "Order tasks by dependency; tests before the code they cover."
+
+# Tasks rules: how the apply phase parses them.
+tasks:
+  format: checkbox
+  require_groups: true
+  min_test_group: true

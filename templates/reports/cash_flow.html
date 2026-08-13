@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Cash Flow — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold">Cash Flow</h1>
+      <p class="text-slate-500 text-sm tabular">{{ from }} → {{ to }}</p>
+    </div>
+    <form method="get" class="flex items-end gap-2 text-sm">
+      <label>
+        <span class="block text-xs text-slate-500">From</span>
+        <input type="date" name="from" value="{{ from }}" class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">To</span>
+        <input type="date" name="to" value="{{ to }}" class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
+    </form>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4 grid grid-cols-3 gap-3 text-center">
+    <div>
+      <div class="text-xs uppercase text-slate-500">Opening</div>
+      <div class="mt-1 text-lg font-semibold tabular">{{ opening }}</div>
+    </div>
+    <div>
+      <div class="text-xs uppercase text-slate-500">Movement</div>
+      <div class="mt-1 text-lg font-semibold tabular text-slate-800">{{ movement }}</div>
+    </div>
+    <div>
+      <div class="text-xs uppercase text-slate-500">Closing</div>
+      <div class="mt-1 text-lg font-semibold tabular">{{ closing }}</div>
+    </div>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Inflows</h2>
+    {% if inflows.is_empty() %}<p class="text-sm text-slate-500">—</p>{% endif %}
+    <ul class="text-sm divide-y divide-slate-100">
+      {% for line in inflows %}
+        <li class="py-2 flex items-center justify-between"><span>{{ line.account_name }}</span><span class="tabular text-emerald-700">+{{ line.amount }}</span></li>
+      {% endfor %}
+    </ul>
+    <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-semibold text-sm">
+      <span>Total inflows</span><span class="tabular">{{ total_inflows }}</span>
+    </div>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Outflows</h2>
+    {% if outflows.is_empty() %}<p class="text-sm text-slate-500">—</p>{% endif %}
+    <ul class="text-sm divide-y divide-slate-100">
+      {% for line in outflows %}
+        <li class="py-2 flex items-center justify-between"><span>{{ line.account_name }}</span><span class="tabular text-rose-700">-{{ line.amount }}</span></li>
+      {% endfor %}
+    </ul>
+    <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-semibold text-sm">
+      <span>Total outflows</span><span class="tabular">{{ total_outflows }}</span>
+    </div>
+  </section>
+
+  <p class="text-xs text-slate-500">Cash accounts are auto-detected by name (containing "cash" or "bank") or by code starting with 1.</p>
+</main>
+{% endblock %}

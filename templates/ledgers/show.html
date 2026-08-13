@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ ledger.name }} — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <h1 class="text-2xl font-semibold">{{ ledger.name }}</h1>
+  <p class="text-slate-500 text-sm">Base currency {{ ledger.base_currency }} · {{ ledger.timezone }}</p>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <a href="/ledgers/{{ ledger.id }}/dashboard" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-xs uppercase text-slate-500">Accounts</div>
+      <div class="mt-1 text-2xl font-semibold">{{ account_count }}</div>
+    </a>
+    <a href="/ledgers/{{ ledger.id }}/transactions" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-xs uppercase text-slate-500">Transactions</div>
+      <div class="mt-1 text-2xl font-semibold">{{ txn_count }}</div>
+    </a>
+    <a href="/ledgers/{{ ledger.id }}/reports" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-xs uppercase text-slate-500">Reports</div>
+      <div class="mt-1 text-2xl font-semibold">→</div>
+    </a>
+  </div>
+</main>
+{% endblock %}

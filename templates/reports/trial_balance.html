@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Trial Balance — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold">Trial Balance</h1>
+      <p class="text-slate-500 text-sm">As of <span class="tabular">{{ as_of }}</span></p>
+    </div>
+    <form method="get" class="flex items-end gap-2 text-sm">
+      <label>
+        <span class="block text-xs text-slate-500">As of</span>
+        <input type="date" name="as_of" value="{{ as_of }}" class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
+      <a href="/ledgers/{{ ledger_id }}/reports/export.csv?report=trial_balance&as_of={{ as_of }}" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Export CSV</a>
+    </form>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="text-left px-4 py-2">Account</th>
+          <th class="text-left px-4 py-2">Type</th>
+          <th class="text-right px-4 py-2 tabular">Debit</th>
+          <th class="text-right px-4 py-2 tabular">Credit</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in rows %}
+          <tr>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ r.account_name }}</td>
+            <td class="px-4 py-2 text-slate-500 text-xs">{{ r.account_type }}</td>
+            <td class="px-4 py-2 text-right tabular">{% if !r.debit.is_zero() %}{{ r.debit }}{% endif %}</td>
+            <td class="px-4 py-2 text-right tabular">{% if !r.credit.is_zero() %}{{ r.credit }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-slate-50 font-semibold">
+        <tr>
+          <td class="px-4 py-2" colspan="2">Totals</td>
+          <td class="px-4 py-2 text-right tabular">{{ totals_debit }}</td>
+          <td class="px-4 py-2 text-right tabular">{{ totals_credit }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <div class="rounded-lg border px-3 py-2 text-sm {% if balanced %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-800{% endif %}">
+    {% if balanced %}✓ In balance{% else %}✗ Out of balance — investigate{% endif %}
+  </div>
+</main>
+{% endblock %}

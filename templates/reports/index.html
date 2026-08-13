@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Reports — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Reports</h1>
+    <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+  </header>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <a href="/ledgers/{{ ledger_id }}/reports/trial-balance" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-sm font-semibold text-slate-800">Trial Balance</div>
+      <div class="mt-1 text-xs text-slate-500">All accounts with debit/credit totals at a point in time</div>
+    </a>
+    <a href="/ledgers/{{ ledger_id }}/reports/balance-sheet" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-sm font-semibold text-slate-800">Balance Sheet</div>
+      <div class="mt-1 text-xs text-slate-500">Assets = Liabilities + Equity (point-in-time)</div>
+    </a>
+    <a href="/ledgers/{{ ledger_id }}/reports/income-statement" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-sm font-semibold text-slate-800">Income Statement (P&L)</div>
+      <div class="mt-1 text-xs text-slate-500">Income minus expenses over a period</div>
+    </a>
+    <a href="/ledgers/{{ ledger_id }}/reports/cash-flow" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
+      <div class="text-sm font-semibold text-slate-800">Cash Flow</div>
+      <div class="mt-1 text-xs text-slate-500">Movement in cash &amp; bank accounts over a period</div>
+    </a>
+    <a href="/ledgers/{{ ledger_id }}/reports/general-ledger" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300 sm:col-span-2">
+      <div class="text-sm font-semibold text-slate-800">General Ledger</div>
+      <div class="mt-1 text-xs text-slate-500">Every posting, with date filters and account filter</div>
+    </a>
+  </div>
+</main>
+{% endblock %}

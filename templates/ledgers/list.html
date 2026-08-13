@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Ledgers — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Ledgers</h1>
+    <a href="/ledgers/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New ledger</a>
+  </header>
+  {% if ledgers.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No ledgers yet. <a href="/ledgers/new" class="text-slate-800 underline">Create your first one</a>.
+    </div>
+  {% else %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for l in ledgers %}
+        <a href="/ledgers/{{ l.id }}/dashboard" class="block rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm">
+          <div class="text-sm font-semibold text-slate-800">{{ l.name }}</div>
+          <div class="mt-1 text-xs text-slate-500">Base currency: {{ l.base_currency }} · {{ l.timezone }}</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openaccounting-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openaccounting
+      POSTGRES_PASSWORD: openaccounting
+      POSTGRES_DB: openaccounting
+    ports:
+      - "5432:5432"
+    volumes:
+      - openaccounting_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openaccounting -d openaccounting"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: openaccounting-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://openaccounting:openaccounting@postgres:5432/openaccounting
+      APP_HOST: 0.0.0.0
+      APP_PORT: 3000
+      APP_SECRET: ${APP_SECRET:-please-change-me-to-a-long-random-string}
+      DOCUMENTS_DIR: /var/lib/openaccounting/documents
+      RUST_LOG: info,openaccounting=debug,sqlx=warn
+    ports:
+      - "3000:3000"
+    volumes:
+      - openaccounting_docs:/var/lib/openaccounting/documents
+
+volumes:
+  openaccounting_pgdata:
+  openaccounting_docs:

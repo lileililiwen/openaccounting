@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-13
+goal: "Ship a working v0.1 of openaccounting: balanced postings, chart of
+  accounts, trial balance, balance sheet, P&L, cash flow, general ledger,
+  document storage, and a responsive web UI."

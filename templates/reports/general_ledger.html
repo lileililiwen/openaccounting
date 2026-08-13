@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}General Ledger — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold">General Ledger</h1>
+      <p class="text-slate-500 text-sm tabular">{{ from }} → {{ to }}</p>
+    </div>
+    <form method="get" class="flex flex-wrap items-end gap-2 text-sm">
+      <label>
+        <span class="block text-xs text-slate-500">From</span>
+        <input type="date" name="from" value="{{ from }}" class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">To</span>
+        <input type="date" name="to" value="{{ to }}" class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">Account</span>
+        <select name="account_id" class="rounded border border-slate-300 px-2 py-1">
+          <option value="">— all —</option>
+          {% for a in accounts %}
+            <option value="{{ a.id }}" {% if !account_filter.is_empty() %}{% if account_filter == a.id.to_string() %}selected{% endif %}{% endif %}>{{ a.type }} · {{ a.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
+      <a href="/ledgers/{{ ledger_id }}/reports/export.csv?report=general_ledger&from={{ from }}&to={{ to }}" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Export CSV</a>
+    </form>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="text-left px-4 py-2">Date</th>
+          <th class="text-left px-4 py-2">Description</th>
+          <th class="text-left px-4 py-2">Account</th>
+          <th class="text-left px-4 py-2">Dir</th>
+          <th class="text-right px-4 py-2 tabular">Amount</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for e in entries %}
+          <tr>
+            <td class="px-4 py-2 tabular text-slate-500">{{ e.txn_date }}</td>
+            <td class="px-4 py-2">
+              <a href="/ledgers/{{ ledger_id }}/transactions/{{ e.txn_id }}" class="font-medium text-slate-800 hover:underline">{{ e.description }}</a>
+              {% if !e.payee.is_empty() %}<div class="text-xs text-slate-500">{{ e.payee }}</div>{% endif %}
+            </td>
+            <td class="px-4 py-2 text-slate-700">{{ e.account_name }}</td>
+            <td class="px-4 py-2 text-xs"><span class="px-1.5 py-0.5 rounded {% if e.direction == "DEBIT" %}bg-sky-100 text-sky-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ e.direction }}</span></td>
+            <td class="px-4 py-2 text-right tabular">{{ e.amount }}</td>
+          </tr>
+        {% endfor %}
+        {% if entries.is_empty() %}
+          <tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No postings in this period.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}

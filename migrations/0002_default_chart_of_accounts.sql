@@ -1,0 +1,7 @@
+-- ============================================================================
+-- 0002_default_chart_of_accounts.sql
+-- ============================================================================
+-- This migration does NOT auto-seed accounts (per-ledger seeding happens in
+-- application code on ledger creation). This file documents the default
+-- chart of accounts and is reserved for future per-install defaults.
+-- ============================================================================
