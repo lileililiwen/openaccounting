@@ -1,3 +1,5 @@
+# BuildKit must be enabled. In Docker 23.0+ it's the default. If you have
+# an older Docker, set DOCKER_BUILDKIT=1 in your shell before running.
 services:
   postgres:
     image: postgres:16-alpine
@@ -18,7 +20,10 @@ services:
       retries: 10
 
   app:
-    build: .
+    # Use buildx so the BuildKit cache mounts in the Dockerfile work
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: openaccounting-app
     depends_on:
       postgres:
