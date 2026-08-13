@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-13
+goal: Give every authenticated user a self-service account page to view their
+  profile and change their password, without any admin involvement.

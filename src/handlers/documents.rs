@@ -74,6 +74,7 @@ pub async fn list(
     Ok(render_response(DocumentList {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         documents,

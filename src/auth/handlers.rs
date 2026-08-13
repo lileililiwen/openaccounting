@@ -2,7 +2,7 @@ use crate::templates::render_response;
 use askama::Template;
 use axum::response::{IntoResponse, Response};
 use axum::{extract::State, response::Redirect, Form, Router};
-use axum_login::{login_required, AuthSession};
+use axum_login::AuthSession;
 use serde::Deserialize;
 
 use crate::{

@@ -38,7 +38,7 @@ pub async fn list(
     let balances = compute_balances(&state, ledger_id).await?;
 
     // Group accounts by type for the chart-of-accounts view.
-    let mut groups: Vec<AccountGroup> = vec![
+    let groups: Vec<AccountGroup> = vec![
         ("ASSET", AccountType::Asset),
         ("LIABILITY", AccountType::Liability),
         ("EQUITY", AccountType::Equity),
@@ -60,6 +60,7 @@ pub async fn list(
     Ok(render_response(AccountList {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         groups,
@@ -108,6 +109,7 @@ pub async fn new_page(
     Ok(render_response(AccountNew {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         account_types: vec![
@@ -147,6 +149,7 @@ pub async fn create(
             return Ok(render_response(AccountNew {
                 user_id: user.id,
                 username: user.username.clone(),
+                user_role: user.role.clone(),
                 ledger_id,
                 ledger_name: ledger.name.clone(),
                 account_types: vec![],
@@ -159,6 +162,7 @@ pub async fn create(
         return Ok(render_response(AccountNew {
             user_id: user.id,
             username: user.username.clone(),
+            user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name.clone(),
             account_types: vec![],

@@ -1,5 +1,5 @@
 use crate::templates::render_response;
-use axum::response::{IntoResponse, Response};
+use axum::response::Response;
 use axum::{
     extract::{Path, State},
     http::header,
@@ -33,6 +33,7 @@ pub async fn index(
     Ok(render_response(ReportsIndex {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
     }))
@@ -64,6 +65,7 @@ pub async fn trial_balance(
     Ok(render_response(TrialBalancePage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         as_of,
@@ -90,6 +92,7 @@ pub async fn balance_sheet(
     Ok(render_response(BalanceSheetPage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         as_of,
@@ -117,6 +120,7 @@ pub async fn income_statement(
     Ok(render_response(IncomeStatementPage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         from,
@@ -143,6 +147,7 @@ pub async fn cash_flow(
     Ok(render_response(CashFlowPage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         from,
@@ -182,6 +187,7 @@ pub async fn general_ledger(
     Ok(render_response(GeneralLedgerPage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         from,

@@ -5,8 +5,6 @@ use axum::{
 use axum_login::{login_required, tower_sessions::SessionManagerLayer, AuthManagerLayerBuilder};
 use sqlx::postgres::PgPoolOptions;
 use std::time::Duration;
-use tower_http::services::ServeDir;
-use tower_sessions::cookie::time::Duration as CookieDuration;
 use tower_sessions_sqlx_store::PostgresStore;
 
 mod auth;
@@ -89,6 +87,12 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/ledgers/{id}", get(handlers::ledgers::show))
         .route("/ledgers/{id}/dashboard", get(handlers::dashboard::show))
+        // Self-service account page
+        .route("/account", get(handlers::account::show))
+        .route(
+            "/account/password",
+            post(handlers::account::change_password),
+        )
         .route("/ledgers/{id}/accounts", get(handlers::accounts::list))
         .route(
             "/ledgers/{id}/accounts/new",
@@ -141,6 +145,8 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::reports::export_csv),
         )
         .route("/logout", post(auth::handlers::logout))
+        // Admin routes (require admin role)
+        .merge(handlers::admin::admin_routes())
         .route_layer(login_required!(Backend));
 
     let app = public

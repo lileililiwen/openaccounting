@@ -9,6 +9,7 @@ use crate::domain::Account;
 pub struct AccountList {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub groups: Vec<AccountGroup>,
@@ -26,6 +27,7 @@ pub struct AccountGroup {
 pub struct AccountNew {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub account_types: Vec<crate::domain::AccountType>,

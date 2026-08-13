@@ -10,6 +10,7 @@ use crate::domain::Account;
 pub struct TransactionList {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub transactions: Vec<TransactionRow>,
@@ -41,6 +42,7 @@ pub struct TransactionFilter {
 pub struct TransactionNew {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub currency: String,
@@ -83,6 +85,7 @@ pub struct TransactionFormLine {
 pub struct TransactionShow {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub txn_id: Uuid,

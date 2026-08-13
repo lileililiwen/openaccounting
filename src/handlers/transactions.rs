@@ -1,9 +1,6 @@
 use crate::templates::render_response;
+use axum::extract::{Path, RawForm, State};
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::{
-    extract::{Path, RawForm, State},
-    Form,
-};
 use axum_login::AuthSession;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
@@ -45,7 +42,7 @@ pub async fn list(
 
     let from_date = NaiveDate::parse_from_str(&filter.from, "%Y-%m-%d").ok();
     let to_date = NaiveDate::parse_from_str(&filter.to, "%Y-%m-%d").ok();
-    let account_uuid = Uuid::parse_str(&filter.account_id).ok();
+    let _account_uuid = Uuid::parse_str(&filter.account_id).ok();
     let q_pattern = if filter.q.is_empty() {
         None
     } else {
@@ -81,6 +78,7 @@ pub async fn list(
     Ok(render_response(TransactionList {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         transactions: rows,
@@ -106,6 +104,7 @@ pub async fn new_page(
     Ok(render_response(TransactionNew {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         currency: ledger.base_currency.clone(),
@@ -202,6 +201,7 @@ pub async fn create(
     let make_error = |msg: String| TransactionNew {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name.clone(),
         currency: ledger.base_currency.clone(),
@@ -396,6 +396,7 @@ pub async fn show(
     Ok(render_response(TransactionShow {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         txn_id: txn.id,

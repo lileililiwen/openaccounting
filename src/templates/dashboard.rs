@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub struct DashboardPage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub currency: String,

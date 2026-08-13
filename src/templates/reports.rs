@@ -11,6 +11,7 @@ use crate::reports::*;
 pub struct ReportsIndex {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
 }
@@ -20,6 +21,7 @@ pub struct ReportsIndex {
 pub struct TrialBalancePage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub as_of: chrono::NaiveDate,
@@ -34,6 +36,7 @@ pub struct TrialBalancePage {
 pub struct BalanceSheetPage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub as_of: chrono::NaiveDate,
@@ -51,6 +54,7 @@ pub struct BalanceSheetPage {
 pub struct IncomeStatementPage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub from: chrono::NaiveDate,
@@ -67,6 +71,7 @@ pub struct IncomeStatementPage {
 pub struct CashFlowPage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub from: chrono::NaiveDate,
@@ -85,6 +90,7 @@ pub struct CashFlowPage {
 pub struct GeneralLedgerPage {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub from: chrono::NaiveDate,

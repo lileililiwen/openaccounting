@@ -1,4 +1,6 @@
+pub mod account;
 pub mod accounts;
+pub mod admin;
 pub mod auth;
 pub mod common;
 pub mod dashboard;
@@ -9,13 +11,11 @@ pub mod ledgers;
 pub mod reports;
 pub mod transactions;
 
-pub use crate::reports::AccountTotal;
-pub use into_response::{render_response, Html};
+pub use into_response::render_response;
 
 use askama::Template;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use uuid::Uuid;
 
 #[derive(Template)]
 #[template(path = "index.html")]

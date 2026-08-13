@@ -1,5 +1,3 @@
-use askama::Template;
-
 pub fn current_year() -> i32 {
     chrono::Utc::now()
         .format("%Y")

@@ -8,6 +8,7 @@ use crate::domain::Document;
 pub struct DocumentList {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub documents: Vec<DocumentWithTxn>,

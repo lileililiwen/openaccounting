@@ -1,5 +1,5 @@
 use crate::templates::render_response;
-use axum::response::{IntoResponse, Response};
+use axum::response::Response;
 use axum::{
     extract::{Path, State},
     http::header,
@@ -15,10 +15,7 @@ use crate::{
     error::{AppError, AppResult},
     handlers::ledgers,
     reports::{build_balance_sheet, build_income_statement},
-    templates::{
-        dashboard::DashboardPage,
-        transactions::{TransactionFilter, TransactionRow},
-    },
+    templates::{dashboard::DashboardPage, transactions::TransactionRow},
     AppState,
 };
 
@@ -32,7 +29,7 @@ pub async fn show(
 
     let today = chrono::Utc::now().date_naive();
     let first_of_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
-    let first_of_year = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
+    let _first_of_year = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
 
     // Income statement for the month-to-date and balance sheet at today.
     let is = build_income_statement(&state.pool, ledger_id, first_of_month, today).await?;
@@ -111,6 +108,7 @@ pub async fn show(
     Ok(render_response(DashboardPage {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
         currency: ledger.base_currency.clone(),

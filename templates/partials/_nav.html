@@ -14,9 +14,12 @@
         <a href="/ledgers/{{ ledger_id }}/documents" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Documents</a>
         <a href="/ledgers/{{ ledger_id }}/reports" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Reports</a>
       {% endif %}
+      {% if user_role == "admin" %}
+        <a href="/admin" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Admin</a>
+      {% endif %}
     </div>
     <div class="ml-auto flex items-center gap-2 text-sm">
-      <span class="hidden sm:inline text-slate-500">@{{ username }}</span>
+      <a href="/account" class="hidden sm:inline text-slate-500 hover:text-slate-800">@{{ username }}</a>
       <form method="post" action="/logout" class="inline">
         <button class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50">Log out</button>
       </form>

@@ -8,6 +8,7 @@ use crate::domain::Ledger;
 pub struct LedgerList {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub ledgers: Vec<Ledger>,
@@ -19,6 +20,7 @@ pub struct LedgerList {
 pub struct LedgerNew {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub error: String,
@@ -29,6 +31,7 @@ pub struct LedgerNew {
 pub struct LedgerShow {
     pub user_id: Uuid,
     pub username: String,
+    pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub ledger: Ledger,

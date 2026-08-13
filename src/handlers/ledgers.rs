@@ -32,6 +32,7 @@ pub async fn list(
     Ok(render_response(LedgerList {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
         ledgers,
@@ -44,6 +45,7 @@ pub async fn new_page(auth: AuthSession<Backend>) -> AppResult<Response> {
     Ok(render_response(LedgerNew {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
         error: String::new(),
@@ -68,6 +70,7 @@ pub async fn create(
         return Ok(render_response(LedgerNew {
             user_id: user.id,
             username: user.username.clone(),
+            user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
             error: "Name is required".into(),
@@ -78,6 +81,7 @@ pub async fn create(
         return Ok(render_response(LedgerNew {
             user_id: user.id,
             username: user.username.clone(),
+            user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
             error: "Currency must be a 3-letter code (e.g. USD, EUR)".into(),
@@ -152,6 +156,7 @@ pub async fn show(
     Ok(render_response(LedgerShow {
         user_id: user.id,
         username: user.username.clone(),
+        user_role: user.role.clone(),
         ledger_id: ledger.id,
         ledger_name: ledger.name.clone(),
         ledger,

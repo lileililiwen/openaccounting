@@ -4,11 +4,11 @@ pub mod general_ledger;
 pub mod income_statement;
 pub mod trial_balance;
 
-pub use balance_sheet::{build_balance_sheet, BalanceSheetResult};
-pub use cash_flow::{build_cash_flow, CashFlowResult};
+pub use balance_sheet::build_balance_sheet;
+pub use cash_flow::build_cash_flow;
 pub use general_ledger::{build_general_ledger, GeneralLedgerEntry};
-pub use income_statement::{build_income_statement, IncomeStatementResult};
-pub use trial_balance::{build_trial_balance, TrialBalanceResult, TrialBalanceRow};
+pub use income_statement::build_income_statement;
+pub use trial_balance::{build_trial_balance, TrialBalanceRow};
 
 use rust_decimal::Decimal;
 use uuid::Uuid;
@@ -20,5 +20,3 @@ pub struct AccountTotal {
     pub account_type: String,
     pub amount: Decimal,
 }
-
-pub use AccountTotal as _AccountTotalAlias;
