@@ -5,8 +5,6 @@ use uuid::Uuid;
 
 use crate::error::AppResult;
 
-use super::AccountTotal;
-
 #[derive(Clone, Debug)]
 pub struct GeneralLedgerEntry {
     pub txn_id: Uuid,

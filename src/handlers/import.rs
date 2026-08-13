@@ -2,8 +2,6 @@ use crate::templates::render_response;
 use axum::extract::{Multipart, Path, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_login::AuthSession;
-use chrono::NaiveDate;
-use rust_decimal::Decimal;
 use serde::Deserialize;
 use uuid::Uuid;
 

@@ -181,6 +181,26 @@ async fn main() -> anyhow::Result<()> {
             "/ledgers/{id}/import/confirm",
             post(handlers::import::confirm),
         )
+        .route(
+            "/ledgers/{id}/share",
+            get(handlers::sharing::page),
+        )
+        .route(
+            "/ledgers/{id}/share/invite",
+            post(handlers::sharing::invite),
+        )
+        .route(
+            "/ledgers/{id}/share/remove/{member_id}",
+            post(handlers::sharing::remove_member),
+        )
+        .route(
+            "/invitations/{id}/accept",
+            post(handlers::sharing::accept),
+        )
+        .route(
+            "/invitations/{id}/decline",
+            post(handlers::sharing::decline),
+        )
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)
         .merge(handlers::admin::admin_routes())

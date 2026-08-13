@@ -22,21 +22,44 @@ pub async fn list(
     State(state): State<AppState>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledgers = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, created_at, updated_at
-         FROM ledgers WHERE owner_id = $1 ORDER BY created_at DESC",
+    let ledgers = sqlx::query_as::<_, (Uuid, String, String, String, String)>(
+        r#"SELECT l.id, l.name, l.base_currency, 'owner' AS role, l.created_at::text
+           FROM ledgers l
+           WHERE l.owner_id = $1
+           UNION ALL
+           SELECT l.id, l.name, l.base_currency, lm.role, l.created_at::text
+           FROM ledgers l
+           JOIN ledger_members lm ON lm.ledger_id = l.id
+           WHERE lm.user_id = $1
+           ORDER BY created_at DESC"#,
     )
     .bind(user.id)
     .fetch_all(&state.pool)
     .await?;
+    let shares: Vec<(Uuid, String, String, String)> = ledgers
+        .into_iter()
+        .map(|(id, name, currency, role, _ts)| (id, name, currency, role))
+        .collect();
+
+    let pending_invitations: Vec<(Uuid, String, String)> = sqlx::query_as(
+        r#"SELECT li.id, l.name, li.role
+           FROM ledger_invitations li
+           JOIN ledgers l ON l.id = li.ledger_id
+           WHERE li.invitee_email = $1 AND li.status = 'pending'"#,
+    )
+    .bind(&user.email)
+    .fetch_all(&state.pool)
+    .await?;
+
     Ok(render_response(LedgerList {
         user_id: user.id,
         username: user.username.clone(),
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
-        ledgers,
+        ledgers: shares,
         flash: String::new(),
+        pending_invitations,
     }))
 }
 
@@ -195,4 +218,51 @@ pub async fn ensure_owner(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> A
     .await?
     .ok_or(AppError::NotFound)?;
     Ok(ledger)
+}
+
+/// Ensures the user can access the ledger (owner, editor, or viewer).
+/// Returns the ledger and the user's role: "owner", "editor", or "viewer".
+pub async fn ensure_access(
+    state: &AppState,
+    user_id: Uuid,
+    ledger_id: Uuid,
+) -> AppResult<(Ledger, String)> {
+    let ledger = sqlx::query_as::<_, Ledger>(
+        "SELECT id, owner_id, name, base_currency, timezone, created_at, updated_at
+         FROM ledgers WHERE id = $1",
+    )
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    if ledger.owner_id == user_id {
+        return Ok((ledger, "owner".to_string()));
+    }
+
+    let role: Option<String> = sqlx::query_scalar(
+        "SELECT role FROM ledger_members WHERE ledger_id = $1 AND user_id = $2",
+    )
+    .bind(ledger_id)
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    match role {
+        Some(r) => Ok((ledger, r)),
+        None => Err(AppError::NotFound),
+    }
+}
+
+/// Ensures the user can edit (owner or editor).
+pub async fn ensure_editor(
+    state: &AppState,
+    user_id: Uuid,
+    ledger_id: Uuid,
+) -> AppResult<(Ledger, String)> {
+    let (ledger, role) = ensure_access(state, user_id, ledger_id).await?;
+    if role == "viewer" {
+        return Err(AppError::Unauthorized);
+    }
+    Ok((ledger, role))
 }

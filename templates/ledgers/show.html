@@ -5,6 +5,9 @@
 <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
   <h1 class="text-2xl font-semibold">{{ ledger.name }}</h1>
   <p class="text-slate-500 text-sm">Base currency {{ ledger.base_currency }} · {{ ledger.timezone }}</p>
+  <div class="flex gap-2">
+    <a href="/ledgers/{{ ledger.id }}/share" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Share</a>
+  </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <a href="/ledgers/{{ ledger.id }}/dashboard" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">
       <div class="text-xs uppercase text-slate-500">Accounts</div>

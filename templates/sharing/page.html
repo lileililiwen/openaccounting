@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Share Ledger — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Share Ledger</h1>
+    <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Invite Member</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/share/invite" class="flex gap-2">
+      <input name="email" type="email" placeholder="Email address" required class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      <select name="role" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="editor">Editor</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Invite</button>
+    </form>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+      Members
+    </header>
+    <table class="w-full text-sm">
+      <thead class="text-xs uppercase text-slate-500">
+        <tr>
+          <th class="text-left px-4 py-2">User</th>
+          <th class="text-left px-4 py-2">Role</th>
+          <th class="text-left px-4 py-2">Joined</th>
+          <th class="text-right px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for (member_id, member_name, role, joined_at) in members %}
+          <tr>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ member_name }}</td>
+            <td class="px-4 py-2">
+              {% if role == "editor" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">editor</span>
+              {% else %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">viewer</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-slate-500 text-xs">{{ joined_at.format("%Y-%m-%d") }}</td>
+            <td class="px-4 py-2 text-right">
+              <form method="post" action="/ledgers/{{ ledger_id }}/share/remove/{{ member_id }}" class="inline">
+                <button class="text-xs text-rose-600 hover:text-rose-800">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if !invitations.is_empty() %}
+    <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+        Pending Invitations
+      </header>
+      <table class="w-full text-sm">
+        <thead class="text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Email</th>
+            <th class="text-left px-4 py-2">Role</th>
+            <th class="text-left px-4 py-2">Sent</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for (email, role, sent_at) in invitations %}
+            <tr>
+              <td class="px-4 py-2 text-slate-800">{{ email }}</td>
+              <td class="px-4 py-2">
+                {% if role == "editor" %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">editor</span>
+                {% else %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">viewer</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2 text-slate-500 text-xs">{{ sent_at.format("%Y-%m-%d") }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+</main>
+{% endblock %}

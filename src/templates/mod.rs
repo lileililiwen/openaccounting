@@ -13,6 +13,7 @@ pub mod into_response;
 pub mod invoices;
 pub mod ledgers;
 pub mod reports;
+pub mod sharing;
 pub mod transactions;
 
 pub use into_response::render_response;

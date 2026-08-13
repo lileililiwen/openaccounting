@@ -7,16 +7,50 @@
     <h1 class="text-2xl font-semibold">Ledgers</h1>
     <a href="/ledgers/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New ledger</a>
   </header>
+
+  {% if !pending_invitations.is_empty() %}
+    <section class="rounded-xl bg-amber-50 border border-amber-200 p-4">
+      <h2 class="text-sm font-semibold text-amber-900 mb-2">Pending invitations</h2>
+      <ul class="space-y-2">
+        {% for (inv_id, name, role) in pending_invitations %}
+          <li class="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-200">
+            <div class="text-sm">
+              <span class="font-medium text-slate-800">{{ name }}</span>
+              <span class="text-xs text-slate-500"> — invited as {{ role }}</span>
+            </div>
+            <div class="flex gap-2">
+              <form method="post" action="/invitations/{{ inv_id }}/accept">
+                <button class="rounded-md bg-emerald-600 text-white px-2 py-1 text-xs font-medium hover:bg-emerald-700">Accept</button>
+              </form>
+              <form method="post" action="/invitations/{{ inv_id }}/decline">
+                <button class="rounded-md bg-slate-200 text-slate-700 px-2 py-1 text-xs font-medium hover:bg-slate-300">Decline</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
   {% if ledgers.is_empty() %}
     <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
       No ledgers yet. <a href="/ledgers/new" class="text-slate-800 underline">Create your first one</a>.
     </div>
   {% else %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for l in ledgers %}
-        <a href="/ledgers/{{ l.id }}/dashboard" class="block rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm">
-          <div class="text-sm font-semibold text-slate-800">{{ l.name }}</div>
-          <div class="mt-1 text-xs text-slate-500">Base currency: {{ l.base_currency }} · {{ l.timezone }}</div>
+      {% for (lid, name, currency, role) in ledgers %}
+        <a href="/ledgers/{{ lid }}/dashboard" class="block rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="text-sm font-semibold text-slate-800">{{ name }}</div>
+            {% if role == "owner" %}
+              <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">owner</span>
+            {% elif role == "editor" %}
+              <span class="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">editor</span>
+            {% else %}
+              <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">viewer</span>
+            {% endif %}
+          </div>
+          <div class="mt-1 text-xs text-slate-500">Base currency: {{ currency }}</div>
         </a>
       {% endfor %}
     </div>

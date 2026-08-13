@@ -3,7 +3,7 @@ use axum_login::AuthSession;
 use serde::Deserialize;
 
 use crate::{
-    auth::{change_password as auth_change_password, Backend, User},
+    auth::{change_password as auth_change_password, Backend},
     error::{AppError, AppResult},
     templates::{
         account::{AccountPage, PasswordForm},

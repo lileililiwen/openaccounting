@@ -25,7 +25,7 @@ pub async fn show(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let (ledger, _role) = ledgers::ensure_access(&state, user.id, ledger_id).await?;
 
     let today = chrono::Utc::now().date_naive();
     let first_of_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
@@ -134,7 +134,10 @@ pub async fn redirect_to_first_ledger(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let first: Option<(Uuid,)> = sqlx::query_as(
-        "SELECT id FROM ledgers WHERE owner_id = $1 ORDER BY created_at ASC LIMIT 1",
+        r#"SELECT id FROM ledgers
+           WHERE owner_id = $1
+               OR id IN (SELECT ledger_id FROM ledger_members WHERE user_id = $1)
+           ORDER BY created_at ASC LIMIT 1"#,
     )
     .bind(user.id)
     .fetch_optional(&state.pool)
