@@ -194,6 +194,26 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::reconciliation::page),
         )
         .route(
+            "/ledgers/{id}/taxes",
+            get(handlers::taxes::list),
+        )
+        .route(
+            "/ledgers/{id}/taxes/new",
+            get(handlers::taxes::new_page).post(handlers::taxes::create),
+        )
+        .route(
+            "/ledgers/{id}/taxes/{rate_id}/toggle",
+            post(handlers::taxes::toggle),
+        )
+        .route(
+            "/ledgers/{id}/taxes/report",
+            get(handlers::taxes::report),
+        )
+        .route(
+            "/ledgers/{id}/taxes/export.csv",
+            get(handlers::taxes::export_csv),
+        )
+        .route(
             "/ledgers/{id}/reconcile/{account_id}/import",
             post(handlers::reconciliation::upload_csv),
         )

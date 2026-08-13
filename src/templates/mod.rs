@@ -16,6 +16,7 @@ pub mod payments;
 pub mod reconciliation;
 pub mod reports;
 pub mod sharing;
+pub mod taxes;
 pub mod templates;
 pub mod transactions;
 
