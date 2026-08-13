@@ -13,7 +13,7 @@ CACHE_TAG := openaccounting:cache
 
 # ---------- High-level targets ----------
 
-.PHONY: help up up-postgres up-app down restart logs ps shell build rebuild clean prune reset
+.PHONY: help up up-postgres up-app down restart logs ps shell build rebuild clean prune reset promote-admin
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,12 @@ up-postgres: ## Start only Postgres (run the app manually with `cargo run`)
 up-app: build ## Build and start only the app (postgres must be running)
 	$(COMPOSE) up -d app
 	@echo "✅  App: http://localhost:3000"
+
+promote-admin: ## Promote a user to admin by email (usage: make promote-admin EMAIL=you@example.com)
+	@test -n "$(EMAIL)" || (echo "❌  Set EMAIL=<addr>"; exit 1)
+	$(COMPOSE) exec -T postgres psql -U openaccounting -d openaccounting \
+	  -c "UPDATE users SET role = 'admin' WHERE email = '$(EMAIL)';"
+	@echo "✅  $(EMAIL) is now admin (if they exist). Have them log out and back in."
 
 down: ## Stop and remove containers (keeps volumes)
 	$(COMPOSE) down
