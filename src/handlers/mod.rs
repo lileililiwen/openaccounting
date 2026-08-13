@@ -10,6 +10,7 @@ pub mod documents;
 pub mod import;
 pub mod invoices;
 pub mod ledgers;
+pub mod payments;
 pub mod reports;
 pub mod sharing;
 pub mod templates;

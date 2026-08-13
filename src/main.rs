@@ -186,6 +186,18 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::templates::list),
         )
         .route(
+            "/ledgers/{id}/payments",
+            get(handlers::payments::list),
+        )
+        .route(
+            "/ledgers/{id}/payments/new",
+            get(handlers::payments::new_page).post(handlers::payments::create),
+        )
+        .route(
+            "/ledgers/{id}/payments/register",
+            get(handlers::payments::register),
+        )
+        .route(
             "/ledgers/{id}/templates/new",
             get(handlers::templates::new_page).post(handlers::templates::create),
         )

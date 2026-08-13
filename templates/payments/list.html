@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Payments — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Payments</h1>
+    <div class="flex gap-2">
+      <a href="/ledgers/{{ ledger_id }}/payments/register" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Register</a>
+      <a href="/ledgers/{{ ledger_id }}/payments/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Payment</a>
+    </div>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+      Unapplied Payments
+    </header>
+    {% if unapplied.is_empty() %}
+      <div class="p-6 text-center text-slate-500 text-sm">No unapplied payments.</div>
+    {% else %}
+      <table class="w-full text-sm">
+        <thead class="text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Date</th>
+            <th class="text-left px-4 py-2">Contact</th>
+            <th class="text-left px-4 py-2">Method</th>
+            <th class="text-right px-4 py-2">Amount</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for p in unapplied %}
+            <tr>
+              <td class="px-4 py-2 text-slate-600">{{ p.payment_date.format("%Y-%m-%d") }}</td>
+              <td class="px-4 py-2 text-slate-800">{{ p.contact_name }}</td>
+              <td class="px-4 py-2 text-slate-600">{{ p.payment_method }}</td>
+              <td class="px-4 py-2 text-right tabular font-medium">{{ p.amount }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
