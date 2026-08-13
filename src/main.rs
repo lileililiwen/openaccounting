@@ -173,6 +173,14 @@ async fn main() -> anyhow::Result<()> {
             "/ledgers/{id}/reports/ap-aging",
             get(handlers::aging::ap_aging),
         )
+        .route(
+            "/ledgers/{id}/import",
+            get(handlers::import::upload_page).post(handlers::import::upload),
+        )
+        .route(
+            "/ledgers/{id}/import/confirm",
+            post(handlers::import::confirm),
+        )
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)
         .merge(handlers::admin::admin_routes())

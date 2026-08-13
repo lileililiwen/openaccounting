@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Import Preview — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Import Preview</h1>
+    <p class="text-slate-500 text-sm">File: {{ filename }}</p>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/import/confirm" class="space-y-4">
+    <input type="hidden" name="filename" value="{{ filename }}" />
+
+    <section class="rounded-xl bg-white border border-slate-200 p-4">
+      <h2 class="text-sm font-semibold text-slate-700 mb-2">Column Mapping</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-xs text-slate-500">Date Column</span>
+          <select name="date_column" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            {% for (i, h) in headers.iter().enumerate() %}
+              <option value="{{ i }}">{{ h }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs text-slate-500">Description Column</span>
+          <select name="description_column" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            {% for (i, h) in headers.iter().enumerate() %}
+              <option value="{{ i }}">{{ h }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs text-slate-500">Debit Column (optional)</span>
+          <select name="debit_column" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="">None</option>
+            {% for (i, h) in headers.iter().enumerate() %}
+              <option value="{{ i }}">{{ h }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs text-slate-500">Credit Column (optional)</span>
+          <select name="credit_column" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="">None</option>
+            {% for (i, h) in headers.iter().enumerate() %}
+              <option value="{{ i }}">{{ h }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <label class="block mt-4">
+        <span class="text-xs text-slate-500">Target Account</span>
+        <select name="account_id" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          {% for a in accounts %}
+            <option value="{{ a.id }}">{{ a.name }} ({{ a.type }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block mt-4">
+        <input type="checkbox" name="skip_duplicates" checked class="rounded border-slate-300" />
+        <span class="text-sm text-slate-700">Skip potential duplicates</span>
+      </label>
+    </section>
+
+    <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+        Preview (first {{ rows.len() }} rows)
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-slate-500">
+            <tr>
+              {% for h in headers %}
+                <th class="text-left px-4 py-2">{{ h }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for row in rows %}
+              <tr>
+                <td class="px-4 py-2 tabular">{{ row.date }}</td>
+                <td class="px-4 py-2">{{ row.description }}</td>
+                <td class="px-4 py-2 text-right tabular">{{ row.debit }}</td>
+                <td class="px-4 py-2 text-right tabular">{{ row.credit }}</td>
+                <td class="px-4 py-2">{{ row.account.as_deref().unwrap_or("") }}</td>
+                <td class="px-4 py-2">{{ row.payee.as_deref().unwrap_or("") }}</td>
+                <td class="px-4 py-2">{{ row.reference.as_deref().unwrap_or("") }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="flex gap-2">
+      <a href="/ledgers/{{ ledger_id }}/import" class="rounded-lg bg-white border border-slate-200 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Confirm Import</button>
+    </div>
+  </form>
+</main>
+{% endblock %}

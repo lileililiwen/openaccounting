@@ -7,6 +7,7 @@ pub mod closing;
 pub mod contacts;
 pub mod dashboard;
 pub mod documents;
+pub mod import;
 pub mod invoices;
 pub mod ledgers;
 pub mod reports;
