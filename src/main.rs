@@ -122,6 +122,10 @@ async fn main() -> anyhow::Result<()> {
             "/ledgers/{id}/documents/{doc_id}/download",
             get(handlers::documents::download),
         )
+        .route(
+            "/ledgers/{id}/documents/{doc_id}/delete",
+            post(handlers::documents::delete),
+        )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
         .route(
             "/ledgers/{id}/reports/trial-balance",

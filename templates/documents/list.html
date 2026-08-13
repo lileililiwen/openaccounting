@@ -8,14 +8,48 @@
     <p class="text-slate-500 text-sm">All receipts, invoices, and payment slips in {{ ledger_name }}</p>
   </header>
 
+  <form method="get" action="/ledgers/{{ ledger_id }}/documents" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
+    <label class="text-sm flex-1 min-w-[10rem]">
+      <span class="block text-xs text-slate-500">Search filename</span>
+      <input name="q" placeholder="filename..." class="w-full rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">Category</span>
+      <select name="category" class="rounded border border-slate-300 px-2 py-1 text-sm">
+        <option value="">All</option>
+        <option value="Invoice">Invoice</option>
+        <option value="Receipt">Receipt</option>
+        <option value="Contract">Contract</option>
+        <option value="Bank Statement">Bank Statement</option>
+        <option value="Tax Document">Tax Document</option>
+        <option value="Other">Other</option>
+      </select>
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">Tag</span>
+      <input name="tag" placeholder="e.g. Q1-2026" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">From</span>
+      <input type="date" name="from" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">To</span>
+      <input type="date" name="to" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Filter</button>
+    <a href="/ledgers/{{ ledger_id }}/documents" class="text-sm text-slate-500 px-2 py-1.5">Reset</a>
+  </form>
+
   {% if documents.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">No documents uploaded yet.</div>
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">No documents match.</div>
   {% else %}
     <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th class="text-left px-4 py-2">File</th>
+            <th class="text-left px-4 py-2">Category</th>
             <th class="text-left px-4 py-2">Transaction</th>
             <th class="text-left px-4 py-2">Date</th>
             <th class="text-right px-4 py-2">Size</th>
@@ -26,10 +60,16 @@
           {% for d in documents %}
             <tr>
               <td class="px-4 py-2 font-medium text-slate-800">{{ d.filename }}<div class="text-xs text-slate-500">{{ d.mime_type }}</div></td>
+              <td class="px-4 py-2 text-slate-600">—</td>
               <td class="px-4 py-2"><a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-slate-800 hover:underline">{{ d.transaction_description }}</a></td>
               <td class="px-4 py-2 tabular text-slate-500">{{ d.transaction_date }}</td>
               <td class="px-4 py-2 text-right tabular text-slate-500">{{ d.size_bytes }}</td>
-              <td class="px-4 py-2 text-right"><a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline">Open</a></td>
+              <td class="px-4 py-2 text-right">
+                <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline">Open</a>
+                <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Delete this document?')">
+                  <button class="ml-2 text-rose-600 hover:text-rose-800 text-xs">Delete</button>
+                </form>
+              </td>
             </tr>
           {% endfor %}
         </tbody>
@@ -40,7 +80,12 @@
         <li class="rounded-xl bg-white border border-slate-200 p-3">
           <div class="text-sm font-medium text-slate-800 truncate">{{ d.filename }}</div>
           <a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-xs text-slate-500 hover:underline">{{ d.transaction_date }} · {{ d.transaction_description }}</a>
-          <div class="mt-2"><a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-sm text-slate-800 underline">Open</a></div>
+          <div class="mt-2 flex gap-2">
+            <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-sm text-slate-800 underline">Open</a>
+            <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Delete this document?')">
+              <button class="text-sm text-rose-600">Delete</button>
+            </form>
+          </div>
         </li>
       {% endfor %}
     </ul>

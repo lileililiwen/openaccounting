@@ -12,4 +12,5 @@ pub struct Document {
     pub size_bytes: i64,
     pub uploaded_by: Uuid,
     pub uploaded_at: DateTime<Utc>,
+    pub category: String,
 }
