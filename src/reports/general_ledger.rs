@@ -99,7 +99,6 @@ pub async fn build_general_ledger(
         r#"
         SELECT a.id, a.type,
                COALESCE(SUM(CASE WHEN p.direction='DEBIT'  THEN p.amount ELSE -p.amount END), 0)
-             + CASE WHEN a.type IN ('ASSET','EXPENSE') THEN 0 ELSE 0 END
                AS net
         FROM accounts a
         LEFT JOIN postings p ON p.account_id = a.id
@@ -125,6 +124,3 @@ pub async fn build_general_ledger(
 
     Ok((entries, balances))
 }
-
-#[allow(dead_code)]
-pub fn type_for_total(_t: AccountTotal) {}

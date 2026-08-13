@@ -1,8 +1,10 @@
 # quality Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
-## Requirements
+TBD - created by archiving change fix-critical-bugs-and-quality. Update Purpose after archive.
+
+## MODIFIED Requirements
+
 ### Requirement: No Panics in Production Code
 
 `unwrap`, `expect`, `panic!`, `todo!`, and `unimplemented!` are
@@ -57,26 +59,7 @@ dead path. The lint MUST NOT be silenced.
 - **THEN** the reviewer rejects the PR and asks the author to
   remove the dead code instead.
 
-### Requirement: `cargo fmt --check` Clean
-
-Every commit MUST leave the workspace in a state where
-`cargo fmt --all -- --check` exits 0.
-
-#### Scenario: CI runs `cargo fmt --check`
-
-- **WHEN** CI runs `cargo fmt --check`
-- **THEN** the build fails if any file is not formatted. The
-  developer runs `cargo fmt` and re-pushes.
-
-### Requirement: `cargo clippy -D warnings` Clean
-
-Every commit MUST leave the workspace in a state where
-`cargo clippy --workspace --all-targets -- -D warnings` exits 0.
-
-#### Scenario: Reviewer runs clippy
-
-- **WHEN** `make check` (which runs clippy) is invoked
-- **THEN** it MUST exit 0 before a PR can merge.
+## ADDED Requirements
 
 ### Requirement: HTTP Header Sanitization
 
@@ -91,4 +74,3 @@ newlines).
   other control characters
 - **THEN** the Content-Disposition header uses a sanitized version
   of the filename that does not break the header format.
-

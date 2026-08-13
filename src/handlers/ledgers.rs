@@ -176,11 +176,6 @@ pub async fn ensure_owner(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> A
     .bind(user_id)
     .fetch_optional(&state.pool)
     .await?
-    .ok_or(AppError::Forbidden)?;
+    .ok_or(AppError::NotFound)?;
     Ok(ledger)
-}
-
-#[allow(dead_code)]
-pub fn now() -> chrono::DateTime<Utc> {
-    Utc::now()
 }

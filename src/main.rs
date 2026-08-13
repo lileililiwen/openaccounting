@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use axum::{
     routing::{get, post},
     Router,

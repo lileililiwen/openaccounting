@@ -147,7 +147,7 @@ pub async fn redirect_to_first_ledger(
         .status(303)
         .header(header::LOCATION, dest)
         .body(axum::body::Body::empty())
-        .unwrap())
+        .map_err(|e| AppError::Internal(e.to_string()))?)
 }
 
 fn last_n_months(today: NaiveDate, n: usize) -> Vec<NaiveDate> {

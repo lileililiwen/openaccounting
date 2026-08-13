@@ -79,6 +79,3 @@ pub async fn change_password(
         Err(e) => Err(e),
     }
 }
-
-#[allow(dead_code)]
-fn _user_marker(_u: &User) {}

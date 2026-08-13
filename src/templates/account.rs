@@ -92,6 +92,3 @@ impl PasswordForm {
         }
     }
 }
-
-#[allow(dead_code)]
-const _UUID_MARKER: Option<Uuid> = None;

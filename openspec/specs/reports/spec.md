@@ -130,6 +130,12 @@ A "Download CSV" button MUST produce a CSV with the same columns
 plus a `memo` column. The CSV is the source of truth for any
 external reporting.
 
+The general ledger MUST compute a running balance per account. The
+running balance MUST correctly handle the sign convention: Asset and
+Expense accounts increase on debit, while Liability, Equity, and
+Income accounts increase on credit. The SQL query MUST NOT contain
+no-op expressions (e.g. `CASE WHEN ... THEN 0 ELSE 0 END`).
+
 #### Scenario: Filter by account
 
 - **WHEN** `account_id=<Bank's id>` is set
@@ -141,6 +147,14 @@ external reporting.
 - **THEN** the response is a `text/csv` file with
   `Content-Disposition: attachment; filename="general_ledger_*.csv"`,
   one header row, and one data row per posting in the period.
+
+#### Scenario: Running balance is computed correctly
+
+- **WHEN** the general ledger report is generated for a ledger
+  with transactions
+- **THEN** each account's running balance reflects the correct
+  sign convention (debit increases for Asset/Expense, credit
+  increases for Liability/Equity/Income).
 
 ### Requirement: Per-Report Ownership and Date Defaults
 

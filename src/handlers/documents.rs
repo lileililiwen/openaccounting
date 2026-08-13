@@ -40,6 +40,12 @@ impl From<DocWithTxn> for DocumentWithTxn {
     }
 }
 const MAX_BYTES: usize = 25 * 1024 * 1024; // 25 MiB per file
+
+/// Sanitize a value for use in HTTP header values.
+/// Strips control characters and double-quotes to prevent header injection.
+fn sanitize_header_value(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control() && *c != '"').collect()
+}
 const ALLOWED_MIME: &[&str] = &[
     "image/png",
     "image/jpeg",
@@ -194,12 +200,13 @@ pub async fn download(
         .join(doc.transaction_id.to_string())
         .join(&doc.stored_filename);
     let bytes = state.storage.read(&path).await?;
+    let safe_filename = sanitize_header_value(&doc.filename);
     let resp = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, doc.mime_type.clone())
         .header(
             header::CONTENT_DISPOSITION,
-            format!("inline; filename=\"{}\"", doc.filename),
+            format!("inline; filename=\"{}\"", safe_filename),
         )
         .header(header::CONTENT_LENGTH, bytes.len())
         .body(Body::from(bytes))

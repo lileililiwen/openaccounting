@@ -41,17 +41,17 @@
       <div class="space-y-2" id="postings">
         {% for line in form.lines %}
           <div class="posting grid grid-cols-12 gap-2 items-center">
-            <select name="lines[0][account_id]" required class="col-span-6 sm:col-span-7 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-6 sm:col-span-7 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="">— pick account —</option>
               {% for a in accounts %}
                 <option value="{{ a.id }}" {% if a.id.to_string() == line.account_id %}selected{% endif %}>{{ a.type }} · {{ a.name }}</option>
               {% endfor %}
             </select>
-            <select name="lines[0][direction]" required class="col-span-3 sm:col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="lines[{{ loop.index0 }}][direction]" required class="col-span-3 sm:col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="DEBIT" {% if line.direction == "DEBIT" %}selected{% endif %}>Debit</option>
               <option value="CREDIT" {% if line.direction == "CREDIT" %}selected{% endif %}>Credit</option>
             </select>
-            <input name="lines[0][amount]" required type="number" step="0.01" min="0.01" value="{{ line.amount }}" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-sm tabular text-right" />
+            <input name="lines[{{ loop.index0 }}][amount]" required type="number" step="0.01" min="0.01" value="{{ line.amount }}" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-sm tabular text-right" />
           </div>
         {% endfor %}
       </div>
@@ -68,12 +68,12 @@
   document.getElementById('add-line').addEventListener('click', function() {
     var last = container.querySelector('.posting');
     var clone = last.cloneNode(true);
-    // Replace the [] in field names with []; the new posting becomes
-    // another element in the form's lines[] array.
+    // Rewrite field names with the correct index.
     clone.querySelectorAll('input, select').forEach(function(el) {
       var name = el.getAttribute('name');
       if (name) {
-        // name is like "lines[][account_id]" — no rewriting needed
+        // Replace lines[N][field] with lines[idx][field]
+        el.setAttribute('name', name.replace(/lines\[\d+\]/, 'lines[' + idx + ']'));
       }
       if (el.tagName === 'INPUT') el.value = '';
       if (el.tagName === 'SELECT') el.selectedIndex = 0;

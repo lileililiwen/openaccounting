@@ -23,6 +23,12 @@ use crate::{
     AppState,
 };
 
+/// Sanitize a value for use in HTTP header values.
+/// Strips control characters and double-quotes to prevent header injection.
+fn sanitize_header_value(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control() && *c != '"').collect()
+}
+
 pub async fn index(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -49,6 +55,12 @@ fn first_of_year() -> NaiveDate {
 fn parse_or(s: Option<&String>, default: NaiveDate) -> NaiveDate {
     s.and_then(|v| NaiveDate::parse_from_str(v, "%Y-%m-%d").ok())
         .unwrap_or(default)
+}
+fn validate_date_range(from: NaiveDate, to: NaiveDate) -> AppResult<()> {
+    if from > to {
+        return Err(AppError::Validation("from must be <= to".into()));
+    }
+    Ok(())
 }
 
 pub async fn trial_balance(
@@ -116,6 +128,7 @@ pub async fn income_statement(
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
+    validate_date_range(from, to)?;
     let is = build_income_statement(&state.pool, ledger_id, from, to).await?;
     Ok(render_response(IncomeStatementPage {
         user_id: user.id,
@@ -143,6 +156,7 @@ pub async fn cash_flow(
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
+    validate_date_range(from, to)?;
     let cf = build_cash_flow(&state.pool, ledger_id, from, to).await?;
     Ok(render_response(CashFlowPage {
         user_id: user.id,
@@ -172,6 +186,7 @@ pub async fn general_ledger(
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
+    validate_date_range(from, to)?;
     let account_filter: String = q.get("account_id").cloned().unwrap_or_default();
     let account_uuid = Uuid::parse_str(&account_filter).ok();
     let accounts = sqlx::query_as::<_, crate::domain::Account>(
@@ -209,6 +224,7 @@ pub async fn export_csv(
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
+    validate_date_range(from, to)?;
     let report = q
         .get("report")
         .map(|s| s.as_str())
@@ -256,13 +272,14 @@ pub async fn export_csv(
     let bytes = wtr
         .into_inner()
         .map_err(|e| AppError::Internal(e.to_string()))?;
+    let safe_name = sanitize_header_value(&ledger.name);
     let resp = Response::builder()
         .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
         .header(
             header::CONTENT_DISPOSITION,
             format!(
                 "attachment; filename=\"{}_{}_{}.csv\"",
-                report, ledger.name, to
+                report, safe_name, to
             ),
         )
         .body(axum::body::Body::from(bytes))
