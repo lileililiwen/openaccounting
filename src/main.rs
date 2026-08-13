@@ -10,6 +10,7 @@ use std::time::Duration;
 use tower_sessions_sqlx_store::PostgresStore;
 
 mod auth;
+mod audit;
 mod charts;
 mod config;
 mod db;
@@ -149,6 +150,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/ledgers/{id}/close-year/{year}",
             post(handlers::closing::close_year),
+        )
+        .route(
+            "/ledgers/{id}/audit",
+            get(handlers::audit::list),
         )
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)

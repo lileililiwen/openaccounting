@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Audit Log</h1>
+      <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+    </div>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="text-xs uppercase text-slate-500 bg-slate-50">
+        <tr>
+          <th class="text-left px-4 py-2">Timestamp</th>
+          <th class="text-left px-4 py-2">User</th>
+          <th class="text-left px-4 py-2">Action</th>
+          <th class="text-left px-4 py-2">Entity</th>
+          <th class="text-left px-4 py-2">Details</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for (entry, actor_name) in entries %}
+          <tr>
+            <td class="px-4 py-2 text-slate-500 tabular text-xs">{{ entry.created_at.format("%Y-%m-%d %H:%M") }}</td>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ actor_name }}</td>
+            <td class="px-4 py-2">
+              {% if entry.action == "create" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">created</span>
+              {% elif entry.action == "update" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">updated</span>
+              {% elif entry.action == "delete" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">deleted</span>
+              {% else %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{{ entry.action }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-slate-600">{{ entry.entity_type }}</td>
+            <td class="px-4 py-2 text-xs text-slate-500">
+              {% if let Some(new) = &entry.new_value %}
+                {% if let Some(name) = new.get("name") %}
+                  {{ name }}
+                {% elif let Some(desc) = new.get("description") %}
+                  {{ desc }}
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if entries.is_empty() %}
+          <tr>
+            <td colspan="5" class="px-4 py-10 text-center text-slate-500">No audit entries yet.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if entries.len() as i64 >= limit %}
+    <div class="flex justify-center">
+      <a href="?offset={{ offset + limit }}" class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Load more</a>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

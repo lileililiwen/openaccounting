@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::Backend,
+    audit,
     domain::{Account, Direction, Transaction, TxnLineInput},
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -353,6 +354,23 @@ pub async fn create(
         .await?;
     }
     tx.commit().await?;
+
+    // Audit log
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "create",
+        "transaction",
+        Some(txn.id),
+        None,
+        Some(serde_json::json!({
+            "description": description,
+            "date": date,
+            "kind": "standard"
+        })),
+    )
+    .await;
 
     Ok(Redirect::to(&format!("/ledgers/{}/transactions/{}", ledger_id, txn.id)).into_response())
 }

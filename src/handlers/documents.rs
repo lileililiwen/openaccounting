@@ -6,10 +6,12 @@ use axum::{
     http::{header, StatusCode},
 };
 use axum_login::AuthSession;
+use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{
     auth::Backend,
+    audit,
     domain::Document,
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -154,9 +156,10 @@ pub async fn upload(
             .unwrap_or("upload")
             .to_string();
 
-        sqlx::query(
+        let doc_result = sqlx::query(
             r#"INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by)
-               VALUES ($1, $2, $3, $4, $5, $6)"#,
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING id"#,
         )
         .bind(txn_id)
         .bind(&filename)
@@ -164,8 +167,27 @@ pub async fn upload(
         .bind(&mime)
         .bind(total as i64)
         .bind(user.id)
-        .execute(&state.pool)
+        .fetch_one(&state.pool)
         .await?;
+
+        // Audit log
+        let doc_id: Uuid = doc_result.get(0);
+        let _ = audit::log(
+            &state.pool,
+            Some(ledger_id),
+            user.id,
+            "create",
+            "document",
+            Some(doc_id),
+            None,
+            Some(serde_json::json!({
+                "filename": filename,
+                "mime_type": mime,
+                "size_bytes": total
+            })),
+        )
+        .await;
+
         count += 1;
     }
 

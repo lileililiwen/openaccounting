@@ -7,11 +7,13 @@ use axum::{
 use axum_login::AuthSession;
 use rust_decimal::Decimal;
 use serde::Deserialize;
+use sqlx::Row;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
     auth::Backend,
+    audit,
     domain::{Account, AccountSubtype, AccountType},
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -200,9 +202,10 @@ pub async fn create(
             error: "Name is required".into(),
         }));
     }
-    sqlx::query(
+    let result = sqlx::query(
         r#"INSERT INTO accounts (ledger_id, name, code, type, subtype, currency, description)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id"#,
     )
     .bind(ledger_id)
     .bind(name)
@@ -221,7 +224,7 @@ pub async fn create(
             .map(str::trim)
             .filter(|s| !s.is_empty()),
     )
-    .execute(&state.pool)
+    .fetch_one(&state.pool)
     .await
     .map_err(|e| match &e {
         sqlx::Error::Database(db) if db.constraint().is_some() => {
@@ -229,6 +232,24 @@ pub async fn create(
         }
         _ => AppError::Db(e),
     })?;
+
+    // Audit log
+    let account_id: Uuid = result.get(0);
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "create",
+        "account",
+        Some(account_id),
+        None,
+        Some(serde_json::json!({
+            "name": name,
+            "type": account_type.as_str(),
+            "subtype": account_subtype.as_str()
+        })),
+    )
+    .await;
 
     Ok(Redirect::to(&format!("/ledgers/{}/accounts", ledger_id)).into_response())
 }

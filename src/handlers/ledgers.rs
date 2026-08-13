@@ -5,12 +5,12 @@ use axum::{
     Form,
 };
 use axum_login::AuthSession;
-use chrono::Utc;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
     auth::Backend,
+    audit,
     domain::Ledger,
     error::{AppError, AppResult},
     templates::ledgers::{LedgerList, LedgerNew, LedgerShow},
@@ -123,6 +123,22 @@ pub async fn create(
         .await?;
     }
     tx.commit().await?;
+
+    // Audit log
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger.id),
+        user.id,
+        "create",
+        "ledger",
+        Some(ledger.id),
+        None,
+        Some(serde_json::json!({
+            "name": name,
+            "currency": currency
+        })),
+    )
+    .await;
 
     Ok(Redirect::to(&format!("/ledgers/{}", ledger.id)).into_response())
 }
