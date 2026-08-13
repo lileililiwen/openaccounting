@@ -372,7 +372,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)
         .merge(handlers::admin::admin_routes())
-        .route_layer(login_required!(Backend));
+        .route_layer(login_required!(
+            Backend,
+            login_url = "/login",
+            redirect_field = "next"
+        ));
 
     let app = public
         .merge(protected)

@@ -252,7 +252,17 @@ pub async fn redirect_to_first_ledger(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
 ) -> AppResult<Response> {
-    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    // If not logged in, send to login page (don't render 401)
+    let user = match auth.user.as_ref() {
+        Some(u) => u,
+        None => {
+            return Ok(Response::builder()
+                .status(303)
+                .header(header::LOCATION, "/login")
+                .body(axum::body::Body::empty())
+                .map_err(|e| AppError::Internal(e.to_string()))?);
+        }
+    };
     let first: Option<(Uuid,)> = sqlx::query_as(
         r#"SELECT id FROM ledgers
            WHERE owner_id = $1

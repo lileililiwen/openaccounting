@@ -36,7 +36,7 @@ services:
       DOCUMENTS_DIR: /var/lib/openaccounting/documents
       RUST_LOG: info,openaccounting=debug,sqlx=warn
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - openaccounting_docs:/var/lib/openaccounting/documents
 

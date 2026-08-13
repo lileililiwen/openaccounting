@@ -11,7 +11,10 @@
     {% if !error.is_empty() %}
       <div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
     {% endif %}
-    <form method="post" action="/login{% if !next.is_empty() %}?next={{ next }}{% endif %}" class="space-y-3 bg-white p-5 rounded-xl border border-slate-200">
+    <form method="post" action="/login" class="space-y-3 bg-white p-5 rounded-xl border border-slate-200">
+      {% if !next.is_empty() %}
+        <input type="hidden" name="next" value="{{ next }}" />
+      {% endif %}
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Email</span>
         <input type="email" name="email" required autofocus class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-0" />
