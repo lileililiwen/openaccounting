@@ -2,7 +2,7 @@ use crate::templates::render_response;
 use axum::extract::{Path, RawForm, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_login::AuthSession;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -51,7 +51,7 @@ pub async fn list(
 
     let rows = sqlx::query_as::<_, TransactionRow>(
         r#"
-        SELECT t.id, t.txn_date AS date, t.description, COALESCE(t.payee, '') AS payee, t.currency,
+        SELECT t.id, t.txn_date AS date, t.description, COALESCE(t.payee, '') AS payee, t.currency, t.kind,
                COALESCE((SELECT SUM(p.amount) FROM postings p WHERE p.transaction_id=t.id AND p.direction='DEBIT'), 0) AS total,
                (SELECT COUNT(*) FROM documents d WHERE d.transaction_id = t.id) AS doc_count,
                COALESCE((SELECT array_agg(tg.name)
@@ -94,7 +94,7 @@ pub async fn new_page(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let accounts = sqlx::query_as::<_, Account>(
-        r#"SELECT id, ledger_id, parent_id, name, code, type, currency, is_archived, description, created_at, updated_at
+        r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE
            ORDER BY type, code NULLS LAST, name"#,
     )
@@ -177,7 +177,7 @@ pub async fn create(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let accounts = sqlx::query_as::<_, Account>(
-        r#"SELECT id, ledger_id, parent_id, name, code, type, currency, is_archived, description, created_at, updated_at
+        r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE ORDER BY type, code, name"#,
     )
     .bind(ledger_id)
@@ -301,10 +301,26 @@ pub async fn create(
     }
 
     let mut tx = state.pool.begin().await?;
+
+    // Check if the period is closed
+    let is_closed: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM closed_periods WHERE ledger_id = $1 AND period_year = $2)",
+    )
+    .bind(ledger_id)
+    .bind(date.year())
+    .fetch_one(&mut *tx)
+    .await?;
+    if is_closed {
+        return Err(AppError::Validation(format!(
+            "Period {} is closed. Cannot post transactions to closed periods.",
+            date.year()
+        )));
+    }
+
     let txn = sqlx::query_as::<_, Transaction>(
-        r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, currency, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, created_by, created_at, updated_at"#,
+        r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, currency, kind, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, created_by, created_at, updated_at"#,
     )
     .bind(ledger_id)
     .bind(date)
@@ -312,6 +328,7 @@ pub async fn create(
     .bind(form.payee.as_deref().map(str::trim).filter(|s| !s.is_empty()))
     .bind(form.reference.as_deref().map(str::trim).filter(|s| !s.is_empty()))
     .bind(&ledger.base_currency)
+    .bind("standard")
     .bind(user.id)
     .fetch_one(&mut *tx)
     .await?;
@@ -348,7 +365,7 @@ pub async fn show(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let txn = sqlx::query_as::<_, Transaction>(
-        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, created_by, created_at, updated_at
+        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, created_by, created_at, updated_at
            FROM transactions WHERE id = $1 AND ledger_id = $2"#,
     )
     .bind(txn_id)

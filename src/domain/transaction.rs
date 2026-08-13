@@ -12,6 +12,7 @@ pub struct Transaction {
     pub payee: Option<String>,
     pub reference: Option<String>,
     pub currency: String,
+    pub kind: String,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

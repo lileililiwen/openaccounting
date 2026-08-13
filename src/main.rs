@@ -146,6 +146,10 @@ async fn main() -> anyhow::Result<()> {
             "/ledgers/{id}/reports/export.csv",
             get(handlers::reports::export_csv),
         )
+        .route(
+            "/ledgers/{id}/close-year/{year}",
+            post(handlers::closing::close_year),
+        )
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)
         .merge(handlers::admin::admin_routes())

@@ -24,6 +24,7 @@ pub struct TransactionRow {
     pub description: String,
     pub payee: String,
     pub currency: String,
+    pub kind: String,
     pub total: Decimal,
     pub doc_count: i64,
     pub tags: Vec<String>,
