@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Reconcile — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/reports" class="text-sm text-slate-500 hover:text-slate-800">← Reports</a>
+    <h1 class="text-2xl font-semibold mt-1">Bank Reconciliation</h1>
+    <p class="text-slate-500 text-sm">Match statement lines to ledger transactions</p>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Import Statement</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/import" enctype="multipart/form-data" class="flex gap-2">
+      <input type="file" name="file" accept=".csv" required class="flex-1 text-sm" />
+      <button class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">Import CSV</button>
+    </form>
+    <p class="text-xs text-slate-500 mt-1">CSV format: date,description,amount,check_number(optional)</p>
+  </section>
+
+  <section class="grid grid-cols-3 gap-3">
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Statement Balance</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ statement_balance }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Ledger Balance</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ ledger_balance }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Difference</div>
+      <div class="mt-1 text-xl font-semibold tabular {% if difference.is_zero() %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ difference }}</div>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+        Unmatched Statement Lines
+      </header>
+      {% if unmatched_lines.is_empty() %}
+        <div class="p-6 text-center text-slate-500 text-sm">All lines matched.</div>
+      {% else %}
+        <ul class="divide-y divide-slate-100">
+          {% for line in unmatched_lines %}
+            <li class="px-4 py-2 text-sm">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <div class="text-slate-800 font-medium">{{ line.description }}</div>
+                  <div class="text-xs text-slate-500">
+                    {{ line.statement_date.format("%Y-%m-%d") }}
+                    {% if !line.check_number.is_empty() %} · check #{{ line.check_number }}{% endif %}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="tabular font-medium">{{ line.amount }}</div>
+                  <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/match" class="inline">
+                    <input type="hidden" name="line_id" value="{{ line.id }}" />
+                    <select name="transaction_id" class="text-xs border border-slate-200 rounded px-1 py-0.5">
+                      <option value="">Match...</option>
+                      {% for t in candidate_txns %}
+                        <option value="{{ t.id }}">{{ t.txn_date.format("%Y-%m-%d") }} {{ t.description }} {{ t.amount }}</option>
+                      {% endfor %}
+                    </select>
+                    <button class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Match</button>
+                  </form>
+                  <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/exclude/{{ line.id }}" class="inline">
+                    <button class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">Exclude</button>
+                  </form>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+
+    <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+        Unreconciled Ledger Transactions
+      </header>
+      {% if candidate_txns.is_empty() %}
+        <div class="p-6 text-center text-slate-500 text-sm">All caught up.</div>
+      {% else %}
+        <ul class="divide-y divide-slate-100">
+          {% for t in candidate_txns %}
+            <li class="px-4 py-2 text-sm">
+              <div class="text-slate-800 font-medium">{{ t.description }}</div>
+              <div class="text-xs text-slate-500">
+                {{ t.txn_date.format("%Y-%m-%d") }}
+                {% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}
+              </div>
+              <div class="text-right tabular font-medium">{{ t.amount }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="flex gap-2">
+    <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/complete">
+      <button class="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-medium hover:bg-emerald-700">Complete Reconciliation</button>
+    </form>
+    <a href="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/history" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">View History</a>
+  </div>
+</main>
+{% endblock %}

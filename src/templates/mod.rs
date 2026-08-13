@@ -13,6 +13,7 @@ pub mod into_response;
 pub mod invoices;
 pub mod ledgers;
 pub mod payments;
+pub mod reconciliation;
 pub mod reports;
 pub mod sharing;
 pub mod templates;

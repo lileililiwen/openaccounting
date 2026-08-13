@@ -190,6 +190,30 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::payments::list),
         )
         .route(
+            "/ledgers/{id}/reconcile/{account_id}",
+            get(handlers::reconciliation::page),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/import",
+            post(handlers::reconciliation::upload_csv),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/match",
+            post(handlers::reconciliation::match_line),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/exclude/{line_id}",
+            post(handlers::reconciliation::exclude_line),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/complete",
+            post(handlers::reconciliation::complete),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/history",
+            get(handlers::reconciliation::history),
+        )
+        .route(
             "/ledgers/{id}/payments/new",
             get(handlers::payments::new_page).post(handlers::payments::create),
         )
