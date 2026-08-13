@@ -138,10 +138,14 @@ pub async fn income_statement(
         ledger_name: ledger.name,
         from,
         to,
-        income: is.income,
-        expense: is.expense,
-        total_income: is.total_income,
-        total_expense: is.total_expense,
+        revenue: is.revenue,
+        cost_of_goods_sold: is.cost_of_goods_sold,
+        gross_profit: is.gross_profit,
+        operating_expenses: is.operating_expenses,
+        operating_income: is.operating_income,
+        non_operating: is.non_operating,
+        income_before_tax: is.income_before_tax,
+        tax_expense: is.tax_expense,
         net_income: is.net_income,
     }))
 }
@@ -190,7 +194,7 @@ pub async fn general_ledger(
     let account_filter: String = q.get("account_id").cloned().unwrap_or_default();
     let account_uuid = Uuid::parse_str(&account_filter).ok();
     let accounts = sqlx::query_as::<_, crate::domain::Account>(
-        r#"SELECT id, ledger_id, parent_id, name, code, type, currency, is_archived, description, created_at, updated_at
+        r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 ORDER BY type, code, name"#,
     )
     .bind(ledger_id)

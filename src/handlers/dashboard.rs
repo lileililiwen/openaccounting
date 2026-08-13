@@ -76,8 +76,8 @@ pub async fn show(
         let m_end = next_month(*m_start).pred_opt().unwrap_or(*m_start);
         x_labels.push(m_start.format("%b %Y").to_string());
         let r = build_income_statement(&state.pool, ledger_id, *m_start, m_end).await?;
-        income_series.values.push(decimal_to_f64(r.total_income));
-        expense_series.values.push(decimal_to_f64(r.total_expense));
+        income_series.values.push(decimal_to_f64(r.revenue.total));
+        expense_series.values.push(decimal_to_f64(r.operating_expenses.total));
     }
     let income_expense_svg = render_line(640, 220, x_labels, vec![income_series, expense_series]);
 
@@ -88,7 +88,7 @@ pub async fn show(
         "#0ea5e9", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
     ];
     let mut segments: Vec<DonutSegment> = Vec::new();
-    for (i, e) in is_30.expense.iter().take(8).enumerate() {
+    for (i, e) in is_30.operating_expenses.accounts.iter().take(8).enumerate() {
         if e.amount > Decimal::ZERO {
             segments.push(DonutSegment {
                 label: e.account_name.clone(),
@@ -118,8 +118,8 @@ pub async fn show(
             bs.total_assets - bs.total_liabilities,
             &ledger.base_currency,
         ),
-        month_income: format_money(is.total_income, &ledger.base_currency),
-        month_expense: format_money(is.total_expense, &ledger.base_currency),
+        month_income: format_money(is.revenue.total, &ledger.base_currency),
+        month_expense: format_money(is.operating_expenses.total, &ledger.base_currency),
         month_net: format_money(is.net_income, &ledger.base_currency),
         txn_count,
         recent_transactions: recent,

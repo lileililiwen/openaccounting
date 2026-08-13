@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::Backend,
-    domain::{Account, AccountType},
+    domain::{Account, AccountSubtype, AccountType},
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::accounts::{AccountGroup, AccountList, AccountNew},
@@ -27,7 +27,7 @@ pub async fn list(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let accounts = sqlx::query_as::<_, Account>(
-        r#"SELECT id, ledger_id, parent_id, name, code, type, currency, is_archived, description, created_at, updated_at
+        r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 ORDER BY type, code NULLS LAST, name"#,
     )
     .bind(ledger_id)
@@ -128,6 +128,7 @@ pub struct NewAccountForm {
     pub name: String,
     pub code: Option<String>,
     pub account_type: String,
+    pub account_subtype: String,
     pub description: Option<String>,
 }
 
@@ -157,6 +158,36 @@ pub async fn create(
             }));
         }
     };
+    let account_subtype = match AccountSubtype::from_db(&form.account_subtype) {
+        Some(st) => st,
+        None => {
+            return Ok(render_response(AccountNew {
+                user_id: user.id,
+                username: user.username.clone(),
+                user_role: user.role.clone(),
+                ledger_id,
+                ledger_name: ledger.name.clone(),
+                account_types: vec![],
+                error: format!("Invalid account subtype: {}", form.account_subtype),
+            }));
+        }
+    };
+    // Validate subtype is valid for the account type
+    if !account_type.valid_subtypes().contains(&account_subtype) {
+        return Ok(render_response(AccountNew {
+            user_id: user.id,
+            username: user.username.clone(),
+            user_role: user.role.clone(),
+            ledger_id,
+            ledger_name: ledger.name.clone(),
+            account_types: vec![],
+            error: format!(
+                "Subtype {} is not valid for account type {}",
+                account_subtype.display_label(),
+                account_type.display_label()
+            ),
+        }));
+    }
     let name = form.name.trim();
     if name.is_empty() {
         return Ok(render_response(AccountNew {
@@ -170,8 +201,8 @@ pub async fn create(
         }));
     }
     sqlx::query(
-        r#"INSERT INTO accounts (ledger_id, name, code, type, currency, description)
-           VALUES ($1, $2, $3, $4, $5, $6)"#,
+        r#"INSERT INTO accounts (ledger_id, name, code, type, subtype, currency, description)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
     )
     .bind(ledger_id)
     .bind(name)
@@ -182,6 +213,7 @@ pub async fn create(
             .filter(|s| !s.is_empty()),
     )
     .bind(account_type.as_str())
+    .bind(account_subtype.as_str())
     .bind(&ledger.base_currency)
     .bind(
         form.description

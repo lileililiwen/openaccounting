@@ -26,6 +26,7 @@
           <tr>
             <th class="text-left px-4 py-2">Code</th>
             <th class="text-left px-4 py-2">Name</th>
+            <th class="text-left px-4 py-2">Subtype</th>
             <th class="text-right px-4 py-2 tabular">Balance</th>
           </tr>
         </thead>
@@ -37,6 +38,7 @@
                 {{ a.name }}
                 {% if a.is_archived %}<span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">archived</span>{% endif %}
               </td>
+              <td class="px-4 py-2 text-slate-600 text-xs">{{ a.subtype }}</td>
               <td class="px-4 py-2 text-right tabular">
                 {% if let Some(b) = balances.get(&a.id) %}
                   <span class="text-slate-800">{{ a.currency }} {{ b }}</span>
@@ -54,7 +56,7 @@
           <li class="px-4 py-3 flex items-center justify-between">
             <div>
               <div class="text-sm font-medium text-slate-800">{{ a.name }}</div>
-              <div class="text-xs text-slate-500">{{ a.code.as_deref().unwrap_or("") }}</div>
+              <div class="text-xs text-slate-500">{{ a.code.as_deref().unwrap_or("") }} · {{ a.subtype }}</div>
             </div>
             <div class="text-sm tabular">
               {% if let Some(b) = balances.get(&a.id) %}

@@ -26,10 +26,58 @@
       </select>
     </label>
     <label class="block">
+      <span class="text-sm font-medium text-slate-700">Subtype</span>
+      <select name="account_subtype" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" id="account_subtype">
+        <option value="CURRENT_ASSET">Current Asset</option>
+      </select>
+    </label>
+    <label class="block">
       <span class="text-sm font-medium text-slate-700">Description (optional)</span>
       <textarea name="description" rows="2" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
     </label>
     <button class="w-full rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">Create account</button>
   </form>
+
+  <script>
+    const subtypeOptions = {
+      'ASSET': [
+        { value: 'CURRENT_ASSET', label: 'Current Asset' },
+        { value: 'FIXED_ASSET', label: 'Fixed Asset' },
+        { value: 'INTANGIBLE_ASSET', label: 'Intangible Asset' },
+        { value: 'OTHER_ASSET', label: 'Other Asset' }
+      ],
+      'LIABILITY': [
+        { value: 'CURRENT_LIABILITY', label: 'Current Liability' },
+        { value: 'LONG_TERM_LIABILITY', label: 'Long-Term Liability' }
+      ],
+      'EQUITY': [
+        { value: 'EQUITY', label: 'Equity' },
+        { value: 'RETAINED_EARNINGS', label: 'Retained Earnings' },
+        { value: 'DRAWING', label: 'Drawing' }
+      ],
+      'INCOME': [
+        { value: 'OPERATING_INCOME', label: 'Operating Income' },
+        { value: 'NON_OPERATING_INCOME', label: 'Non-Operating Income' }
+      ],
+      'EXPENSE': [
+        { value: 'COST_OF_GOODS_SOLD', label: 'Cost of Goods Sold' },
+        { value: 'OPERATING_EXPENSE', label: 'Operating Expense' },
+        { value: 'NON_OPERATING_EXPENSE', label: 'Non-Operating Expense' },
+        { value: 'TAX_EXPENSE', label: 'Tax Expense' }
+      ]
+    };
+
+    const typeSelect = document.querySelector('select[name="account_type"]');
+    const subtypeSelect = document.getElementById('account_subtype');
+
+    function updateSubtypes() {
+      const selectedType = typeSelect.value;
+      const options = subtypeOptions[selectedType] || [];
+      subtypeSelect.innerHTML = options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    }
+
+    typeSelect.addEventListener('change', updateSubtypes);
+    updateSubtypes();
+  </script>
 </main>
 {% endblock %}

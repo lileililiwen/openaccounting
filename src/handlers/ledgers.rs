@@ -109,13 +109,14 @@ pub async fn create(
     // Seed default chart of accounts.
     for acct in Ledger::default_chart_of_accounts(&currency) {
         sqlx::query(
-            r#"INSERT INTO accounts (ledger_id, name, code, type, currency, is_archived)
-               VALUES ($1, $2, $3, $4, $5, $6)"#,
+            r#"INSERT INTO accounts (ledger_id, name, code, type, subtype, currency, is_archived)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
         )
         .bind(ledger.id)
         .bind(&acct.name)
         .bind(&acct.code)
         .bind(acct.account_type.as_str())
+        .bind(acct.account_subtype.as_str())
         .bind(&acct.currency)
         .bind(acct.is_archived)
         .execute(&mut *tx)
