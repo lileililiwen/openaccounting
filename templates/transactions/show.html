@@ -11,6 +11,12 @@
       {% if !payee.is_empty() %} · {{ payee }}{% endif %}
       {% if !reference.is_empty() %} · ref {{ reference }}{% endif %}
     </p>
+    {% if template_id.is_some() %}
+      <p class="mt-2 text-xs text-sky-700">
+        <span class="inline-block px-1.5 py-0.5 rounded bg-sky-100">↻ Recurring</span>
+        Generated from: <a href="/ledgers/{{ ledger_id }}/templates/{{ template_id.unwrap() }}" class="underline">{{ template_description }}</a>
+      </p>
+    {% endif %}
     {% if !tags.is_empty() %}
       <div class="mt-2 text-xs text-slate-500">
         {% for t in tags %}<span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 mr-1">{{ t }}</span>{% endfor %}

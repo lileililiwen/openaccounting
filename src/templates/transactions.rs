@@ -99,6 +99,8 @@ pub struct TransactionShow {
     pub documents: Vec<crate::domain::Document>,
     pub tags: Vec<String>,
     pub flash: String,
+    pub template_id: Option<Uuid>,
+    pub template_description: String,
 }
 
 #[derive(Clone, Debug)]

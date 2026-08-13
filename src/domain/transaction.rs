@@ -15,6 +15,7 @@ pub struct Transaction {
     pub kind: String,
     pub contact_id: Option<Uuid>,
     pub invoice_id: Option<Uuid>,
+    pub template_id: Option<Uuid>,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

@@ -12,4 +12,5 @@ pub mod invoices;
 pub mod ledgers;
 pub mod reports;
 pub mod sharing;
+pub mod templates;
 pub mod transactions;

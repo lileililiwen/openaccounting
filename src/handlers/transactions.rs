@@ -383,7 +383,7 @@ pub async fn show(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let txn = sqlx::query_as::<_, Transaction>(
-        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, created_by, created_at, updated_at
+        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, created_at, updated_at
            FROM transactions WHERE id = $1 AND ledger_id = $2"#,
     )
     .bind(txn_id)
@@ -428,6 +428,16 @@ pub async fn show(
     .fetch_all(&state.pool)
     .await?;
 
+    let template_description: String = if let Some(tid) = txn.template_id {
+        sqlx::query_scalar("SELECT description FROM transaction_templates WHERE id = $1")
+            .bind(tid)
+            .fetch_optional(&state.pool)
+            .await?
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
     Ok(render_response(TransactionShow {
         user_id: user.id,
         username: user.username.clone(),
@@ -444,5 +454,7 @@ pub async fn show(
         documents,
         tags,
         flash: String::new(),
+        template_id: txn.template_id,
+        template_description,
     }))
 }

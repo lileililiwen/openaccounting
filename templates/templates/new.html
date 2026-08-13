@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}New Template — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/templates" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
+    <h1 class="text-2xl font-semibold mt-1">New Recurring Template</h1>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/templates" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+    <div>
+      <label class="text-sm font-medium text-slate-700">Description *</label>
+      <input name="description" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-sm font-medium text-slate-700">Payee</label>
+        <input name="payee" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-sm font-medium text-slate-700">Reference</label>
+        <input name="reference" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-sm font-medium text-slate-700">Frequency</label>
+        <select name="frequency" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-slate-700">Next Date</label>
+        <input name="next_date" type="date" value="{{ next_date }}" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+
+    <h2 class="text-sm font-semibold text-slate-700 pt-2">Postings</h2>
+    <div id="postings" class="space-y-2">
+      <div class="grid grid-cols-12 gap-2 items-center text-xs uppercase text-slate-500">
+        <div class="col-span-4">Account</div>
+        <div class="col-span-2">Direction</div>
+        <div class="col-span-3">Amount</div>
+        <div class="col-span-3">Memo</div>
+      </div>
+      <div class="grid grid-cols-12 gap-2 items-center">
+        <select name="account_id" class="col-span-4 rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+          <option value="">Select account...</option>
+          {% for (a_id, code, name) in accounts %}
+            <option value="{{ a_id }}">{{ code }} {{ name }}</option>
+          {% endfor %}
+        </select>
+        <select name="direction" class="col-span-2 rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+          <option value="DEBIT">DEBIT</option>
+          <option value="CREDIT">CREDIT</option>
+        </select>
+        <input name="amount" type="number" step="0.01" class="col-span-3 rounded-lg border border-slate-300 px-3 py-2 text-sm" required />
+        <input name="memo" class="col-span-3 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+      <div class="grid grid-cols-12 gap-2 items-center">
+        <select name="account_id" class="col-span-4 rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+          <option value="">Select account...</option>
+          {% for (a_id, code, name) in accounts %}
+            <option value="{{ a_id }}">{{ code }} {{ name }}</option>
+          {% endfor %}
+        </select>
+        <select name="direction" class="col-span-2 rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+          <option value="DEBIT">DEBIT</option>
+          <option value="CREDIT">CREDIT</option>
+        </select>
+        <input name="amount" type="number" step="0.01" class="col-span-3 rounded-lg border border-slate-300 px-3 py-2 text-sm" required />
+        <input name="memo" class="col-span-3 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <a href="/ledgers/{{ ledger_id }}/templates" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Create Template</button>
+    </div>
+  </form>
+</main>
+{% endblock %}

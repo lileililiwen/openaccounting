@@ -52,6 +52,9 @@
               <td class="px-4 py-2 tabular text-slate-500">{{ t.date }}</td>
               <td class="px-4 py-2">
                 <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="font-medium text-slate-800 hover:underline">{{ t.description }}</a>
+                {% if t.kind == "recurring" %}
+                  <span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 inline-block">↻ recurring</span>
+                {% endif %}
               </td>
               <td class="px-4 py-2 text-slate-600">{{ t.payee }}</td>
               <td class="px-4 py-2 text-xs text-slate-500">

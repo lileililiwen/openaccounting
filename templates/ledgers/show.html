@@ -7,6 +7,7 @@
   <p class="text-slate-500 text-sm">Base currency {{ ledger.base_currency }} · {{ ledger.timezone }}</p>
   <div class="flex gap-2">
     <a href="/ledgers/{{ ledger.id }}/share" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Share</a>
+    <a href="/ledgers/{{ ledger.id }}/templates" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Recurring</a>
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <a href="/ledgers/{{ ledger.id }}/dashboard" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">

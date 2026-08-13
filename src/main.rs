@@ -182,6 +182,30 @@ async fn main() -> anyhow::Result<()> {
             post(handlers::import::confirm),
         )
         .route(
+            "/ledgers/{id}/templates",
+            get(handlers::templates::list),
+        )
+        .route(
+            "/ledgers/{id}/templates/new",
+            get(handlers::templates::new_page).post(handlers::templates::create),
+        )
+        .route(
+            "/ledgers/{id}/templates/{template_id}",
+            get(handlers::templates::show),
+        )
+        .route(
+            "/ledgers/{id}/templates/{template_id}/toggle",
+            post(handlers::templates::toggle),
+        )
+        .route(
+            "/ledgers/{id}/templates/{template_id}/delete",
+            post(handlers::templates::delete),
+        )
+        .route(
+            "/ledgers/{id}/templates/{template_id}/run",
+            post(handlers::templates::run),
+        )
+        .route(
             "/ledgers/{id}/share",
             get(handlers::sharing::page),
         )
