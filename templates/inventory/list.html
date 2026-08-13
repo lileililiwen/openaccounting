@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Inventory — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Inventory</h1>
+    <div class="flex gap-2">
+      <a href="/ledgers/{{ ledger_id }}/inventory/valuation" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Valuation</a>
+      <a href="/ledgers/{{ ledger_id }}/inventory/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Item</a>
+    </div>
+  </header>
+
+  {% if items.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No inventory items yet.
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Name</th>
+            <th class="text-left px-4 py-2">SKU</th>
+            <th class="text-right px-4 py-2">Quantity</th>
+            <th class="text-right px-4 py-2">Unit Cost</th>
+            <th class="text-right px-4 py-2">Total Value</th>
+            <th class="text-right px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for i in items %}
+            <tr>
+              <td class="px-4 py-2 font-medium text-slate-800">{{ i.name }}</td>
+              <td class="px-4 py-2 text-slate-500 text-xs">{{ i.sku }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ i.quantity_on_hand }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ i.unit_cost }}</td>
+              <td class="px-4 py-2 text-right tabular font-medium">{% if i.quantity_on_hand > 0 %}{{ i.unit_cost }}{% else %}0{% endif %}</td>
+              <td class="px-4 py-2 text-right space-x-2">
+                <form method="post" action="/ledgers/{{ ledger_id }}/inventory/{{ i.id }}/purchase" class="inline-flex gap-1">
+                  <input name="quantity" type="number" placeholder="qty" class="w-16 text-xs border rounded px-1 py-0.5" />
+                  <input name="unit_cost" type="number" step="0.01" placeholder="cost" class="w-20 text-xs border rounded px-1 py-0.5" />
+                  <button class="text-xs text-sky-600">Purchase</button>
+                </form>
+                <form method="post" action="/ledgers/{{ ledger_id }}/inventory/{{ i.id }}/adjust" class="inline-flex gap-1">
+                  <input name="adjustment_date" type="date" required class="w-32 text-xs border rounded px-1 py-0.5" />
+                  <input name="quantity" type="number" placeholder="±qty" class="w-16 text-xs border rounded px-1 py-0.5" />
+                  <input name="reason" type="text" placeholder="reason" class="w-24 text-xs border rounded px-1 py-0.5" />
+                  <button class="text-xs text-amber-600">Adjust</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

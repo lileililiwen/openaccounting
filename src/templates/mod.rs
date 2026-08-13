@@ -13,6 +13,7 @@ pub mod error;
 pub mod fixed_assets;
 pub mod import;
 pub mod into_response;
+pub mod inventory;
 pub mod invoices;
 pub mod ledgers;
 pub mod payments;

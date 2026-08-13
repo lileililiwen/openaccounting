@@ -11,6 +11,7 @@ pub mod dashboard;
 pub mod documents;
 pub mod fixed_assets;
 pub mod import;
+pub mod inventory;
 pub mod invoices;
 pub mod ledgers;
 pub mod payments;

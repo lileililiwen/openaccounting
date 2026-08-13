@@ -210,6 +210,26 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::fixed_assets::list),
         )
         .route(
+            "/ledgers/{id}/inventory",
+            get(handlers::inventory::list),
+        )
+        .route(
+            "/ledgers/{id}/inventory/new",
+            get(handlers::inventory::new_page).post(handlers::inventory::create),
+        )
+        .route(
+            "/ledgers/{id}/inventory/{item_id}/purchase",
+            post(handlers::inventory::purchase),
+        )
+        .route(
+            "/ledgers/{id}/inventory/{item_id}/adjust",
+            post(handlers::inventory::adjust),
+        )
+        .route(
+            "/ledgers/{id}/inventory/valuation",
+            get(handlers::inventory::valuation),
+        )
+        .route(
             "/ledgers/{id}/fixed-assets/new",
             get(handlers::fixed_assets::new_page).post(handlers::fixed_assets::create),
         )

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}New Inventory Item — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/inventory" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
+    <h1 class="text-2xl font-semibold mt-1">New Inventory Item</h1>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/inventory" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+    <div>
+      <label class="text-sm font-medium text-slate-700">Name *</label>
+      <input name="name" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="text-sm font-medium text-slate-700">SKU</label>
+      <input name="sku" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="text-sm font-medium text-slate-700">Description</label>
+      <textarea name="description" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+    </div>
+    <div>
+      <label class="text-sm font-medium text-slate-700">Inventory Asset Account *</label>
+      <select name="asset_account_id" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="">Select...</option>
+        {% for (a_id, code, name) in accounts %}
+          <option value="{{ a_id }}">{{ code }} {{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-sm font-medium text-slate-700">COGS Account *</label>
+      <select name="cogs_account_id" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="">Select...</option>
+        {% for (a_id, code, name) in accounts %}
+          <option value="{{ a_id }}">{{ code }} {{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-sm font-medium text-slate-700">Sales Income Account *</label>
+      <select name="income_account_id" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="">Select...</option>
+        {% for (a_id, code, name) in accounts %}
+          <option value="{{ a_id }}">{{ code }} {{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex justify-end gap-2 pt-2">
+      <a href="/ledgers/{{ ledger_id }}/inventory" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Create Item</button>
+    </div>
+  </form>
+</main>
+{% endblock %}
