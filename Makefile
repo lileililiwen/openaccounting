@@ -13,7 +13,7 @@ CACHE_TAG := openaccounting:cache
 
 # ---------- High-level targets ----------
 
-.PHONY: help up down restart logs ps shell build rebuild clean prune reset
+.PHONY: help up up-postgres up-app down restart logs ps shell build rebuild clean prune reset
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -21,6 +21,16 @@ help: ## Show this help
 up: build ## Build (with cache) and start all services in the background
 	$(COMPOSE) up -d
 	@echo "✅  App: http://localhost:3000  ·  Postgres: localhost:5436"
+
+up-postgres: ## Start only Postgres (run the app manually with `cargo run`)
+	$(COMPOSE) up -d postgres
+	@echo "✅  Postgres: localhost:5436  ·  user/pass/db: openaccounting"
+	@echo "    Run the app locally with: cargo run"
+	@echo "    DATABASE_URL=postgres://openaccounting:openaccounting@localhost:5436/openaccounting"
+
+up-app: build ## Build and start only the app (postgres must be running)
+	$(COMPOSE) up -d app
+	@echo "✅  App: http://localhost:3000"
 
 down: ## Stop and remove containers (keeps volumes)
 	$(COMPOSE) down
