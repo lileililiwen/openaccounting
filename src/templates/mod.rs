@@ -10,6 +10,7 @@ pub mod contacts;
 pub mod dashboard;
 pub mod documents;
 pub mod error;
+pub mod fixed_assets;
 pub mod import;
 pub mod into_response;
 pub mod invoices;

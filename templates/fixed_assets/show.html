@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.name }} — Fixed Asset{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/fixed-assets" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
+    <h1 class="text-2xl font-semibold mt-1">{{ asset.name }}</h1>
+    <p class="text-slate-500 text-sm">Purchased {{ asset.purchase_date.format("%Y-%m-%d") }} · {{ asset.depreciation_method }} · {{ asset.useful_life_years }}y life</p>
+    {% if !asset.description.is_empty() %}
+      <p class="mt-2 text-slate-600">{{ asset.description }}</p>
+    {% endif %}
+  </header>
+
+  <section class="grid grid-cols-3 gap-3">
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Purchase Cost</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ asset.purchase_cost }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Accum. Depreciation</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ asset.accumulated_depreciation }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Net Book Value</div>
+      <div class="mt-1 text-xl font-semibold tabular text-emerald-700">{{ asset.purchase_cost - asset.accumulated_depreciation }}</div>
+    </div>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Calculations</h2>
+    <dl class="text-sm space-y-1">
+      <div class="flex justify-between">
+        <dt class="text-slate-500">Depreciable amount</dt>
+        <dd class="tabular">{{ asset.purchase_cost - asset.salvage_value }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-slate-500">Annual depreciation</dt>
+        <dd class="tabular">{{ asset.purchase_cost - asset.salvage_value }} / {{ asset.useful_life_years }} years</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-slate-500">Monthly depreciation</dt>
+        <dd class="tabular">{{ asset.purchase_cost - asset.salvage_value }} / {{ asset.useful_life_years * 12 }} months</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-slate-500">Status</dt>
+        <dd>
+          {% if asset.status == "active" %}
+            <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">active</span>
+          {% elif asset.status == "fully_depreciated" %}
+            <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">fully depreciated</span>
+          {% else %}
+            <span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">disposed</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  {% if asset.status == "active" %}
+    <div class="flex gap-2">
+      <form method="post" action="/ledgers/{{ ledger_id }}/fixed-assets/{{ asset.id }}/depreciate">
+        <button class="rounded-lg bg-sky-600 text-white px-3 py-2 text-sm font-medium hover:bg-sky-700">Calculate 1 Month Depreciation</button>
+      </form>
+    </div>
+
+    <section class="rounded-xl bg-white border border-slate-200 p-4">
+      <h2 class="text-sm font-semibold text-slate-700 mb-2">Dispose Asset</h2>
+      <form method="post" action="/ledgers/{{ ledger_id }}/fixed-assets/{{ asset.id }}/dispose" class="flex gap-2 items-end">
+        <label class="text-sm">
+          <span class="block text-xs text-slate-500">Disposal Date</span>
+          <input name="disposed_date" type="date" required class="rounded border border-slate-300 px-2 py-1 text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="block text-xs text-slate-500">Amount Received</span>
+          <input name="disposed_amount" type="number" step="0.01" required class="rounded border border-slate-300 px-2 py-1 text-sm" />
+        </label>
+        <button class="rounded-lg bg-amber-600 text-white px-3 py-2 text-sm font-medium hover:bg-amber-700">Dispose</button>
+      </form>
+    </section>
+  {% endif %}
+</main>
+{% endblock %}

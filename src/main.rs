@@ -206,6 +206,26 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::budgets::list),
         )
         .route(
+            "/ledgers/{id}/fixed-assets",
+            get(handlers::fixed_assets::list),
+        )
+        .route(
+            "/ledgers/{id}/fixed-assets/new",
+            get(handlers::fixed_assets::new_page).post(handlers::fixed_assets::create),
+        )
+        .route(
+            "/ledgers/{id}/fixed-assets/{asset_id}",
+            get(handlers::fixed_assets::show),
+        )
+        .route(
+            "/ledgers/{id}/fixed-assets/{asset_id}/depreciate",
+            post(handlers::fixed_assets::calculate_depreciation),
+        )
+        .route(
+            "/ledgers/{id}/fixed-assets/{asset_id}/dispose",
+            post(handlers::fixed_assets::dispose),
+        )
+        .route(
             "/admin/backups",
             get(handlers::backups::list),
         )

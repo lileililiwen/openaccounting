@@ -9,6 +9,7 @@ pub mod closing;
 pub mod contacts;
 pub mod dashboard;
 pub mod documents;
+pub mod fixed_assets;
 pub mod import;
 pub mod invoices;
 pub mod ledgers;

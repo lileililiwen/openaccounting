@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Fixed Assets — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Fixed Assets</h1>
+    <a href="/ledgers/{{ ledger_id }}/fixed-assets/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Asset</a>
+  </header>
+
+  {% if assets.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No fixed assets yet.
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Name</th>
+            <th class="text-left px-4 py-2">Purchased</th>
+            <th class="text-right px-4 py-2">Cost</th>
+            <th class="text-right px-4 py-2">Accum. Depr.</th>
+            <th class="text-right px-4 py-2">Net Book Value</th>
+            <th class="text-left px-4 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for a in assets %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-2">
+                <a href="/ledgers/{{ ledger_id }}/fixed-assets/{{ a.id }}" class="font-medium text-slate-800 hover:underline">{{ a.name }}</a>
+                <div class="text-xs text-slate-500">{{ a.depreciation_method }} · {{ a.useful_life_years }}y</div>
+              </td>
+              <td class="px-4 py-2 text-slate-600">{{ a.purchase_date.format("%Y-%m-%d") }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ a.purchase_cost }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ a.accumulated_depreciation }}</td>
+              <td class="px-4 py-2 text-right tabular font-medium">
+                {{ a.purchase_cost }} - {{ a.accumulated_depreciation }} = {{ a.purchase_cost - a.accumulated_depreciation }}
+              </td>
+              <td class="px-4 py-2">
+                {% if a.status == "active" %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">active</span>
+                {% elif a.status == "fully_depreciated" %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">fully depreciated</span>
+                {% else %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">disposed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}
