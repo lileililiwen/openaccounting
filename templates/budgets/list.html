@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Budgets — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Budgets</h1>
+    <div class="flex gap-2">
+      <a href="/ledgers/{{ ledger_id }}/budgets/report" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">vs. Actual</a>
+      <a href="/ledgers/{{ ledger_id }}/budgets/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Budget</a>
+    </div>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  {% if budgets.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No budgets yet. <a href="/ledgers/{{ ledger_id }}/budgets/new" class="text-slate-800 underline">Create your first one</a>.
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Account</th>
+            <th class="text-left px-4 py-2">Period</th>
+            <th class="text-right px-4 py-2">Amount</th>
+            <th class="text-right px-4 py-2">Alert %</th>
+            <th class="text-left px-4 py-2">Date Range</th>
+            <th class="text-right px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for b in budgets %}
+            <tr>
+              <td class="px-4 py-2 font-medium text-slate-800">{{ b.account_name }}</td>
+              <td class="px-4 py-2 text-slate-600">{{ b.period }}</td>
+              <td class="px-4 py-2 text-right tabular font-medium">{{ b.amount }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ b.alert_threshold }}</td>
+              <td class="px-4 py-2 text-slate-500 text-xs">{{ b.start_date.format("%Y-%m-%d") }} → {{ b.end_date.format("%Y-%m-%d") }}</td>
+              <td class="px-4 py-2 text-right">
+                <form method="post" action="/ledgers/{{ ledger_id }}/budgets/{{ b.id }}/delete" class="inline" onsubmit="return confirm('Delete this budget?')">
+                  <button class="text-xs text-rose-600 hover:text-rose-800">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Budget vs. Actual — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/budgets" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
+    <h1 class="text-2xl font-semibold mt-1">Budget vs. Actual</h1>
+  </header>
+
+  <form method="get" action="/ledgers/{{ ledger_id }}/budgets/report" class="flex gap-2 items-end bg-white border border-slate-200 rounded-xl p-3">
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">From</span>
+      <input type="date" name="from" value="{{ from }}" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs text-slate-500">To</span>
+      <input type="date" name="to" value="{{ to }}" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    </label>
+    <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Apply</button>
+  </form>
+
+  <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="text-left px-4 py-2">Account</th>
+          <th class="text-right px-4 py-2">Budget</th>
+          <th class="text-right px-4 py-2">Actual</th>
+          <th class="text-right px-4 py-2">Variance</th>
+          <th class="text-right px-4 py-2">%</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in rows %}
+          <tr>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ r.account_name }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ r.budget_amount }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ r.actual }}</td>
+            <td class="px-4 py-2 text-right tabular {% if r.variance.is_positive() %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ r.variance }}</td>
+            <td class="px-4 py-2 text-right tabular {% if r.variance.is_positive() %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ r.variance_pct }}%</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}

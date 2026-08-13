@@ -198,6 +198,22 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::taxes::list),
         )
         .route(
+            "/ledgers/{id}/budgets",
+            get(handlers::budgets::list),
+        )
+        .route(
+            "/ledgers/{id}/budgets/new",
+            get(handlers::budgets::new_page).post(handlers::budgets::create),
+        )
+        .route(
+            "/ledgers/{id}/budgets/{budget_id}/delete",
+            post(handlers::budgets::delete),
+        )
+        .route(
+            "/ledgers/{id}/budgets/report",
+            get(handlers::budgets::report),
+        )
+        .route(
             "/ledgers/{id}/taxes/new",
             get(handlers::taxes::new_page).post(handlers::taxes::create),
         )
