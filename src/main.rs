@@ -206,6 +206,22 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::budgets::list),
         )
         .route(
+            "/admin/backups",
+            get(handlers::backups::list),
+        )
+        .route(
+            "/admin/backups/create",
+            post(handlers::backups::create_manual),
+        )
+        .route(
+            "/admin/backups/{id}/download",
+            get(handlers::backups::download),
+        )
+        .route(
+            "/admin/integrity",
+            get(handlers::backups::integrity_check),
+        )
+        .route(
             "/ledgers/{id}/budgets/new",
             get(handlers::budgets::new_page).post(handlers::budgets::create),
         )

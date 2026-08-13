@@ -3,6 +3,7 @@ pub mod accounts;
 pub mod admin;
 pub mod aging;
 pub mod audit;
+pub mod backups;
 pub mod budgets;
 pub mod closing;
 pub mod contacts;

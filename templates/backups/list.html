@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Backups — Admin{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Backups</h1>
+    <div class="flex gap-2">
+      <a href="/admin/integrity" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Integrity Check</a>
+      <form method="post" action="/admin/backups/create">
+        <button class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">Backup Now</button>
+      </form>
+    </div>
+  </header>
+
+  {% if backups.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No backups yet.
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Filename</th>
+            <th class="text-left px-4 py-2">Kind</th>
+            <th class="text-right px-4 py-2">Size</th>
+            <th class="text-left px-4 py-2">Created</th>
+            <th class="text-right px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for (id, filename, size, kind, created_at) in backups %}
+            <tr>
+              <td class="px-4 py-2 font-medium text-slate-800">{{ filename }}</td>
+              <td class="px-4 py-2 text-slate-600">{{ kind }}</td>
+              <td class="px-4 py-2 text-right tabular text-slate-500">{{ size }} bytes</td>
+              <td class="px-4 py-2 text-slate-500 text-xs">{{ created_at.format("%Y-%m-%d %H:%M:%S") }}</td>
+              <td class="px-4 py-2 text-right">
+                <a href="/admin/backups/{{ id }}/download" class="text-xs text-slate-800 underline">Download</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

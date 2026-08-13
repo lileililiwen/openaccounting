@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Integrity Check — Admin{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/admin/backups" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
+    <h1 class="text-2xl font-semibold mt-1">Integrity Check</h1>
+  </header>
+
+  {% if passed %}
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <h2 class="text-sm font-semibold text-emerald-900">✓ All checks passed</h2>
+      <p class="mt-1 text-xs text-emerald-700">Verified {{ txn_count }} transactions, {{ posting_count }} postings, {{ account_count }} accounts.</p>
+    </div>
+  {% else %}
+    <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
+      <h2 class="text-sm font-semibold text-rose-900">✗ {{ issues.len() }} issue(s) found</h2>
+      <ul class="mt-2 space-y-1 text-xs text-rose-800">
+        {% for issue in issues %}
+          <li class="font-mono">[{{ issue.severity }}] {{ issue.check }}: {{ issue.message }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700">Record counts</h2>
+    <dl class="mt-2 grid grid-cols-3 gap-3 text-sm">
+      <div>
+        <dt class="text-xs text-slate-500">Transactions</dt>
+        <dd class="font-medium text-slate-800 tabular">{{ txn_count }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-500">Postings</dt>
+        <dd class="font-medium text-slate-800 tabular">{{ posting_count }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-500">Accounts</dt>
+        <dd class="font-medium text-slate-800 tabular">{{ account_count }}</dd>
+      </div>
+    </dl>
+  </section>
+</main>
+{% endblock %}
