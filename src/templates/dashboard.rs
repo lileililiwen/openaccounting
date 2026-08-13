@@ -1,4 +1,5 @@
 use askama::Template;
+use rust_decimal::Decimal;
 use uuid::Uuid;
 
 #[derive(Template)]
@@ -20,4 +21,18 @@ pub struct DashboardPage {
     pub recent_transactions: Vec<crate::templates::transactions::TransactionRow>,
     pub income_expense_svg: String,
     pub expense_breakdown_svg: String,
+    pub cash_runway: f64,
+    pub cash_runway_color: String,
+    pub revenue_mom_pct: f64,
+    pub expense_mom_pct: f64,
+    pub net_income_mom_pct: f64,
+    pub top_expenses: Vec<(String, Decimal)>,
+    pub ar_outstanding: String,
+    pub ar_overdue: String,
+    pub ar_count: i64,
+    pub ar_overdue_count: i64,
+    pub ap_outstanding: String,
+    pub ap_upcoming: String,
+    pub ap_count: i64,
+    pub ap_overdue_count: i64,
 }

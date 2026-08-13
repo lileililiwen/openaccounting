@@ -29,10 +29,13 @@ pub async fn show(
 
     let today = chrono::Utc::now().date_naive();
     let first_of_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+    let prev_month_first = previous_month(first_of_month);
+    let prev_month_end = first_of_month.pred_opt().unwrap_or(prev_month_first);
     let _first_of_year = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
 
     // Income statement for the month-to-date and balance sheet at today.
     let is = build_income_statement(&state.pool, ledger_id, first_of_month, today).await?;
+    let prev_is = build_income_statement(&state.pool, ledger_id, prev_month_first, prev_month_end).await?;
     let bs = build_balance_sheet(&state.pool, ledger_id, today, is.net_income).await?;
     let (txn_count,): (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
@@ -105,6 +108,89 @@ pub async fn show(
     };
     let expense_breakdown_svg = render_donut(220, segments, &center_label);
 
+    // Top 5 expense categories for the current month
+    let top_expenses: Vec<(String, Decimal)> = sqlx::query_as(
+        r#"SELECT a.name, COALESCE(SUM(p.amount), 0) AS total
+           FROM postings p
+           JOIN transactions t ON t.id = p.transaction_id
+           JOIN accounts a ON a.id = p.account_id
+           WHERE t.ledger_id = $1 AND a.type = 'EXPENSE'
+                 AND t.txn_date BETWEEN $2 AND $3
+                 AND p.direction = 'DEBIT'
+           GROUP BY a.name
+           ORDER BY total DESC
+           LIMIT 5"#,
+    )
+    .bind(ledger_id)
+    .bind(first_of_month)
+    .bind(today)
+    .fetch_all(&state.pool)
+    .await?;
+
+    // Cash runway: bank balance / avg monthly expenses (last 3 months)
+    let bank_balance: Decimal = sqlx::query_scalar(
+        r#"SELECT COALESCE(SUM(p.amount), 0) FROM postings p
+           JOIN accounts a ON a.id = p.account_id
+           JOIN transactions t ON t.id = p.transaction_id
+           WHERE t.ledger_id = $1 AND a.type = 'ASSET' AND a.subtype = 'cash'
+                 AND p.direction = 'DEBIT'"#,
+    )
+    .bind(ledger_id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    let three_months_ago = today - Duration::days(90);
+    let avg_monthly_expense: Decimal = sqlx::query_scalar(
+        r#"SELECT COALESCE(SUM(p.amount), 0) / 3
+           FROM postings p
+           JOIN transactions t ON t.id = p.transaction_id
+           JOIN accounts a ON a.id = p.account_id
+           WHERE t.ledger_id = $1 AND a.type = 'EXPENSE'
+                 AND t.txn_date >= $2
+                 AND p.direction = 'DEBIT'"#,
+    )
+    .bind(ledger_id)
+    .bind(three_months_ago)
+    .fetch_one(&state.pool)
+    .await?;
+
+    let cash_runway = if avg_monthly_expense > Decimal::ZERO {
+        decimal_to_f64(bank_balance) / decimal_to_f64(avg_monthly_expense)
+    } else {
+        0.0
+    };
+    let cash_runway_color = if cash_runway > 6.0 { "emerald" } else if cash_runway > 3.0 { "amber" } else { "rose" };
+
+    // MoM calculations
+    let revenue_mom_pct = pct_change(is.revenue.total, prev_is.revenue.total);
+    let expense_mom_pct = pct_change(is.operating_expenses.total, prev_is.operating_expenses.total);
+    let net_income_mom_pct = pct_change(is.net_income, prev_is.net_income);
+
+    // AR/AP summary
+    let (ar_outstanding, ar_overdue, ar_count, ar_overdue_count): (Decimal, Decimal, i64, i64) = sqlx::query_as(
+        r#"SELECT
+              COALESCE(SUM(total - COALESCE(amount_paid, 0)), 0) AS outstanding,
+              COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN total - COALESCE(amount_paid, 0) ELSE 0 END), 0) AS overdue,
+              COUNT(*) FILTER (WHERE status NOT IN ('paid', 'void')) AS open_count,
+              COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('paid', 'void')) AS overdue_count
+           FROM invoices WHERE ledger_id = $1 AND kind = 'receivable'"#,
+    )
+    .bind(ledger_id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    let (ap_outstanding, ap_upcoming, ap_count, ap_overdue_count): (Decimal, Decimal, i64, i64) = sqlx::query_as(
+        r#"SELECT
+              COALESCE(SUM(total - COALESCE(amount_paid, 0)), 0) AS outstanding,
+              COALESCE(SUM(CASE WHEN due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' THEN total - COALESCE(amount_paid, 0) ELSE 0 END), 0) AS upcoming,
+              COUNT(*) FILTER (WHERE status NOT IN ('paid', 'void')) AS open_count,
+              COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('paid', 'void')) AS overdue_count
+           FROM invoices WHERE ledger_id = $1 AND kind = 'payable'"#,
+    )
+    .bind(ledger_id)
+    .fetch_one(&state.pool)
+    .await?;
+
     Ok(render_response(DashboardPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -125,7 +211,41 @@ pub async fn show(
         recent_transactions: recent,
         income_expense_svg,
         expense_breakdown_svg,
+        cash_runway,
+        cash_runway_color: cash_runway_color.to_string(),
+        revenue_mom_pct,
+        expense_mom_pct,
+        net_income_mom_pct,
+        top_expenses,
+        ar_outstanding: format_money(ar_outstanding, &ledger.base_currency),
+        ar_overdue: format_money(ar_overdue, &ledger.base_currency),
+        ar_count,
+        ar_overdue_count,
+        ap_outstanding: format_money(ap_outstanding, &ledger.base_currency),
+        ap_upcoming: format_money(ap_upcoming, &ledger.base_currency),
+        ap_count,
+        ap_overdue_count,
     }))
+}
+
+fn previous_month(d: NaiveDate) -> NaiveDate {
+    let mut y = d.year();
+    let mut m = d.month() as i32 - 1;
+    if m <= 0 {
+        m += 12;
+        y -= 1;
+    }
+    NaiveDate::from_ymd_opt(y, m as u32, 1).unwrap_or(d)
+}
+
+fn pct_change(current: Decimal, previous: Decimal) -> f64 {
+    let cur = decimal_to_f64(current);
+    let prev = decimal_to_f64(previous);
+    if prev == 0.0 {
+        0.0
+    } else {
+        ((cur - prev) / prev) * 100.0
+    }
 }
 
 pub async fn redirect_to_first_ledger(

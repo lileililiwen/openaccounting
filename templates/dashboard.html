@@ -14,6 +14,13 @@
     </div>
   </header>
 
+  <!-- Quick Actions -->
+  <section class="flex flex-wrap gap-2">
+    <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Transaction</a>
+    <a href="/ledgers/{{ ledger_id }}/transactions" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Upload Document</a>
+    <a href="/ledgers/{{ ledger_id }}/reports" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">View Reports</a>
+  </section>
+
   <!-- KPI grid: 1 col mobile, 2 col sm, 3 col md, 6 col xl -->
   <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
     <div class="rounded-xl bg-white border border-slate-200 p-4">
@@ -31,14 +38,72 @@
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Income (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular text-emerald-700">{{ month_income }}</div>
+      {% if revenue_mom_pct != 0.0 %}
+        <div class="mt-1 text-xs {% if revenue_mom_pct > 0.0 %}text-emerald-600{% else %}text-rose-600{% endif %}">
+          {% if revenue_mom_pct > 0.0 %}↑{% else %}↓{% endif %} {{ revenue_mom_pct }}% MoM
+        </div>
+      {% endif %}
     </div>
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Expense (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular text-rose-700">{{ month_expense }}</div>
+      {% if expense_mom_pct != 0.0 %}
+        <div class="mt-1 text-xs {% if expense_mom_pct < 0.0 %}text-emerald-600{% else %}text-rose-600{% endif %}">
+          {% if expense_mom_pct > 0.0 %}↑{% else %}↓{% endif %} {{ expense_mom_pct }}% MoM
+        </div>
+      {% endif %}
     </div>
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Net (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ month_net }}</div>
+      {% if net_income_mom_pct != 0.0 %}
+        <div class="mt-1 text-xs {% if net_income_mom_pct > 0.0 %}text-emerald-600{% else %}text-rose-600{% endif %}">
+          {% if net_income_mom_pct > 0.0 %}↑{% else %}↓{% endif %} {{ net_income_mom_pct }}% MoM
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- New KPI widgets -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- Cash Runway -->
+    <div class="rounded-xl bg-white border border-slate-200 p-4">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Cash Runway</div>
+      <div class="mt-1 text-2xl font-bold tabular text-{{ cash_runway_color }}-600">
+        {% if cash_runway > 0.0 %}{{ cash_runway }}{% else %}—{% endif %} months
+      </div>
+      <p class="mt-1 text-xs text-slate-500">Based on last 90 days of expenses</p>
+    </div>
+
+    <!-- AR Summary -->
+    <div class="rounded-xl bg-white border border-slate-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Receivable</div>
+        <a href="/ledgers/{{ ledger_id }}/reports/ar-aging" class="text-xs text-slate-400 hover:text-slate-600">→</a>
+      </div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ ar_outstanding }}</div>
+      <div class="mt-1 text-xs text-slate-500">
+        {{ ar_count }} open
+        {% if ar_overdue_count > 0 %}
+          · <span class="text-rose-600">{{ ar_overdue_count }} overdue ({{ ar_overdue }})</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AP Summary -->
+    <div class="rounded-xl bg-white border border-slate-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Payable</div>
+        <a href="/ledgers/{{ ledger_id }}/reports/ap-aging" class="text-xs text-slate-400 hover:text-slate-600">→</a>
+      </div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ ap_outstanding }}</div>
+      <div class="mt-1 text-xs text-slate-500">
+        {{ ap_count }} open
+        {% if ap_overdue_count > 0 %}
+          · <span class="text-rose-600">{{ ap_overdue_count }} overdue</span>
+        {% endif %}
+        {% if ap_upcoming != "0.00" %}{{ " · " }}{{ ap_upcoming }} due in 7 days{% endif %}
+      </div>
     </div>
   </section>
 
@@ -57,32 +122,51 @@
     </div>
   </section>
 
-  <!-- Recent transactions -->
-  <section class="rounded-xl bg-white border border-slate-200">
-    <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-      <h2 class="text-sm font-semibold text-slate-700">Recent transactions</h2>
-      <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">View all →</a>
-    </header>
-    {% if recent_transactions.is_empty() %}
-      <div class="p-8 text-center text-slate-500 text-sm">
-        No transactions yet. <a href="/ledgers/{{ ledger_id }}/transactions/new" class="text-slate-800 underline">Record your first one</a>.
-      </div>
-    {% else %}
-      <ul class="divide-y divide-slate-100">
-        {% for t in recent_transactions %}
-          <li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
-            <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-slate-800 truncate">{{ t.description }}</div>
-              <div class="text-xs text-slate-500 truncate">
-                {{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}
-                {% if !t.tags.is_empty() %} · <span class="text-slate-400">{{ t.tags.join(", ") }}</span>{% endif %}
-              </div>
-            </a>
-            <div class="text-sm font-semibold tabular">{{ t.currency }} {{ t.total }}</div>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+  <!-- Top Expense Categories + Recent transactions -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="rounded-xl bg-white border border-slate-200">
+      <header class="px-4 py-3 border-b border-slate-200">
+        <h2 class="text-sm font-semibold text-slate-700">Top expense categories · this month</h2>
+      </header>
+      {% if top_expenses.is_empty() %}
+        <div class="p-8 text-center text-slate-500 text-sm">No expenses this month.</div>
+      {% else %}
+        <ul class="px-4 py-3 space-y-2">
+          {% for (name, amount) in top_expenses %}
+            <li class="flex items-center justify-between text-sm">
+              <span class="text-slate-700">{{ name }}</span>
+              <span class="tabular font-medium">{{ amount }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="rounded-xl bg-white border border-slate-200">
+      <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-700">Recent transactions</h2>
+        <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">View all →</a>
+      </header>
+      {% if recent_transactions.is_empty() %}
+        <div class="p-8 text-center text-slate-500 text-sm">
+          No transactions yet.
+        </div>
+      {% else %}
+        <ul class="divide-y divide-slate-100">
+          {% for t in recent_transactions %}
+            <li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+              <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-800 truncate">{{ t.description }}</div>
+                <div class="text-xs text-slate-500 truncate">
+                  {{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}
+                </div>
+              </a>
+              <div class="text-sm font-semibold tabular">{{ t.currency }} {{ t.total }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
   </section>
 </main>
 {% endblock %}
