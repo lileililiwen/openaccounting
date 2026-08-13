@@ -155,6 +155,24 @@ async fn main() -> anyhow::Result<()> {
             "/ledgers/{id}/audit",
             get(handlers::audit::list),
         )
+        .route("/ledgers/{id}/contacts", get(handlers::contacts::list))
+        .route(
+            "/ledgers/{id}/contacts/new",
+            get(handlers::contacts::new_page).post(handlers::contacts::create),
+        )
+        .route("/ledgers/{id}/invoices", get(handlers::invoices::list))
+        .route(
+            "/ledgers/{id}/invoices/new",
+            get(handlers::invoices::new_page).post(handlers::invoices::create),
+        )
+        .route(
+            "/ledgers/{id}/reports/ar-aging",
+            get(handlers::aging::ar_aging),
+        )
+        .route(
+            "/ledgers/{id}/reports/ap-aging",
+            get(handlers::aging::ap_aging),
+        )
         .route("/logout", post(auth::handlers::logout))
         // Admin routes (require admin role)
         .merge(handlers::admin::admin_routes())

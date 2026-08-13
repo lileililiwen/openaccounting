@@ -1,7 +1,9 @@
 use askama::Template;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use crate::handlers::aging::AgingBucketData;
 use crate::reports::cash_flow::CashFlowLine;
 
 use crate::reports::*;
@@ -103,4 +105,17 @@ pub struct GeneralLedgerPage {
     pub accounts: Vec<crate::domain::Account>,
     pub entries: Vec<GeneralLedgerEntry>,
     pub running_balances: std::collections::HashMap<Uuid, Decimal>,
+}
+
+#[derive(Template)]
+#[template(path = "reports/aging.html")]
+pub struct AgingReportPage {
+    pub user_id: Uuid,
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub report_type: String,
+    pub as_of: NaiveDate,
+    pub aging: Vec<AgingBucketData>,
 }

@@ -1,10 +1,13 @@
 pub mod account;
 pub mod accounts;
 pub mod admin;
+pub mod aging;
 pub mod audit;
 pub mod closing;
+pub mod contacts;
 pub mod dashboard;
 pub mod documents;
+pub mod invoices;
 pub mod ledgers;
 pub mod reports;
 pub mod transactions;

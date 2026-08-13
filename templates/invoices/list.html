@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Invoices — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Invoices</h1>
+      <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/invoices/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New invoice</a>
+  </header>
+
+  <div class="flex gap-2 text-sm">
+    <a href="?kind=all" class="px-3 py-1.5 rounded-lg {% if kind_filter == "all" %}bg-slate-900 text-white{% else %}bg-white border border-slate-200 text-slate-700{% endif %}">All</a>
+    <a href="?kind=receivable" class="px-3 py-1.5 rounded-lg {% if kind_filter == "receivable" %}bg-slate-900 text-white{% else %}bg-white border border-slate-200 text-slate-700{% endif %}">Receivable</a>
+    <a href="?kind=payable" class="px-3 py-1.5 rounded-lg {% if kind_filter == "payable" %}bg-slate-900 text-white{% else %}bg-white border border-slate-200 text-slate-700{% endif %}">Payable</a>
+  </div>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="text-xs uppercase text-slate-500 bg-slate-50">
+        <tr>
+          <th class="text-left px-4 py-2">Number</th>
+          <th class="text-left px-4 py-2">Contact</th>
+          <th class="text-left px-4 py-2">Type</th>
+          <th class="text-left px-4 py-2">Date</th>
+          <th class="text-left px-4 py-2">Due</th>
+          <th class="text-right px-4 py-2">Total</th>
+          <th class="text-right px-4 py-2">Paid</th>
+          <th class="text-right px-4 py-2">Outstanding</th>
+          <th class="text-left px-4 py-2">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for (inv, contact_name) in invoices %}
+          <tr>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ inv.invoice_number.as_deref().unwrap_or("—") }}</td>
+            <td class="px-4 py-2 text-slate-600">{{ contact_name }}</td>
+            <td class="px-4 py-2">
+              {% if inv.kind == "receivable" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">AR</span>
+              {% else %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">AP</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-slate-600 tabular">{{ inv.invoice_date }}</td>
+            <td class="px-4 py-2 text-slate-600 tabular">{{ inv.due_date }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ inv.total }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ inv.amount_paid }}</td>
+            <td class="px-4 py-2 text-right tabular font-medium">{{ inv.total - inv.amount_paid }}</td>
+            <td class="px-4 py-2">
+              {% if inv.status == "paid" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">paid</span>
+              {% elif inv.status == "overdue" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">overdue</span>
+              {% else %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{{ inv.status }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if invoices.is_empty() %}
+          <tr>
+            <td colspan="9" class="px-4 py-10 text-center text-slate-500">No invoices yet.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}

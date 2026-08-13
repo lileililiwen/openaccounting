@@ -321,7 +321,7 @@ pub async fn create(
     let txn = sqlx::query_as::<_, Transaction>(
         r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, currency, kind, created_by)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, created_by, created_at, updated_at"#,
+           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, created_by, created_at, updated_at"#,
     )
     .bind(ledger_id)
     .bind(date)
@@ -383,7 +383,7 @@ pub async fn show(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let txn = sqlx::query_as::<_, Transaction>(
-        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, created_by, created_at, updated_at
+        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, created_by, created_at, updated_at
            FROM transactions WHERE id = $1 AND ledger_id = $2"#,
     )
     .bind(txn_id)

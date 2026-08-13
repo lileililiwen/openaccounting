@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ report_type }} Aging — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">{{ report_type }} Aging</h1>
+    <p class="text-slate-500 text-sm">As of {{ as_of }}</p>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="text-xs uppercase text-slate-500 bg-slate-50">
+        <tr>
+          <th class="text-left px-4 py-2">Contact</th>
+          <th class="text-right px-4 py-2">Current</th>
+          <th class="text-right px-4 py-2">1-30 days</th>
+          <th class="text-right px-4 py-2">31-60 days</th>
+          <th class="text-right px-4 py-2">61-90 days</th>
+          <th class="text-right px-4 py-2">90+ days</th>
+          <th class="text-right px-4 py-2 font-semibold">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in aging %}
+          <tr>
+            <td class="px-4 py-2 font-medium text-slate-800">{{ row.contact_name }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.current }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.days_1_30 }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.days_31_60 }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.days_61_90 }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.days_90_plus }}</td>
+            <td class="px-4 py-2 text-right tabular font-semibold">{{ row.total }}</td>
+          </tr>
+        {% endfor %}
+        {% if aging.is_empty() %}
+          <tr>
+            <td colspan="7" class="px-4 py-10 text-center text-slate-500">No outstanding {{ report_type | lower }}.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}
