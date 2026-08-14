@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::handlers::aging::AgingBucketData;
 use crate::reports::cash_flow::CashFlowLine;
+use crate::reports::income_statement::ExcludedTotals;
+use crate::reports::ReportBasis;
 
 use crate::reports::*;
 
@@ -61,6 +63,7 @@ pub struct IncomeStatementPage {
     pub ledger_name: String,
     pub from: chrono::NaiveDate,
     pub to: chrono::NaiveDate,
+    pub basis: ReportBasis,
     pub revenue: IncomeStatementSection,
     pub cost_of_goods_sold: IncomeStatementSection,
     pub gross_profit: Decimal,
@@ -70,6 +73,7 @@ pub struct IncomeStatementPage {
     pub income_before_tax: Decimal,
     pub tax_expense: Option<IncomeStatementSection>,
     pub net_income: Decimal,
+    pub excluded: Option<ExcludedTotals>,
 }
 
 #[derive(Template)]
@@ -82,6 +86,7 @@ pub struct CashFlowPage {
     pub ledger_name: String,
     pub from: chrono::NaiveDate,
     pub to: chrono::NaiveDate,
+    pub basis: ReportBasis,
     pub opening: Decimal,
     pub closing: Decimal,
     pub movement: Decimal,

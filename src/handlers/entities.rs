@@ -9,11 +9,11 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
-    reports::{build_balance_sheet, build_income_statement},
+    reports::{build_balance_sheet, build_income_statement, ReportBasis},
     templates::entities::{ConsolidatedBalanceSheet, EntityForm, EntityList, EntityRow},
     AppState,
 };
@@ -63,9 +63,7 @@ pub async fn list(
     }))
 }
 
-pub async fn new_page(
-    auth: AuthSession<Backend>,
-) -> AppResult<Response> {
+pub async fn new_page(auth: AuthSession<Backend>) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     Ok(render_response(EntityForm {
         user_id: user.id,
@@ -155,7 +153,14 @@ pub async fn consolidated(
     let mut ledger_rows: Vec<(String, Decimal, Decimal, Decimal)> = Vec::new();
 
     for (ledger_id, _ledger_name, _currency) in &ledgers {
-        let is = build_income_statement(&state.pool, *ledger_id, first_of_year, today).await?;
+        let is = build_income_statement(
+            &state.pool,
+            *ledger_id,
+            first_of_year,
+            today,
+            ReportBasis::Accrual,
+        )
+        .await?;
         let bs = build_balance_sheet(&state.pool, *ledger_id, today, is.net_income).await?;
 
         total_assets += bs.total_assets;
@@ -165,15 +170,19 @@ pub async fn consolidated(
         total_expense += is.operating_expenses.total;
 
         let equity_calc = bs.total_assets - bs.total_liabilities;
-        ledger_rows.push((_ledger_name.clone(), bs.total_assets, bs.total_liabilities, equity_calc));
+        ledger_rows.push((
+            _ledger_name.clone(),
+            bs.total_assets,
+            bs.total_liabilities,
+            equity_calc,
+        ));
     }
 
     // Detect inter-entity eliminations: count of "elimination" kind transactions
-    let elimination_count: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM transactions WHERE kind = 'elimination'"#,
-    )
-    .fetch_one(&state.pool)
-    .await?;
+    let elimination_count: i64 =
+        sqlx::query_scalar(r#"SELECT COUNT(*) FROM transactions WHERE kind = 'elimination'"#)
+            .fetch_one(&state.pool)
+            .await?;
 
     Ok(render_response(ConsolidatedBalanceSheet {
         user_id: user.id,

@@ -6,7 +6,7 @@
   <header class="flex flex-wrap items-end justify-between gap-2">
     <div>
       <h1 class="text-2xl font-semibold">Cash Flow</h1>
-      <p class="text-slate-500 text-sm tabular">{{ from }} → {{ to }}</p>
+      <p class="text-slate-500 text-sm tabular">{{ from }} → {{ to }} · Basis: {{ basis.label() }}</p>
     </div>
     <form method="get" class="flex items-end gap-2 text-sm">
       <label>
@@ -17,9 +17,21 @@
         <span class="block text-xs text-slate-500">To</span>
         <input type="date" name="to" value="{{ to }}" class="rounded border border-slate-300 px-2 py-1" />
       </label>
+      <input type="hidden" name="basis" value="{{ basis.as_str() }}" />
       <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
     </form>
   </header>
+
+  <div class="inline-flex rounded-md border border-slate-300 overflow-hidden text-sm">
+    <a href="?from={{ from }}&to={{ to }}&basis=accrual"
+       class="px-3 py-1 {% if basis.as_str() == "accrual" %}bg-slate-900 text-white{% else %}bg-white{% endif %}">
+      Accrual
+    </a>
+    <a href="?from={{ from }}&to={{ to }}&basis=cash"
+       class="px-3 py-1 {% if basis.as_str() == "cash" %}bg-slate-900 text-white{% else %}bg-white{% endif %}">
+      Cash
+    </a>
+  </div>
 
   <section class="rounded-xl bg-white border border-slate-200 p-4 grid grid-cols-3 gap-3 text-center">
     <div>
@@ -62,6 +74,12 @@
     </div>
   </section>
 
-  <p class="text-xs text-slate-500">Cash accounts are auto-detected by name (containing "cash" or "bank") or by code starting with 1.</p>
+  <p class="text-xs text-slate-500">
+    {% if basis.as_str() == "cash" %}
+      Basis: Cash — totals reflect only movements through cash and bank accounts.
+    {% else %}
+      Basis: Accrual — totals reflect every movement through cash and bank accounts; the cash-flow report is cash-only by construction so the basis label is informational.
+    {% endif %}
+  </p>
 </main>
 {% endblock %}

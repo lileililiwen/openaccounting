@@ -63,8 +63,14 @@ balance sheet; double-entry can, automatically.
   - General Ledger
   - Trial Balance
   - Balance Sheet (point-in-time)
-  - Income Statement (period)
+  - Income Statement (period, **accrual or cash basis**)
   - Cash Flow (period)
+- **Cash-basis toggle** — each ledger is created as either
+  accrual or cash. The income-statement and cash-flow reports
+  accept `?basis=…`; the cash variant only counts postings
+  whose peer leg is a cash / bank account (i.e. revenue when
+  received, expense when paid). The default is accrual, which
+  preserves the double-entry A = L + E invariant.
 - **Visualizations** (server-rendered SVG, zero JS chart library)
   - Income vs. expense over time
   - Expense breakdown by category

@@ -14,7 +14,7 @@ use crate::{
     charts::{render_donut, render_line, DonutSegment, LineSeries},
     error::{AppError, AppResult},
     handlers::ledgers,
-    reports::{build_balance_sheet, build_income_statement},
+    reports::{build_balance_sheet, build_income_statement, ReportBasis},
     templates::{dashboard::DashboardPage, transactions::TransactionRow},
     AppState,
 };
@@ -34,8 +34,22 @@ pub async fn show(
     let _first_of_year = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
 
     // Income statement for the month-to-date and balance sheet at today.
-    let is = build_income_statement(&state.pool, ledger_id, first_of_month, today).await?;
-    let prev_is = build_income_statement(&state.pool, ledger_id, prev_month_first, prev_month_end).await?;
+    let is = build_income_statement(
+        &state.pool,
+        ledger_id,
+        first_of_month,
+        today,
+        ReportBasis::Accrual,
+    )
+    .await?;
+    let prev_is = build_income_statement(
+        &state.pool,
+        ledger_id,
+        prev_month_first,
+        prev_month_end,
+        ReportBasis::Accrual,
+    )
+    .await?;
     let bs = build_balance_sheet(&state.pool, ledger_id, today, is.net_income).await?;
     let (txn_count,): (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
@@ -78,15 +92,25 @@ pub async fn show(
     for m_start in &months {
         let m_end = next_month(*m_start).pred_opt().unwrap_or(*m_start);
         x_labels.push(m_start.format("%b %Y").to_string());
-        let r = build_income_statement(&state.pool, ledger_id, *m_start, m_end).await?;
+        let r = build_income_statement(
+            &state.pool,
+            ledger_id,
+            *m_start,
+            m_end,
+            ReportBasis::Accrual,
+        )
+        .await?;
         income_series.values.push(decimal_to_f64(r.revenue.total));
-        expense_series.values.push(decimal_to_f64(r.operating_expenses.total));
+        expense_series
+            .values
+            .push(decimal_to_f64(r.operating_expenses.total));
     }
     let income_expense_svg = render_line(640, 220, x_labels, vec![income_series, expense_series]);
 
     // Expense breakdown last 30 days (donut).
     let from = today - Duration::days(30);
-    let is_30 = build_income_statement(&state.pool, ledger_id, from, today).await?;
+    let is_30 =
+        build_income_statement(&state.pool, ledger_id, from, today, ReportBasis::Accrual).await?;
     let palette = [
         "#0ea5e9", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
     ];
@@ -159,11 +183,20 @@ pub async fn show(
     } else {
         0.0
     };
-    let cash_runway_color = if cash_runway > 6.0 { "emerald" } else if cash_runway > 3.0 { "amber" } else { "rose" };
+    let cash_runway_color = if cash_runway > 6.0 {
+        "emerald"
+    } else if cash_runway > 3.0 {
+        "amber"
+    } else {
+        "rose"
+    };
 
     // MoM calculations
     let revenue_mom_pct = pct_change(is.revenue.total, prev_is.revenue.total);
-    let expense_mom_pct = pct_change(is.operating_expenses.total, prev_is.operating_expenses.total);
+    let expense_mom_pct = pct_change(
+        is.operating_expenses.total,
+        prev_is.operating_expenses.total,
+    );
     let net_income_mom_pct = pct_change(is.net_income, prev_is.net_income);
 
     // AR/AP summary

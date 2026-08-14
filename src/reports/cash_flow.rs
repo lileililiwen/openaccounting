@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::error::AppResult;
 
+use super::ReportBasis;
+
 #[derive(Clone, Debug)]
 pub struct CashFlowLine {
     pub account_name: String,
@@ -13,6 +15,7 @@ pub struct CashFlowLine {
 
 #[derive(Clone, Debug)]
 pub struct CashFlowResult {
+    pub basis: ReportBasis,
     pub opening: Decimal,
     pub closing: Decimal,
     pub movement: Decimal,
@@ -25,11 +28,18 @@ pub struct CashFlowResult {
 /// Cash flow: focused on ASSET accounts whose name suggests "cash" (heuristic:
 /// code starts with 1, name contains 'cash' or 'bank'). Opening is balance at
 /// `from`; closing is balance at `to`; movement = closing - opening.
+///
+/// The `basis` argument is accepted for symmetry with the income
+/// statement: the report's totals are identical under both bases
+/// because the cash-account filter is intrinsic to the report.
+/// The value is recorded in the result so the page footer can be
+/// honest about which basis the user requested.
 pub async fn build_cash_flow(
     pool: &PgPool,
     ledger_id: Uuid,
     from: NaiveDate,
     to: NaiveDate,
+    basis: ReportBasis,
 ) -> AppResult<CashFlowResult> {
     // Identify cash accounts in this ledger.
     let cash_ids: Vec<(Uuid,)> = sqlx::query_as(
@@ -46,6 +56,7 @@ pub async fn build_cash_flow(
 
     if cash_ids.is_empty() {
         return Ok(CashFlowResult {
+            basis,
             opening: Decimal::ZERO,
             closing: Decimal::ZERO,
             movement: Decimal::ZERO,
@@ -129,6 +140,7 @@ pub async fn build_cash_flow(
     }
 
     Ok(CashFlowResult {
+        basis,
         opening: opening.0,
         closing: closing.0,
         movement: closing.0 - opening.0,

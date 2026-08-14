@@ -58,9 +58,9 @@ cannot mistake which view they are looking at.
 
 ### Requirement: Cash-Basis Cash Flow
 
-The cash-flow report accepts the same `basis` parameter. Because
-the report already filters to cash accounts, its totals are
-identical under both bases in the absence of multi-currency;
+The cash-flow report SHALL accept the same `basis` parameter.
+Because the report already filters to cash accounts, its totals
+are identical under both bases in the absence of multi-currency;
 the parameter is accepted for symmetry and to record the basis
 explicitly in the footer.
 

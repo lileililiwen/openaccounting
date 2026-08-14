@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::Ledger,
     error::{AppError, AppResult},
     templates::ledgers::{LedgerList, LedgerNew, LedgerShow},
@@ -80,6 +80,12 @@ pub struct NewLedgerForm {
     pub name: String,
     pub base_currency: String,
     pub timezone: String,
+    /// Optional; defaults to "accrual". "cash" is also accepted.
+    /// Invalid values are silently coerced to "accrual" so the
+    /// legacy UI flow (no basis picker) still works; the new
+    /// form template posts a valid value.
+    #[serde(default)]
+    pub basis: String,
 }
 
 pub async fn create(
@@ -115,17 +121,25 @@ pub async fn create(
     } else {
         form.timezone.clone()
     };
+    // The basis form field is optional. Anything other than
+    // "cash" coerces to "accrual" so the legacy form (which
+    // doesn't include the field) keeps working.
+    let basis = match form.basis.trim() {
+        "cash" => "cash",
+        _ => "accrual",
+    };
 
     let mut tx = state.pool.begin().await?;
     let ledger = sqlx::query_as::<_, Ledger>(
-        r#"INSERT INTO ledgers (owner_id, name, base_currency, timezone)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id, owner_id, name, base_currency, timezone, created_at, updated_at"#,
+        r#"INSERT INTO ledgers (owner_id, name, base_currency, timezone, basis)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id, owner_id, name, base_currency, timezone, basis, created_at, updated_at"#,
     )
     .bind(user.id)
     .bind(name)
     .bind(&currency)
     .bind(&timezone)
+    .bind(basis)
     .fetch_one(&mut *tx)
     .await?;
 
@@ -173,7 +187,7 @@ pub async fn show(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
          FROM ledgers WHERE id = $1 AND owner_id = $2",
     )
     .bind(ledger_id)
@@ -209,7 +223,7 @@ pub async fn show(
 /// owns the given ledger.
 pub async fn ensure_owner(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> AppResult<Ledger> {
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
          FROM ledgers WHERE id = $1 AND owner_id = $2",
     )
     .bind(ledger_id)
@@ -228,7 +242,7 @@ pub async fn ensure_access(
     ledger_id: Uuid,
 ) -> AppResult<(Ledger, String)> {
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
          FROM ledgers WHERE id = $1",
     )
     .bind(ledger_id)
@@ -240,13 +254,12 @@ pub async fn ensure_access(
         return Ok((ledger, "owner".to_string()));
     }
 
-    let role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM ledger_members WHERE ledger_id = $1 AND user_id = $2",
-    )
-    .bind(ledger_id)
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let role: Option<String> =
+        sqlx::query_scalar("SELECT role FROM ledger_members WHERE ledger_id = $1 AND user_id = $2")
+            .bind(ledger_id)
+            .bind(user_id)
+            .fetch_optional(&state.pool)
+            .await?;
 
     match role {
         Some(r) => Ok((ledger, r)),

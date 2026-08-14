@@ -14,7 +14,7 @@ use crate::{
     handlers::ledgers,
     reports::{
         build_balance_sheet, build_cash_flow, build_general_ledger, build_income_statement,
-        build_trial_balance,
+        build_trial_balance, ReportBasis,
     },
     templates::reports::{
         BalanceSheetPage, CashFlowPage, GeneralLedgerPage, IncomeStatementPage, ReportsIndex,
@@ -63,6 +63,20 @@ fn validate_date_range(from: NaiveDate, to: NaiveDate) -> AppResult<()> {
     Ok(())
 }
 
+/// Parse `?basis=…` from the query string, falling back to the
+/// ledger's stored `basis` column if the parameter is absent.
+/// An explicit value that is not `accrual` or `cash` returns a
+/// 400 with the list of valid options.
+fn parse_basis(
+    q: &std::collections::HashMap<String, String>,
+    ledger: &crate::domain::Ledger,
+) -> AppResult<ReportBasis> {
+    match q.get("basis") {
+        Some(v) => ReportBasis::parse(v),
+        None => ReportBasis::parse(&ledger.basis),
+    }
+}
+
 pub async fn trial_balance(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -98,7 +112,14 @@ pub async fn balance_sheet(
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let as_of = parse_or(q.get("as_of"), today());
     let from = first_of_year();
-    let is = build_income_statement(&state.pool, ledger_id, from, as_of).await?;
+    // The balance sheet's "Net income (current year)" line is
+    // derived from the income statement, which is now
+    // basis-aware. The balance sheet itself is basis-neutral
+    // (it shows point-in-time balances), so we use accrual for
+    // the net-income figure to match the equity semantics the
+    // rest of the system already uses.
+    let is =
+        build_income_statement(&state.pool, ledger_id, from, as_of, ReportBasis::Accrual).await?;
     let bs = build_balance_sheet(&state.pool, ledger_id, as_of, is.net_income).await?;
     let balanced = bs.total_assets == bs.total_liab_equity;
     Ok(render_response(BalanceSheetPage {
@@ -129,7 +150,8 @@ pub async fn income_statement(
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
     validate_date_range(from, to)?;
-    let is = build_income_statement(&state.pool, ledger_id, from, to).await?;
+    let basis = parse_basis(&q, &ledger)?;
+    let is = build_income_statement(&state.pool, ledger_id, from, to, basis).await?;
     Ok(render_response(IncomeStatementPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -138,6 +160,7 @@ pub async fn income_statement(
         ledger_name: ledger.name,
         from,
         to,
+        basis,
         revenue: is.revenue,
         cost_of_goods_sold: is.cost_of_goods_sold,
         gross_profit: is.gross_profit,
@@ -147,6 +170,7 @@ pub async fn income_statement(
         income_before_tax: is.income_before_tax,
         tax_expense: is.tax_expense,
         net_income: is.net_income,
+        excluded: is.excluded,
     }))
 }
 
@@ -161,7 +185,8 @@ pub async fn cash_flow(
     let from = parse_or(q.get("from"), first_of_year());
     let to = parse_or(q.get("to"), today());
     validate_date_range(from, to)?;
-    let cf = build_cash_flow(&state.pool, ledger_id, from, to).await?;
+    let basis = parse_basis(&q, &ledger)?;
+    let cf = build_cash_flow(&state.pool, ledger_id, from, to, basis).await?;
     Ok(render_response(CashFlowPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -170,6 +195,7 @@ pub async fn cash_flow(
         ledger_name: ledger.name,
         from,
         to,
+        basis,
         opening: cf.opening,
         closing: cf.closing,
         movement: cf.movement,

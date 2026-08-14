@@ -7,4 +7,5 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod cash_basis;
 mod smoke;
