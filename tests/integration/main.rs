@@ -11,6 +11,7 @@ mod bank_statement_imports;
 mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
+mod expense_reimbursement;
 mod pwa;
 mod reconciliation_rules;
 mod smoke;

@@ -19,6 +19,7 @@ pub mod invoices;
 pub mod ledgers;
 pub mod payments;
 pub mod reconciliation;
+pub mod reimbursement;
 pub mod reports;
 pub mod rules;
 pub mod sharing;

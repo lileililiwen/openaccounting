@@ -1515,6 +1515,7 @@ dependencies = [
  "flate2",
  "form_urlencoded",
  "futures",
+ "hex",
  "http",
  "hyper",
  "log",

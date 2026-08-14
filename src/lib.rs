@@ -427,6 +427,42 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             "/ledgers/{id}/rules/{rule_id}/delete",
             post(handlers::rules::delete),
         )
+        .route(
+            "/ledgers/{id}/reimbursements",
+            get(handlers::reimbursement::list),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/new",
+            get(handlers::reimbursement::new_page),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements",
+            post(handlers::reimbursement::create),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}",
+            get(handlers::reimbursement::show),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}/lines",
+            post(handlers::reimbursement::add_line),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}/submit",
+            post(handlers::reimbursement::submit),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}/approve",
+            post(handlers::reimbursement::approve),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}/reject",
+            post(handlers::reimbursement::reject),
+        )
+        .route(
+            "/ledgers/{id}/reimbursements/{claim_id}/pay",
+            post(handlers::reimbursement::pay),
+        )
         .route("/invitations/{id}/accept", post(handlers::sharing::accept))
         .route(
             "/invitations/{id}/decline",
