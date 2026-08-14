@@ -2,6 +2,7 @@
 //! dispatches to the OFX / QIF / MT940 parsers and re-exports
 //! the row type from the existing CSV importer.
 
+pub mod csv;
 pub mod mt940;
 pub mod ofx;
 pub mod qif;
