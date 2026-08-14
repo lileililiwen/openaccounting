@@ -1,12 +1,6 @@
-# reconciliation-rules Specification
+# reconciliation-rules Specification (delta)
 
-## Purpose
-
-Define the rules engine that automatically matches imported
-bank lines against existing ledger postings and automatically
-categorizes new lines.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Rule Kinds
 
