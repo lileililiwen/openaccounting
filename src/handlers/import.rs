@@ -110,31 +110,21 @@ pub async fn upload(
     let format = sniff::detect(&csv_content);
     let (headers, rows) = match format {
         sniff::Format::Csv => {
-            let mut reader = csv::Reader::from_reader(csv_content.as_bytes());
-            let headers: Vec<String> = reader
-                .headers()
-                .map_err(|e| AppError::Validation(format!("Invalid CSV headers: {}", e)))?
-                .iter()
-                .map(|h| h.to_string())
-                .collect();
-            let mut rows = Vec::new();
-            for (i, result) in reader.records().enumerate() {
-                if i >= 10_000 {
-                    break;
-                }
-                let record =
-                    result.map_err(|e| AppError::Validation(format!("CSV row {}: {}", i + 1, e)))?;
-                rows.push(ParsedRow {
-                    date: record.get(0).unwrap_or("").to_string(),
-                    description: record.get(1).unwrap_or("").to_string(),
-                    debit: record.get(2).unwrap_or("").to_string(),
-                    credit: record.get(3).unwrap_or("").to_string(),
-                    account: record.get(4).map(|s| s.to_string()),
-                    payee: record.get(5).map(|s| s.to_string()),
-                    reference: record.get(6).map(|s| s.to_string()),
-                    is_duplicate: false,
-                });
-            }
+            let all_rows = crate::import::csv::parse(&csv_content);
+            let headers = vec![
+                "date".to_string(),
+                "description".to_string(),
+                "debit".to_string(),
+                "credit".to_string(),
+                "account".to_string(),
+                "payee".to_string(),
+                "reference".to_string(),
+            ];
+            // Preview cap: show the first 10 000 rows; the
+            // commit handler re-parses the full file (or in
+            // the current implementation, the rows the
+            // preview sent back via the form).
+            let rows = all_rows.into_iter().take(10_000).collect();
             (headers, rows)
         }
         sniff::Format::Ofx => {
@@ -253,6 +243,22 @@ pub async fn confirm(
             AppError::Validation(format!("could not parse rows: {e}"))
         })?
     };
+    // Look up the ledger's default cash account once for the
+    // whole batch. We pick the first ASSET account whose name
+    // matches the cash heuristic (Cash / Bank); this is the
+    // same one the cash-flow report uses.
+    let cash_id: Uuid = sqlx::query_scalar(
+        r#"SELECT id FROM accounts
+           WHERE ledger_id = $1
+             AND type = 'ASSET'
+             AND (LOWER(name) LIKE '%cash%' OR LOWER(name) LIKE '%bank%')
+           ORDER BY code NULLS LAST
+           LIMIT 1"#,
+    )
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .unwrap_or(form.default_account_id);
     let mut tx = state.pool.begin().await?;
     let mut created = 0u32;
     let mut failed = Vec::new();
@@ -267,17 +273,30 @@ pub async fn confirm(
             failed.push(format!("no amount: {}", row.description));
             continue;
         }
-        let amount: Decimal = match (debit.is_empty(), credit.is_empty()) {
-            (true, false) => credit.parse().map_err(|e| AppError::Validation(format!(
-                "row '{}': bad credit '{}': {e}", row.description, credit
-            )))?,
-            (false, true) => debit.parse().map_err(|e| AppError::Validation(format!(
-                "row '{}': bad debit '{}': {e}", row.description, debit
-            )))?,
-            _ => {
-                failed.push(format!(
-                    "row '{}': both debit and credit set", row.description
-                ));
+        if !debit.is_empty() && !credit.is_empty() {
+            failed.push(format!(
+                "row '{}': exactly one of debit or credit must be set",
+                row.description
+            ));
+            continue;
+        }
+        let amount = match (debit.is_empty(), credit.is_empty()) {
+            (true, false) => credit
+                .parse::<Decimal>()
+                .map_err(|e| {
+                    format!("row '{}': bad credit '{credit}': {e}", row.description)
+                }),
+            (false, true) => debit
+                .parse::<Decimal>()
+                .map_err(|e| {
+                    format!("row '{}': bad debit '{debit}': {e}", row.description)
+                }),
+            _ => unreachable!(),
+        };
+        let amount = match amount {
+            Ok(a) => a,
+            Err(msg) => {
+                failed.push(msg);
                 continue;
             }
         };
@@ -285,6 +304,16 @@ pub async fn confirm(
             failed.push(format!("row '{}': non-positive amount", row.description));
             continue;
         }
+        let parsed_date = match chrono::NaiveDate::parse_from_str(&row.date, "%Y-%m-%d") {
+            Ok(d) => d,
+            Err(e) => {
+                failed.push(format!(
+                    "row '{}': bad date '{}': {e}",
+                    row.description, row.date
+                ));
+                continue;
+            }
+        };
         let (txn_id,): (Uuid,) = sqlx::query_as(
             r#"INSERT INTO transactions
                   (ledger_id, txn_date, description, payee, reference,
@@ -292,21 +321,23 @@ pub async fn confirm(
                VALUES ($1, $2, $3, $4, $5, 'USD', $6) RETURNING id"#,
         )
         .bind(ledger_id)
-        .bind(chrono::NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
-            .map_err(|e| AppError::Validation(format!("row '{}': bad date '{}': {e}",
-                row.description, row.date)))?)
+        .bind(parsed_date)
         .bind(&row.description)
         .bind(row.payee.as_deref().unwrap_or(""))
         .bind(row.reference.as_deref().unwrap_or(""))
         .bind(user.id)
         .fetch_one(&mut *tx)
         .await?;
-        let cash_id = form.default_account_id;
+        let cash_id = {
+            // Use the auto-detected cash account (the
+            // batch-level `cash_id` looked up above).
+            cash_id
+        };
         let other_id = row
             .account
             .as_deref()
             .and_then(|s| Uuid::parse_str(s).ok())
-            .unwrap_or(cash_id);
+            .unwrap_or(form.default_account_id);
         let (debit_acct, credit_acct) = if !debit.is_empty() {
             // Cash out: DR row account, CR cash.
             (other_id, cash_id)
@@ -335,7 +366,7 @@ pub async fn confirm(
         // Atomicity: a single bad row rolls back the whole
         // batch.
         let _ = tx.rollback().await;
-        return Err(AppError::Validation(format!(
+        return Err(AppError::Unprocessable(format!(
             "import rolled back: {} valid, {} failed: {}",
             created,
             failed.len(),

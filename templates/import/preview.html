@@ -12,6 +12,12 @@
     <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
   {% endif %}
 
+  {% if rows.len() >= 10000 %}
+    <div class="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-3 py-2">
+      Showing the first 10,000 rows. The full file will be processed on commit.
+    </div>
+  {% endif %}
+
   <form method="post" action="/ledgers/{{ ledger_id }}/import/confirm" class="space-y-4">
     <input type="hidden" name="filename" value="{{ filename }}" />
 

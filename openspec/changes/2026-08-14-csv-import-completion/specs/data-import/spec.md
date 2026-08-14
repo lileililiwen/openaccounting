@@ -93,3 +93,11 @@ so the user can see what will be skipped before committing.
 
 The fingerprint is computed by the `import::dedup` helper
 introduced by the WeChat/Alipay change.
+
+#### Scenario: Duplicate row is skipped
+
+- **WHEN** the user commits a preview of 2 rows where row 1
+  and row 2 share `(date, amount, payee)` and
+  `skip_duplicates=true`
+- **THEN** only one `transactions` row is created and the
+  preview marks the second row as `is_duplicate=true`.

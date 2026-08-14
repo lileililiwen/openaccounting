@@ -18,6 +18,9 @@ pub enum AppError {
     #[error("validation: {0}")]
     Validation(String),
 
+    #[error("unprocessable: {0}")]
+    Unprocessable(String),
+
     #[error("conflict: {0}")]
     Conflict(String),
 
@@ -56,6 +59,7 @@ impl AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::Validation(_) | AppError::Multipart(_) => StatusCode::BAD_REQUEST,
+            AppError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::Io(_) | AppError::Db(_) | AppError::Template(_) | AppError::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
