@@ -13,6 +13,8 @@ pub mod entities;
 pub mod error;
 pub mod fixed_assets;
 pub mod import;
+pub mod import_alipay;
+pub mod import_wechat;
 pub mod into_response;
 pub mod inventory;
 pub mod invoices;

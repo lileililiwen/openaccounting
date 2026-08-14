@@ -107,12 +107,32 @@ The parser SHALL:
 - Note: the web variant does **not** include `付款账户`; the parser
   SHALL NOT pretend to surface that field (mark as unknown).
 
+#### Scenario: Web export with a banner parses
+
+- **WHEN** the user uploads a `.txt` file whose first 4 lines are
+  banner/account/date rows followed by the 12-column header and
+  three data rows (one 支出, one 收入, one 支出)
+- **THEN** the parser skips the banner, returns three rows, and
+  the rendered preview contains no `付款账户` field.
+
 ### Requirement: Encoding Fallback
 
 When a file fails UTF-8 decode, the parser SHALL attempt GB18030
 using `encoding_rs`. If GB18030 also fails, the parser SHALL
 return a `ParseError::UnsupportedEncoding` with the offending
 byte offset. UTF-8 BOM (`EF BB BF`) SHALL be silently stripped.
+
+#### Scenario: GBK file decodes via GB18030
+
+- **WHEN** a bill is a GBK-encoded byte sequence containing the
+  CJK string `交易时间` (invalid UTF-8)
+- **THEN** the parser decodes it as GB18030 and yields the same
+  rows as the UTF-8 path.
+
+#### Scenario: Random bytes are rejected
+
+- **WHEN** the byte buffer is invalid in both UTF-8 and GB18030
+- **THEN** the parser returns `ParseError::UnsupportedEncoding`.
 
 ### Requirement: Dedup Fingerprint
 
@@ -125,6 +145,14 @@ in the destination ledger with the same date. The fingerprint is
 `normalized_payee` is the payee string with leading/trailing
 whitespace and the literals `微信`, `支付宝`, `(`, `)`, `有限公司`
 stripped, lowercased, NFC-normalized.
+
+#### Scenario: A re-uploaded row is flagged as a duplicate
+
+- **WHEN** a bill is imported into a ledger that already contains
+  a transaction on the same date, for the same amount, to the
+  same normalized payee
+- **THEN** the preview marks that row with `is_duplicate=true`
+  and renders it with a yellow background.
 
 The preview UI SHALL display duplicate rows with a yellow
 background and exclude them from the commit unless the user

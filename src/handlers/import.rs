@@ -7,8 +7,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::Account,
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -28,7 +28,7 @@ pub struct CsvMapping {
     pub reference_column: Option<usize>,
 }
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 pub struct ParsedRow {
     pub date: String,
     pub description: String,
@@ -42,6 +42,14 @@ pub struct ParsedRow {
     pub reference: Option<String>,
     #[serde(default)]
     pub is_duplicate: bool,
+    /// Dedup fingerprint `xxh3(date | amount_cents | payee)`;
+    /// 0 when the row is not part of a platform parse.
+    #[serde(default)]
+    pub fingerprint: u64,
+    /// The platform that produced this row. Serialised so the
+    /// preview form round-trips it back to the commit handler.
+    #[serde(default)]
+    pub platform: crate::import::ImportPlatform,
 }
 
 pub async fn upload_page(
@@ -73,8 +81,9 @@ pub async fn upload(
 
     let mut csv_content = String::new();
     let mut filename = String::new();
+    let mut raw_bytes: Vec<u8> = Vec::new();
 
-    while let Some(mut field) = multipart
+    while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::Multipart(e.to_string()))?
@@ -85,11 +94,12 @@ pub async fn upload(
         }
         filename = field.file_name().unwrap_or("upload.csv").to_string();
         let chunk = field
-            .chunk()
+            .bytes()
             .await
             .map_err(|e| AppError::Multipart(e.to_string()))?
-            .ok_or_else(|| AppError::Validation("Empty file".into()))?;
-        csv_content = String::from_utf8(chunk.to_vec())
+            .to_vec();
+        raw_bytes = chunk;
+        csv_content = String::from_utf8(raw_bytes.clone())
             .map_err(|_| AppError::Validation("Invalid UTF-8 in CSV file".into()))?;
     }
 
@@ -102,6 +112,17 @@ pub async fn upload(
             ledger_name: ledger.name,
             error: "No file provided".into(),
         }));
+    }
+
+    // Auto-detect the platform-specific bill formats so the
+    // single "Import" button routes to the correct parser. We
+    // dispatch internally (rendering the platform preview
+    // directly) because a redirect cannot carry the uploaded
+    // file.
+    if let Some((_platform, preview)) =
+        detect_platform_preview(&state, user, &ledger, &filename, &raw_bytes).await?
+    {
+        return Ok(preview);
     }
 
     // Sniff the format and dispatch. The CSV path keeps the
@@ -239,15 +260,76 @@ pub async fn confirm(
     let parsed_rows: Vec<ParsedRow> = if form.rows.trim().is_empty() {
         Vec::new()
     } else {
-        serde_json::from_str(&form.rows).map_err(|e| {
-            AppError::Validation(format!("could not parse rows: {e}"))
-        })?
+        serde_json::from_str(&form.rows)
+            .map_err(|e| AppError::Validation(format!("could not parse rows: {e}")))?
     };
+    let created = insert_rows(
+        &state,
+        ledger_id,
+        user.id,
+        &parsed_rows,
+        form.default_account_id,
+        form.default_account_id,
+        form.skip_duplicates,
+    )
+    .await?;
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "import",
+        "transaction",
+        None,
+        None,
+        Some(serde_json::json!({
+            "filename": form.filename,
+            "account_id": form.default_account_id,
+            "rows_committed": created,
+        })),
+    )
+    .await;
+    Ok(Redirect::to(&format!("/ledgers/{}/transactions", ledger_id)).into_response())
+}
+
+/// Shared atomic insert for every importer's commit handler.
+///
+/// For each non-duplicate row (when `skip_duplicates` is set) it
+/// creates one `transactions` row plus two `postings`:
+///
+/// - **cash out** (debit set): DR `expense_account_id` (or the
+///   row's per-row account override), CR the ledger's cash
+///   account.
+/// - **cash in** (credit set): DR the ledger's cash account, CR
+///   `expense_account_id` (or the row's override).
+///
+/// `cash_fallback_id` is used when no ASSET/cash account can be
+/// auto-detected. The whole batch is transactional: a single bad
+/// row rolls everything back with `422 Unprocessable Entity`.
+pub async fn insert_rows(
+    state: &AppState,
+    ledger_id: Uuid,
+    user_id: Uuid,
+    rows: &[ParsedRow],
+    cash_fallback_id: Uuid,
+    expense_account_id: Uuid,
+    skip_duplicates: bool,
+) -> AppResult<u32> {
     // Look up the ledger's default cash account once for the
-    // whole batch. We pick the first ASSET account whose name
-    // matches the cash heuristic (Cash / Bank); this is the
-    // same one the cash-flow report uses.
+    // whole batch. Prefer an ASSET account flagged `subtype=
+    // 'cash'` (the convention other handlers use), then fall
+    // back to a name heuristic so the shared seed chart (which
+    // stores `CURRENT_ASSET`) still resolves "Cash on Hand".
     let cash_id: Uuid = sqlx::query_scalar(
+        r#"SELECT id FROM accounts
+           WHERE ledger_id = $1
+             AND type = 'ASSET' AND subtype = 'cash'
+           ORDER BY code NULLS LAST
+           LIMIT 1"#,
+    )
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .or(sqlx::query_scalar(
         r#"SELECT id FROM accounts
            WHERE ledger_id = $1
              AND type = 'ASSET'
@@ -257,12 +339,15 @@ pub async fn confirm(
     )
     .bind(ledger_id)
     .fetch_optional(&state.pool)
-    .await?
-    .unwrap_or(form.default_account_id);
+    .await?)
+    .unwrap_or(cash_fallback_id);
     let mut tx = state.pool.begin().await?;
     let mut created = 0u32;
     let mut failed = Vec::new();
-    for row in &parsed_rows {
+    for row in rows {
+        if skip_duplicates && row.is_duplicate {
+            continue;
+        }
         if row.date.trim().is_empty() {
             failed.push(format!("missing date: {}", row.description));
             continue;
@@ -283,14 +368,10 @@ pub async fn confirm(
         let amount = match (debit.is_empty(), credit.is_empty()) {
             (true, false) => credit
                 .parse::<Decimal>()
-                .map_err(|e| {
-                    format!("row '{}': bad credit '{credit}': {e}", row.description)
-                }),
+                .map_err(|e| format!("row '{}': bad credit '{credit}': {e}", row.description)),
             (false, true) => debit
                 .parse::<Decimal>()
-                .map_err(|e| {
-                    format!("row '{}': bad debit '{debit}': {e}", row.description)
-                }),
+                .map_err(|e| format!("row '{}': bad debit '{debit}': {e}", row.description)),
             _ => unreachable!(),
         };
         let amount = match amount {
@@ -325,19 +406,14 @@ pub async fn confirm(
         .bind(&row.description)
         .bind(row.payee.as_deref().unwrap_or(""))
         .bind(row.reference.as_deref().unwrap_or(""))
-        .bind(user.id)
+        .bind(user_id)
         .fetch_one(&mut *tx)
         .await?;
-        let cash_id = {
-            // Use the auto-detected cash account (the
-            // batch-level `cash_id` looked up above).
-            cash_id
-        };
         let other_id = row
             .account
             .as_deref()
             .and_then(|s| Uuid::parse_str(s).ok())
-            .unwrap_or(form.default_account_id);
+            .unwrap_or(expense_account_id);
         let (debit_acct, credit_acct) = if !debit.is_empty() {
             // Cash out: DR row account, CR cash.
             (other_id, cash_id)
@@ -345,10 +421,7 @@ pub async fn confirm(
             // Cash in: DR cash, CR row account.
             (cash_id, other_id)
         };
-        for (acct, direction) in [
-            (debit_acct, "DEBIT"),
-            (credit_acct, "CREDIT"),
-        ] {
+        for (acct, direction) in [(debit_acct, "DEBIT"), (credit_acct, "CREDIT")] {
             sqlx::query(
                 r#"INSERT INTO postings (transaction_id, account_id, amount, direction)
                    VALUES ($1, $2, $3, $4)"#,
@@ -374,20 +447,51 @@ pub async fn confirm(
         )));
     }
     tx.commit().await?;
-    let _ = audit::log(
-        &state.pool,
-        Some(ledger_id),
-        user.id,
-        "import",
-        "transaction",
-        None,
-        None,
-        Some(serde_json::json!({
-            "filename": form.filename,
-            "account_id": form.default_account_id,
-            "rows_committed": created,
-        })),
-    )
-    .await;
-    Ok(Redirect::to(&format!("/ledgers/{}/transactions", ledger_id)).into_response())
+    Ok(created)
+}
+
+/// Detect whether the uploaded file is a platform-specific bill
+/// (WeChat / Alipay) and, if so, render its preview directly so
+/// the single generic "Import" button routes to the correct
+/// parser. Returns `None` for the plain 7-column CSV path.
+pub(crate) async fn detect_platform_preview(
+    state: &AppState,
+    user: &crate::auth::User,
+    ledger: &crate::domain::Ledger,
+    filename: &str,
+    bytes: &[u8],
+) -> AppResult<Option<(String, Response)>> {
+    let text = String::from_utf8_lossy(bytes);
+    let first = sniff::first_non_blank_line(&text);
+    let Some(line) = first else {
+        return Ok(None);
+    };
+    if line.starts_with("交易时间,交易类型") {
+        let preview = super::import_wechat::render_wechat_preview(
+            state,
+            user,
+            ledger.id,
+            ledger.name.clone(),
+            filename,
+            bytes,
+            Default::default(),
+        )
+        .await?;
+        return Ok(Some(("wechat".to_string(), preview)));
+    }
+    if line.starts_with("交易号,商家订单号") || line.starts_with("交易时间,交易分类")
+    {
+        let preview = super::import_alipay::render_alipay_preview(
+            state,
+            user,
+            ledger.id,
+            ledger.name.clone(),
+            filename,
+            bytes,
+            Default::default(),
+        )
+        .await?;
+        return Ok(Some(("alipay".to_string(), preview)));
+    }
+    Ok(None)
 }

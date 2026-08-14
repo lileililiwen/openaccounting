@@ -12,6 +12,8 @@ mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
 mod expense_reimbursement;
+mod import_alipay;
+mod import_wechat;
 mod policies;
 mod pwa;
 mod reconciliation_rules;

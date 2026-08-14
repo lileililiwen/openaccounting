@@ -88,6 +88,10 @@ form_urlencoded = "1.2.0"
 flate2 = "1.1.1"
 hex = "0.4"
 
+# Platform-specific bill importers (WeChat / Alipay)
+encoding_rs = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
 # Optional dependencies used by the test-support module.
 # The `test-support` feature above flips these on. They are
 # absent from the production binary.

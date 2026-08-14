@@ -252,6 +252,7 @@ fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
         payee: t.payee.clone(),
         reference: t.reference.clone(),
         is_duplicate: false,
+        ..Default::default()
     });
 }
 

@@ -43,6 +43,7 @@ pub fn parse(content: &str) -> Vec<ParsedRow> {
                 }
             }),
             is_duplicate: false,
+            ..Default::default()
         });
     }
     rows

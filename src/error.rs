@@ -46,6 +46,12 @@ impl From<csv::Error> for AppError {
     }
 }
 
+impl From<crate::import::ParseError> for AppError {
+    fn from(e: crate::import::ParseError) -> Self {
+        AppError::Validation(e.to_string())
+    }
+}
+
 impl From<axum_login::Error<crate::auth::Backend>> for AppError {
     fn from(e: axum_login::Error<crate::auth::Backend>) -> Self {
         AppError::Internal(format!("auth: {e}"))

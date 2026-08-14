@@ -270,6 +270,22 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             "/ledgers/{id}/import/confirm",
             post(handlers::import::confirm),
         )
+        .route(
+            "/ledgers/{id}/import/wechat",
+            get(handlers::import_wechat::upload_page).post(handlers::import_wechat::preview),
+        )
+        .route(
+            "/ledgers/{id}/import/wechat/commit",
+            post(handlers::import_wechat::commit),
+        )
+        .route(
+            "/ledgers/{id}/import/alipay",
+            get(handlers::import_alipay::upload_page).post(handlers::import_alipay::preview),
+        )
+        .route(
+            "/ledgers/{id}/import/alipay/commit",
+            post(handlers::import_alipay::commit),
+        )
         .route("/ledgers/{id}/templates", get(handlers::templates::list))
         .route("/ledgers/{id}/payments", get(handlers::payments::list))
         .route(

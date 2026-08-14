@@ -54,6 +54,7 @@ fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
         payee,
         reference,
         is_duplicate: false,
+        ..Default::default()
     });
 }
 
