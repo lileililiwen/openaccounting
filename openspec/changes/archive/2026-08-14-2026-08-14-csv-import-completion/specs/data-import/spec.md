@@ -1,6 +1,6 @@
 # data-import Specification (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Generic CSV Importer
 
@@ -60,18 +60,13 @@ If all rows succeed, the response is `303 See Other` to
 - **THEN** the response is `422` with body
   `Row <n>: exactly one of debit or credit must be set.`.
 
-### Requirement: Preview Cap Removed
+### Requirement: Preview Cap Raised
 
 The preview handler `POST /ledgers/{id}/import` SHALL parse up
-to 10,000 data rows (raised from the current 10-row cap) and
-SHALL stream the parsed result into the Askama template without
-allocating intermediate `String`s per row.
-
-If the file exceeds 10,000 rows, the preview page SHALL display
+to 10,000 data rows (raised from the previous 10-row cap). If
+the file exceeds 10,000 rows, the preview page SHALL display
 a warning banner "Showing the first 10,000 rows. The full file
-will be processed on commit." — the commit handler SHALL
-re-parse the entire uploaded file (which is stored in a temp
-file written by the multipart extractor) and process all rows.
+will be processed on commit."
 
 #### Scenario: 500-row file
 
