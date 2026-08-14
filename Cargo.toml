@@ -5,6 +5,21 @@ edition = "2021"
 description = "Open-source double-entry bookkeeping for individuals and startups"
 license = "MIT"
 
+[lib]
+name = "openaccounting"
+path = "src/lib.rs"
+
+[[bin]]
+name = "openaccounting"
+path = "src/main.rs"
+
+[features]
+# Test-only module `test_support` (TestDb, TestServer). Not included
+# in production builds. The integration test in `tests/integration`
+# enables this feature via `required-features` below.
+default = []
+test-support = ["dep:reqwest", "dep:postgres", "dep:tempfile"]
+
 [profile.release]
 opt-level = "z"
 lto = true
@@ -71,3 +86,28 @@ mime = "0.3.17"
 futures = "0.3.31"
 form_urlencoded = "1.2.0"
 flate2 = "1.1.1"
+
+# Optional dependencies used by the test-support module.
+# The `test-support` feature above flips these on. They are
+# absent from the production binary.
+reqwest = { version = "0.12", optional = true, default-features = false,
+            features = ["json", "rustls-tls", "cookies", "multipart"] }
+postgres = { version = "0.19", optional = true, default-features = false }
+tempfile = { version = "3", optional = true }
+
+[dev-dependencies]
+# Test HTTP client (per-test server drives the real axum router).
+# Re-exports the same crate as the lib's optional reqwest so the
+# integration test binary doesn't pull in a second copy.
+reqwest = { version = "0.12", default-features = false,
+            features = ["json", "rustls-tls", "cookies", "multipart"] }
+# Sandboxes for the per-test DOCUMENTS_DIR.
+tempfile = "3"
+# Sync Postgres client used in TestDb::Drop to drop the test DB
+# after the tokio runtime has already shut down.
+postgres = { version = "0.19", default-features = false }
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+required-features = ["test-support"]
