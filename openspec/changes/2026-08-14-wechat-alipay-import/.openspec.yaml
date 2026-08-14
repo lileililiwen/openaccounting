@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add first-class WeChat Pay (微信支付) and Alipay (支付宝) transaction
+  importers so the dominant Chinese payment platforms become a
+  one-click import path, not a manual CSV massage.

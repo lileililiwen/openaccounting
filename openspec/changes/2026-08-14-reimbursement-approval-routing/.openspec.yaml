@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add multi-level, threshold-based approval routing to the
+  reimbursement module so claims above a configurable amount
+  escalate to additional approvers before being paid.

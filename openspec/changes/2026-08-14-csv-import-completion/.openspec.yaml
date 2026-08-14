@@ -1,0 +1,7 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Replace the stub `confirm()` handler in `src/handlers/import.rs`
+  with a real implementation that parses the preview rows into
+  balanced double-entry transactions, with proper validation,
+  duplicate detection, and per-row error reporting.

@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Package the existing web UI into installable native shells for
+  iOS and Android using Capacitor, with push-notification hooks
+  for approval requests and bank-feed sync events.

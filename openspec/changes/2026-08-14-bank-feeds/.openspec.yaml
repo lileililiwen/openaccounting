@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add optional Plaid / GoCardless / Salt Edge / SimpleFIN bank
+  feeds so users can sync balances and transactions directly
+  rather than uploading CSVs.

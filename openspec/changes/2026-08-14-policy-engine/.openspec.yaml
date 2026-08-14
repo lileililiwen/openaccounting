@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add a configurable policy engine that enforces per-category
+  spend caps, receipt-required thresholds, and per-diem rates on
+  reimbursement claims, blocking approval of violating claims.

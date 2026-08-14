@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add support for the three canonical bank-statement file
+  formats (OFX, QIF, MT940) so users with non-CSV bank exports
+  can import directly.

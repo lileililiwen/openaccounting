@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Extract structured data (amount, date, merchant) from uploaded
+  receipt images and PDFs via OCR so users don't have to retype
+  receipt details into expense claims.

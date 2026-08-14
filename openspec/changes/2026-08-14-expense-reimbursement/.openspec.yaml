@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add an end-to-end expense-reimbursement workflow — claim drafts,
+  approval, GL posting, and payout — that lets micro-businesses
+  replace tag-based "expense" workarounds with a real state machine.

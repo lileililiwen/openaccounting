@@ -1,0 +1,7 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Let a ledger report under either accrual (default) or cash basis
+  without changing the underlying postings, matching the README's
+  "cash-basis and double-entry" promise that the current code does
+  not honor.

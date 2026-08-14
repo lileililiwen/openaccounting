@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add a forward-looking cash-flow forecast that projects the
+  ledger's cash balance out N days/weeks/months based on
+  recurring transactions and scheduled bills.

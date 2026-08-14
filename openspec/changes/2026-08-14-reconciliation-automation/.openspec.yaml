@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Add a rules engine that auto-matches imported bank lines to
+  existing ledger postings and auto-suggests GL accounts based
+  on counterparty patterns.

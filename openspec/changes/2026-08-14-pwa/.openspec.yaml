@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-14
+goal: |
+  Make the openaccounting web app installable as a PWA with
+  read-only offline access so field/mobile users can consult
+  balances and charts without network.
