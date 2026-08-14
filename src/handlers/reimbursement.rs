@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::{
     auth::Backend,
     audit,
+    domain::policies::{evaluate, Policy, PolicyKind, PolicyLine, Severity, Violation},
     domain::reimbursement::{format_short_id, ClaimStatus},
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -281,6 +282,11 @@ pub async fn submit(
             "cannot submit an empty claim".into(),
         ));
     }
+    // Policy evaluation. Hard violations block submit.
+    let policy_violations = collect_policy_violations(&state, claim_id).await?;
+    if let Some(msg) = hard_violation_message(&policy_violations) {
+        return Err(AppError::Validation(msg));
+    }
     update_status(&state, ledger_id, claim_id, user.id, ClaimStatus::Submitted, None).await?;
     Ok(Redirect::to(&format!(
         "/ledgers/{ledger_id}/reimbursements/{claim_id}"
@@ -355,6 +361,11 @@ pub async fn approve(
             "claim cannot be approved from status '{}'",
             claim.status.as_str()
         )));
+    }
+    // Re-evaluate policies on approve.
+    let policy_violations = collect_policy_violations(&state, claim_id).await?;
+    if let Some(msg) = hard_violation_message(&policy_violations) {
+        return Err(AppError::Validation(msg));
     }
     let mut tx = state.pool.begin().await?;
     let total: Decimal = sqlx::query_scalar(
@@ -737,6 +748,98 @@ async fn load_claim(
         created_at,
         updated_at,
     })
+}
+
+/// Load the active policies for a ledger and evaluate them
+/// against the claim's lines. Returns a list of
+/// `(policy, violation)` pairs.
+async fn collect_policy_violations(
+    state: &AppState,
+    claim_id: Uuid,
+) -> AppResult<Vec<(Policy, Violation)>> {
+    // Find the claim's ledger.
+    let (ledger_id,): (Uuid,) = sqlx::query_as(
+        "SELECT ledger_id FROM reimbursement_claims WHERE id = $1",
+    )
+    .bind(claim_id)
+    .fetch_one(&state.pool)
+    .await?;
+    // Load active policies.
+    let policy_rows: Vec<(Uuid, String, String, serde_json::Value, String)> =
+        sqlx::query_as(
+            r#"SELECT id, name, kind, config, severity
+               FROM reimbursement_policies
+               WHERE ledger_id = $1 AND is_active = TRUE"#,
+        )
+        .bind(ledger_id)
+        .fetch_all(&state.pool)
+        .await?;
+    // Load the claim's lines.
+    let line_rows: Vec<(String, NaiveDate, Decimal, bool)> = sqlx::query_as(
+        r#"SELECT
+              COALESCE((SELECT name FROM accounts WHERE id = gl_account_id), 'other'),
+              txn_date,
+              amount,
+              FALSE AS has_receipt
+           FROM reimbursement_lines
+           WHERE claim_id = $1"#,
+    )
+    .bind(claim_id)
+    .fetch_all(&state.pool)
+    .await?;
+    let lines: Vec<PolicyLine> = line_rows
+        .into_iter()
+        .map(|(category, txn_date, amount, has_receipt)| PolicyLine {
+            category,
+            txn_date,
+            amount,
+            has_receipt,
+        })
+        .collect();
+    let mut all = Vec::new();
+    for (id, name, kind_s, config, severity_s) in policy_rows {
+        let Some(kind) = PolicyKind::parse(&kind_s) else { continue };
+        let Some(severity) = Severity::parse(&severity_s) else { continue };
+        let policy = Policy {
+            id,
+            name,
+            kind,
+            config,
+            severity,
+        };
+        for v in evaluate(&policy, &lines) {
+            all.push((policy.clone(), v));
+        }
+    }
+    Ok(all)
+}
+
+fn hard_violation_message(violations: &[(Policy, Violation)]) -> Option<String> {
+    let mut msgs: Vec<String> = Vec::new();
+    for (policy, v) in violations {
+        if policy.severity != Severity::Hard {
+            continue;
+        }
+        let detail = match v {
+            Violation::CategoryCapOver { category, actual, cap, .. } => {
+                format!("category '{category}' cap exceeded (actual {actual}¢ > cap {cap}¢)")
+            }
+            Violation::ReceiptMissing { amount, min_required } => {
+                format!("receipt required for {amount}¢ (min {min_required}¢)")
+            }
+            Violation::PerDiemOver { destination, actual, daily_rate, .. } => {
+                format!(
+                    "per-diem for '{destination}' exceeded (actual {actual}¢ > rate {daily_rate}¢)"
+                )
+            }
+        };
+        msgs.push(format!("[{}] {detail}", policy.name));
+    }
+    if msgs.is_empty() {
+        None
+    } else {
+        Some(format!("policy violation: {}", msgs.join("; ")))
+    }
 }
 
 async fn update_status(

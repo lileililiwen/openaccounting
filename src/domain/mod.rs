@@ -3,6 +3,7 @@ pub mod contact;
 pub mod document;
 pub mod invoice;
 pub mod ledger;
+pub mod policies;
 pub mod posting;
 pub mod reimbursement;
 pub mod reconciliation_rules;
