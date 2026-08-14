@@ -8,5 +8,6 @@
 mod common;
 
 mod cash_basis;
+mod cash_flow_forecast;
 mod pwa;
 mod smoke;

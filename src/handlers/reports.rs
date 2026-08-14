@@ -13,12 +13,12 @@ use crate::{
     error::{AppError, AppResult},
     handlers::ledgers,
     reports::{
-        build_balance_sheet, build_cash_flow, build_general_ledger, build_income_statement,
-        build_trial_balance, ReportBasis,
+        build_balance_sheet, build_cash_flow, build_forecast, build_general_ledger,
+        build_income_statement, build_trial_balance, ReportBasis,
     },
     templates::reports::{
-        BalanceSheetPage, CashFlowPage, GeneralLedgerPage, IncomeStatementPage, ReportsIndex,
-        TrialBalancePage,
+        BalanceSheetPage, CashFlowForecastPage, CashFlowPage, GeneralLedgerPage,
+        IncomeStatementPage, ReportsIndex, TrialBalancePage,
     },
     AppState,
 };
@@ -206,6 +206,33 @@ pub async fn cash_flow(
     }))
 }
 
+pub async fn cash_flow_forecast(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(ledger_id): Path<Uuid>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let horizon_days: u32 = q
+        .get("days")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(90)
+        .clamp(1, 365);
+    let result = build_forecast(&state.pool, ledger_id, horizon_days).await?;
+    let chart_svg = render_forecast_chart(&result);
+    Ok(render_response(CashFlowForecastPage {
+        user_id: user.id,
+        username: user.username.clone(),
+        user_role: user.role.clone(),
+        ledger_id,
+        ledger_name: ledger.name,
+        horizon_days,
+        result,
+        chart_svg,
+    }))
+}
+
 pub async fn general_ledger(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -315,4 +342,77 @@ pub async fn export_csv(
         .body(axum::body::Body::from(bytes))
         .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(resp)
+}
+
+/// Render a hand-drawn SVG line chart for the forecast. Keeps
+/// the file standalone (does not pull in `crate::charts`)
+/// because the chart is small and we want zero allocation for
+/// the axes — we just emit a single polyline.
+fn render_forecast_chart(result: &crate::reports::ForecastResult) -> String {
+    if result.points.is_empty() {
+        return String::new();
+    }
+    let width = 720.0_f64;
+    let height = 240.0_f64;
+    let pad_l = 50.0;
+    let pad_r = 16.0;
+    let pad_t = 16.0;
+    let pad_b = 30.0;
+    let plot_w = width - pad_l - pad_r;
+    let plot_h = height - pad_t - pad_b;
+
+    let pts = &result.points;
+    let n = pts.len();
+    let (min_b, max_b) = pts
+        .iter()
+        .fold((result.today_balance, result.today_balance), |(lo, hi), p| {
+            (lo.min(p.balance), hi.max(p.balance))
+        });
+    let span_f = {
+        let lo = decimal_to_f64(min_b);
+        let hi = decimal_to_f64(max_b);
+        if hi > lo {
+            hi - lo
+        } else {
+            1.0
+        }
+    };
+
+    let mut poly = String::new();
+    for (i, p) in pts.iter().enumerate() {
+        let x = pad_l + plot_w * (i as f64 / (n as f64 - 1.0).max(1.0));
+        let bal_f = decimal_to_f64(p.balance);
+        let lo = decimal_to_f64(min_b);
+        let y_norm = if span_f > 0.0 {
+            ((bal_f - lo) / span_f).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+        let y = pad_t + plot_h * (1.0 - y_norm);
+        if i > 0 {
+            poly.push(' ');
+        }
+        poly.push_str(&format!("{x:.1},{y:.1}"));
+    }
+    let max_f = decimal_to_f64(max_b);
+    let min_f = decimal_to_f64(min_b);
+    let svg = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {w:.0} {h:.0}\" class=\"w-full h-auto\">\
+  <rect x=\"0\" y=\"0\" width=\"{w:.0}\" height=\"{h:.0}\" fill=\"white\" />\
+  <polyline fill=\"none\" stroke=\"#0f172a\" stroke-width=\"2\" points=\"{poly}\" />\
+  <text x=\"6\" y=\"14\" font-size=\"10\" fill=\"#475569\">max {max_f:.2}</text>\
+  <text x=\"6\" y=\"{hmax:.0}\" font-size=\"10\" fill=\"#475569\">min {min_f:.2}</text>\
+</svg>",
+        w = width,
+        h = height,
+        poly = poly,
+        max_f = max_f,
+        min_f = min_f,
+        hmax = height as i32 - 4
+    );
+    svg
+}
+
+fn decimal_to_f64(d: rust_decimal::Decimal) -> f64 {
+    d.to_string().parse::<f64>().unwrap_or(0.0)
 }

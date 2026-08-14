@@ -124,3 +124,16 @@ pub struct AgingReportPage {
     pub as_of: NaiveDate,
     pub aging: Vec<AgingBucketData>,
 }
+
+#[derive(Template)]
+#[template(path = "reports/cash_flow_forecast.html")]
+pub struct CashFlowForecastPage {
+    pub user_id: Uuid,
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub horizon_days: u32,
+    pub result: crate::reports::ForecastResult,
+    pub chart_svg: String,
+}

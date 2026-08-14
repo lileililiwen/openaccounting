@@ -227,6 +227,10 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             get(handlers::reports::cash_flow),
         )
         .route(
+            "/ledgers/{id}/reports/cash-flow-forecast",
+            get(handlers::reports::cash_flow_forecast),
+        )
+        .route(
             "/ledgers/{id}/reports/general-ledger",
             get(handlers::reports::general_ledger),
         )

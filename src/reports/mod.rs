@@ -1,11 +1,16 @@
 pub mod balance_sheet;
 pub mod cash_flow;
+pub mod cash_flow_forecast;
 pub mod general_ledger;
 pub mod income_statement;
 pub mod trial_balance;
 
 pub use balance_sheet::{build_balance_sheet, BalanceSheetSection};
 pub use cash_flow::build_cash_flow;
+pub use cash_flow_forecast::{
+    build_forecast, advance, materialize_forecast, project, ForecastEntry, ForecastPoint,
+    ForecastResult,
+};
 pub use general_ledger::{build_general_ledger, GeneralLedgerEntry};
 pub use income_statement::{build_income_statement, IncomeStatementSection};
 pub use trial_balance::{build_trial_balance, TrialBalanceRow};
