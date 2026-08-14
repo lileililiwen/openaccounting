@@ -4,7 +4,7 @@
 
 ### Requirement: Rule Kinds
 
-A rule has a `kind` in (`match`, `categorize`, `flag`).
+A rule SHALL have a `kind` in (`match`, `categorize`, `flag`).
 
 A **match** rule proposes pairing an un-reconciled imported
 line with an existing posting. Its action specifies the
@@ -32,7 +32,7 @@ highlight color (`yellow | red | blue`).
 
 ### Requirement: Predicate Language
 
-A predicate is a JSON object with any of these keys, all
+A predicate SHALL be a JSON object with any of these keys, all
 AND-combined:
 
 - `payee_glob`           — SQL `LIKE` pattern matched against
@@ -44,9 +44,9 @@ AND-combined:
 - `date_offset_days_eq`  — days from today (negative for past).
 - `currency`             — 3-letter code.
 
-A predicate with no keys matches every line. A predicate with
-any key whose value is not the correct type is rejected at
-rule creation with `400 Bad Request`.
+A predicate with no keys SHALL match every line. A predicate
+with any key whose value is not the correct type MUST be
+rejected at rule creation with `400 Bad Request`.
 
 #### Scenario: Compound predicate
 
@@ -61,10 +61,10 @@ rule creation with `400 Bad Request`.
 
 ### Requirement: Priority and Tiebreaking
 
-Each rule has a `priority` integer (default 100). When multiple
-rules match the same line, the lowest `priority` number wins.
-For categorize, only the winning rule's GL account is
-suggested (no chained categorization).
+Each rule SHALL have a `priority` integer (default 100). When
+multiple rules match the same line, the lowest `priority`
+number MUST win. For categorize, only the winning rule's GL
+account is suggested (no chained categorization).
 
 #### Scenario: Higher-priority rule overrides
 
@@ -75,16 +75,16 @@ suggested (no chained categorization).
 
 ### Requirement: Apply Suggestion
 
-`POST /ledgers/{id}/rules/{rule_id}/apply` accepts a list of
-`imported_line_id` values and applies the rule's action to
-each. For a categorize rule this creates the corresponding
+`POST /ledgers/{id}/rules/{rule_id}/apply` SHALL accept a
+list of `imported_line_id` values and apply the rule's action
+to each. For a categorize rule this creates the corresponding
 postings (using the same commit flow as
 `2026-08-14-csv-import-completion`). For a match rule this
 sets `reconciliation_matches.imported_line_id =
 posting_id`. For a flag rule this sets a UI annotation.
 
-Apply is atomic per call: any failure rolls back every change
-in the call.
+Apply MUST be atomic per call: any failure rolls back every
+change in the call.
 
 #### Scenario: Apply categorize suggestion
 
@@ -97,6 +97,14 @@ in the call.
 
 ### Requirement: Rule Audit
 
-Creating, toggling, or deleting a rule writes an audit row
+Creating, toggling, or deleting a rule MUST write an audit row
 (`rule.create`, `rule.toggle`, `rule.delete`) with the
 predicate and action JSON in `metadata`.
+
+#### Scenario: Create writes a rule.create audit row
+
+- **WHEN** the user posts a new rule via
+  `POST /ledgers/{id}/rules`
+- **THEN** an `audit_entries` row is written with
+  `action='rule.create'`, `entity_type='reconciliation_rule'`,
+  and the predicate + action JSON in `new_value`.
