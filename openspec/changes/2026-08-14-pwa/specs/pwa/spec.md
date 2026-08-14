@@ -1,11 +1,6 @@
-# pwa Specification
+# pwa Specification (delta)
 
-## Purpose
-
-Define the installable, offline-capable shell that lets the
-openaccounting web app behave like a native app on phones.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Web App Manifest
 
@@ -98,3 +93,10 @@ outside its own scope.
 The service worker MUST NOT be required for the app to function.
 Every server-rendered route MUST work without JavaScript. The
 worker only ADDS offline / install behavior.
+
+#### Scenario: App works with JavaScript disabled
+
+- **WHEN** a user visits any page with JavaScript disabled
+- **THEN** the server-rendered HTML, the form submits, and
+  every protected route still authenticate and render as
+  they do without the service worker.

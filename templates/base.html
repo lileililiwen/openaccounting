@@ -15,13 +15,17 @@
     }
   }
 </script>
+<link rel="stylesheet" href="/static/css/app.css" />
 <style>
   [x-cloak] { display: none !important; }
   .tabular { font-variant-numeric: tabular-nums; }
   /* HTMX loading indicator */
   .htmx-request .htmx-indicator { display: inline-block; }
   .htmx-indicator { display: none; }
+  /* PWA safe-area padding for display=standalone on phones. */
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 </style>
+{% include "partials/_pwa.html" %}
 {% block head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 text-slate-800 antialiased flex flex-col">

@@ -1,0 +1,53 @@
+{# Progressive Web App shell: manifest link, theme-color meta, install
+   button, and service-worker registration.
+
+   The button is hidden by default; the script unhides it only
+   when the browser fires the `beforeinstallprompt` event, which
+   is the standard PWA install pattern. The app is fully usable
+   without this script (the no-JS fallback is enforced by the
+   `pwa` capability in openspec/specs/pwa/spec.md). #}
+<link rel="manifest" href="/static/manifest.webmanifest" />
+<meta name="theme-color" content="#0f172a" />
+<button id="pwa-install-btn"
+        hidden
+        class="fixed bottom-4 right-4 rounded-full bg-slate-900 text-white text-xs px-3 py-2 shadow-lg hover:bg-slate-800 z-50">
+  Install OpenAccounting
+</button>
+<script>
+(function () {
+  var btn = document.getElementById("pwa-install-btn");
+  if (!btn) { return; }
+  var deferred = null;
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    btn.hidden = false;
+  });
+
+  btn.addEventListener("click", async function () {
+    if (!deferred) { return; }
+    btn.hidden = true;
+    deferred.prompt();
+    try {
+      await deferred.userChoice;
+    } catch (_) {
+      // user dismissed; nothing to do
+    }
+    deferred = null;
+  });
+
+  window.addEventListener("appinstalled", function () {
+    btn.hidden = true;
+    deferred = null;
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/static/sw.js").catch(function (err) {
+        console.warn("service worker registration failed:", err);
+      });
+    });
+  }
+})();
+</script>

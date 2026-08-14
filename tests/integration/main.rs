@@ -8,4 +8,5 @@
 mod common;
 
 mod cash_basis;
+mod pwa;
 mod smoke;

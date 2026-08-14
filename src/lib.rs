@@ -28,6 +28,9 @@ pub mod templates;
 pub mod test_support;
 
 use axum::{
+    body::Body,
+    http::{header, HeaderName, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -38,6 +41,28 @@ use tower_sessions_sqlx_store::PostgresStore;
 
 use auth::Backend;
 use storage::FilesystemStore;
+
+/// Serve `/static/sw.js` with the `Service-Worker-Allowed: /`
+/// header set. The worker can then intercept any path under
+/// `/`, not only its own `/static/` subtree. Returns 404 if the
+/// file does not exist (e.g. asset wasn't deployed).
+async fn serve_sw(path: std::path::PathBuf) -> Response {
+    match tokio::fs::read(&path).await {
+        Ok(bytes) => {
+            let mut resp = (StatusCode::OK, bytes).into_response();
+            let sw_allowed = HeaderName::from_static("service-worker-allowed");
+            resp.headers_mut()
+                .insert(sw_allowed, HeaderValue::from_static("/"));
+            // Make sure intermediaries don't try to cache the
+            // script with a stale version when we bump its
+            // contents.
+            resp.headers_mut()
+                .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+            resp
+        }
+        Err(_) => (StatusCode::NOT_FOUND, Body::empty()).into_response(),
+    }
+}
 
 /// Application state shared by every request handler.
 #[derive(Clone)]
@@ -111,6 +136,11 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         tracing::error!("STATIC_DIR does not exist: {static_dir:?}; static assets will 404");
     }
     let static_path_for_dir = static_path.to_path_buf();
+    // The service worker needs `Service-Worker-Allowed: /` so it
+    // can intercept requests outside its own `/static/…` scope.
+    // Serve that single file through a custom handler; let
+    // ServeDir handle the rest of the static tree.
+    let sw_path = static_path.join("sw.js");
     let public = Router::new()
         .route("/", get(handlers::dashboard::redirect_to_first_ledger))
         .route(
@@ -120,6 +150,13 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         .route(
             "/register",
             get(auth::handlers::register_page).post(auth::handlers::register_submit),
+        )
+        .route(
+            "/static/sw.js",
+            get(move || {
+                let path = sw_path.clone();
+                async move { serve_sw(path).await }
+            }),
         )
         .nest_service(
             "/static",
