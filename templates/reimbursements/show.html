@@ -14,16 +14,20 @@
           <button class="rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800">Submit</button>
         </form>
       {% endif %}
-      {% if claim.status.as_str() == "submitted" %}
-        <form method="post" action="/ledgers/{{ ledger_id }}/reimbursements/{{ claim.id }}/approve">
-          <button class="rounded-lg bg-emerald-700 text-white text-sm px-3 py-2 hover:bg-emerald-800">Approve</button>
-        </form>
-        <form method="post" action="/ledgers/{{ ledger_id }}/reimbursements/{{ claim.id }}/reject" class="flex gap-1">
-          <input name="reason" required placeholder="reason" class="rounded-lg border border-slate-300 px-2 py-1 text-xs" />
-          <button class="rounded-lg bg-rose-700 text-white text-sm px-3 py-2 hover:bg-rose-800">Reject</button>
-        </form>
+      {% if claim.status.as_str() == "submitted" || claim.status.as_str() == "partially_approved" %}
+        {% for lvl in approve_levels %}
+          <form method="post" action="/ledgers/{{ ledger_id }}/reimbursements/{{ claim.id }}/approve?level={{ lvl }}">
+            <button class="rounded-lg bg-emerald-700 text-white text-sm px-3 py-2 hover:bg-emerald-800">Approve L{{ lvl }}</button>
+          </form>
+        {% endfor %}
+        {% if claim.status.as_str() == "submitted" %}
+          <form method="post" action="/ledgers/{{ ledger_id }}/reimbursements/{{ claim.id }}/reject" class="flex gap-1">
+            <input name="reason" required placeholder="reason" class="rounded-lg border border-slate-300 px-2 py-1 text-xs" />
+            <button class="rounded-lg bg-rose-700 text-white text-sm px-3 py-2 hover:bg-rose-800">Reject</button>
+          </form>
+        {% endif %}
       {% endif %}
-      {% if claim.status.as_str() == "approved" %}
+      {% if claim.status.as_str() == "fully_approved" || claim.status.as_str() == "approved" %}
         <form method="post" action="/ledgers/{{ ledger_id }}/reimbursements/{{ claim.id }}/pay" class="flex gap-1">
           <select name="payout_account_id" required class="rounded-lg border border-slate-300 px-2 py-1 text-xs">
             <option value="">payout acct</option>
@@ -37,6 +41,33 @@
   {% if !error.is_empty() %}
     <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
   {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Approval</h2>
+    {% if viewer_is_author %}
+      {% if claim.status.as_str() == "submitted" || claim.status.as_str() == "partially_approved" %}
+        <p class="text-sm text-slate-600">Awaiting {{ pending_count }} more approval(s).</p>
+      {% else %}
+        <p class="text-sm text-slate-600">Status: {{ claim.status.as_str() }}.</p>
+      {% endif %}
+    {% else %}
+      <ul class="space-y-2 text-sm">
+        {% for a in approval_levels %}
+          <li class="flex items-center justify-between gap-2">
+            <span>Level {{ a.level }}</span>
+            {% if a.status == "approved" %}
+              <span class="flex items-center gap-2">
+                <span class="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5">approved</span>
+                <span class="text-slate-500">{{ a.approver_name }} — {{ a.approved_at }}</span>
+              </span>
+            {% else %}
+              <span class="rounded bg-amber-100 text-amber-800 px-2 py-0.5">pending</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
 
   <section class="rounded-xl bg-white border border-slate-200 p-4">
     <h2 class="text-sm font-semibold text-slate-700 mb-2">Lines</h2>

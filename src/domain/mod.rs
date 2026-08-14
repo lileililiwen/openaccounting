@@ -1,4 +1,5 @@
 pub mod account;
+pub mod approval_routing;
 pub mod contact;
 pub mod document;
 pub mod invoice;

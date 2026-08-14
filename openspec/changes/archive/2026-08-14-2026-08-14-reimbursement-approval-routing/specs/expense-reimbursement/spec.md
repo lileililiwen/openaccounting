@@ -4,7 +4,7 @@
 
 ### Requirement: Approval Policies
 
-A ledger MAY have zero or more `reimbursement_approval_policies`,
+A ledger SHALL support zero or more `reimbursement_approval_policies`,
 each with:
 
 - `id`, `ledger_id`, `name`,
@@ -13,12 +13,12 @@ each with:
   `Admin | Accountant`),
 - `level` (positive integer, 1 = first approver).
 
-Policies are ordered by `min_amount` ascending. For a claim
+Policies SHALL be ordered by `min_amount` ascending. For a claim
 whose `total = amount + tax_amount` summed across lines, the
-set of required approval levels is computed by walking the
+set of required approval levels MUST be computed by walking the
 ordered policy list and collecting every policy whose
-`min_amount <= total`. If no policy matches, the claim
-requires level 1 by default (preserving the v1 behaviour).
+`min_amount <= total`. If no policy matches, the claim MUST
+require level 1 by default (preserving the v1 behaviour).
 
 #### Scenario: Two-level policy fires
 
@@ -37,22 +37,22 @@ requires level 1 by default (preserving the v1 behaviour).
 
 ### Requirement: Multi-Level State Machine
 
-The `submitted → approved` transition is extended to
+The `submitted → approved` transition SHALL be extended to
 `submitted → partially_approved → fully_approved`. A claim in
 `partially_approved` has at least one (but not all) required
 level approvals recorded. Authors can view but not edit a
 `partially_approved` claim.
 
 `POST /ledgers/{id}/reimbursements/{claim_id}/approve?level=N`
-records one level's approval. After each approve the system
-re-evaluates the required levels:
+SHALL record one level's approval. After each approve the system
+SHALL re-evaluate the required levels:
 
-- If all required levels are now recorded, the claim
-  transitions to `fully_approved` and the GL posting from the
+- If all required levels are now recorded, the claim MUST
+  transition to `fully_approved` and the GL posting from the
   base `expense-reimbursement` spec fires.
-- Otherwise the claim remains in `partially_approved`.
+- Otherwise the claim MUST remain in `partially_approved`.
 
-`approve` is idempotent per level: a second approve at the
+`approve` MUST be idempotent per level: a second approve at the
 same level by the same user is a no-op (`200 OK` with no
 state change); by a different user it is also a no-op (already
 recorded).

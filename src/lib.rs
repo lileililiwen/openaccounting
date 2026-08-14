@@ -479,6 +479,22 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             "/ledgers/{id}/reimbursements/{claim_id}/pay",
             post(handlers::reimbursement::pay),
         )
+        .route(
+            "/ledgers/{id}/approval-policies",
+            get(handlers::approval_policies::list),
+        )
+        .route(
+            "/ledgers/{id}/approval-policies/new",
+            get(handlers::approval_policies::new_page),
+        )
+        .route(
+            "/ledgers/{id}/approval-policies",
+            post(handlers::approval_policies::create),
+        )
+        .route(
+            "/ledgers/{id}/approval-policies/{policy_id}/delete",
+            post(handlers::approval_policies::delete),
+        )
         .route("/invitations/{id}/accept", post(handlers::sharing::accept))
         .route(
             "/invitations/{id}/decline",

@@ -12,6 +12,7 @@ mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
 mod expense_reimbursement;
+mod approval_routing;
 mod import_alipay;
 mod import_wechat;
 mod policies;

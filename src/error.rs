@@ -15,6 +15,9 @@ pub enum AppError {
     #[error("forbidden")]
     Forbidden,
 
+    #[error("forbidden: {0}")]
+    ForbiddenMsg(String),
+
     #[error("validation: {0}")]
     Validation(String),
 
@@ -63,7 +66,7 @@ impl AppError {
         match self {
             AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
-            AppError::Forbidden => StatusCode::FORBIDDEN,
+            AppError::Forbidden | AppError::ForbiddenMsg(_) => StatusCode::FORBIDDEN,
             AppError::Validation(_) | AppError::Multipart(_) => StatusCode::BAD_REQUEST,
             AppError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,

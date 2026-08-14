@@ -50,6 +50,14 @@ pub struct ClaimShowLine {
     pub advance_amount: Decimal,
 }
 
+#[derive(Debug, Clone)]
+pub struct ApprovalLevelView {
+    pub level: i32,
+    pub status: String,
+    pub approver_name: String,
+    pub approved_at: String,
+}
+
 #[derive(Template)]
 #[template(path = "reimbursements/show.html")]
 pub struct ClaimShow {
@@ -61,5 +69,15 @@ pub struct ClaimShow {
     pub claim: Claim,
     pub lines: Vec<ClaimShowLine>,
     pub total: Decimal,
+    /// Whether the current user is the claim's author. Authors only
+    /// see the aggregate approval status.
+    pub viewer_is_author: bool,
+    /// Number of required approval levels not yet recorded (author view).
+    pub pending_count: usize,
+    /// Levels the current user may approve right now (eligible and
+    /// not yet recorded).
+    pub approve_levels: Vec<i32>,
+    /// Per-level status for approvers.
+    pub approval_levels: Vec<ApprovalLevelView>,
     pub error: String,
 }

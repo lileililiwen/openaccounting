@@ -1,23 +1,27 @@
 //! HTTP handlers for the expense reimbursement module.
 
 use crate::templates::render_response;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
 use axum_login::AuthSession;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
+    domain::approval_routing,
     domain::policies::{evaluate, Policy, PolicyKind, PolicyLine, Severity, Violation},
     domain::reimbursement::{format_short_id, ClaimStatus},
     error::{AppError, AppResult},
     handlers::ledgers,
-    templates::reimbursement::{ClaimList, ClaimListRow, ClaimNew, ClaimShow, ClaimShowLine},
+    templates::reimbursement::{
+        ApprovalLevelView, ClaimList, ClaimListRow, ClaimNew, ClaimShow, ClaimShowLine,
+    },
     AppState,
 };
 
@@ -150,7 +154,10 @@ pub async fn show(
     Path((ledger_id, claim_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // Approvers (ledger members with an eligible role) must be able to
+    // view claims, so this uses `ensure_access` rather than the stricter
+    // `ensure_owner` used by the mutation handlers.
+    let (ledger, _role) = ledgers::ensure_access(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
     let lines: Vec<ClaimShowLine> = sqlx::query_as(
         r#"SELECT id, txn_date, description, amount, gl_account_id, tax_amount, advance_amount
@@ -159,7 +166,54 @@ pub async fn show(
     .bind(claim_id)
     .fetch_all(&state.pool)
     .await?;
-    let total: Decimal = lines.iter().map(|l| l.amount).sum();
+    let total: Decimal = lines.iter().map(|l| l.amount + l.tax_amount).sum();
+    let required = approval_routing::required_levels(&state.pool, ledger_id, total).await?;
+    let recorded = approval_routing::recorded_levels(&state.pool, claim_id).await?;
+    let user_count = approval_routing::ledger_user_count(&state.pool, ledger_id).await?;
+    let viewer_is_author = claim.employee_id == user.id;
+    // Approver names + timestamps for recorded levels.
+    let steps: Vec<(i32, Option<String>, Option<DateTime<Utc>>)> = sqlx::query_as(
+        r#"SELECT s.level, u.username, s.approved_at
+           FROM reimbursement_approval_steps s
+           LEFT JOIN users u ON u.id = s.approver_id
+           WHERE s.claim_id = $1 ORDER BY s.level"#,
+    )
+    .bind(claim_id)
+    .fetch_all(&state.pool)
+    .await?;
+    let step_by_level: std::collections::HashMap<i32, (Option<String>, Option<DateTime<Utc>>)> =
+        steps.into_iter().map(|(l, n, t)| (l, (n, t))).collect();
+    // Per-level status for approvers: pending or approved.
+    let mut approval_levels: Vec<ApprovalLevelView> = Vec::new();
+    // Levels the current user may approve right now.
+    let mut approve_levels: Vec<i32> = Vec::new();
+    for lvl in &required {
+        let done = recorded.contains(lvl);
+        let (approver_name, approved_at) = step_by_level.get(lvl).cloned().unwrap_or_default();
+        approval_levels.push(ApprovalLevelView {
+            level: *lvl,
+            status: if done {
+                "approved".into()
+            } else {
+                "pending".into()
+            },
+            approver_name: approver_name.unwrap_or_default(),
+            approved_at: approved_at
+                .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default(),
+        });
+        if done {
+            continue;
+        }
+        let role =
+            approval_routing::approver_role_for_level(&state.pool, ledger_id, *lvl, total).await?;
+        let eligible = approval_routing::eligible_approvers(&state.pool, ledger_id, &role).await?;
+        let can_self = user_count <= 1;
+        if eligible.contains(&user.id) && (can_self || !viewer_is_author) {
+            approve_levels.push(*lvl);
+        }
+    }
+    let pending_count = required.iter().filter(|l| !recorded.contains(l)).count();
     Ok(render_response(ClaimShow {
         user_id: user.id,
         username: user.username.clone(),
@@ -169,6 +223,10 @@ pub async fn show(
         claim,
         lines,
         total,
+        viewer_is_author,
+        pending_count,
+        approve_levels,
+        approval_levels,
         error: String::new(),
     }))
 }
@@ -342,21 +400,33 @@ pub async fn reject(
     .into_response())
 }
 
+#[derive(Deserialize, Default)]
+pub struct ApproveQuery {
+    pub level: Option<i32>,
+}
+
 pub async fn approve(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path((ledger_id, claim_id)): Path<(Uuid, Uuid)>,
+    Query(query): Query<ApproveQuery>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // Approvers are ledger members with an eligible role, so this uses
+    // `ensure_access` (owner/editor/viewer) rather than `ensure_owner`.
+    let (_ledger, _role) = ledgers::ensure_access(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
-    if !claim.status.can_transition_to(ClaimStatus::Approved) {
-        // Spec: a second approve returns 409.
-        if claim.status == ClaimStatus::Approved {
-            return Err(AppError::Conflict(
-                "claim is already approved".into(),
-            ));
-        }
+    // A claim that is already fully approved cannot be approved again.
+    if matches!(
+        claim.status,
+        ClaimStatus::FullyApproved | ClaimStatus::Approved
+    ) {
+        return Err(AppError::Conflict("claim is already approved".into()));
+    }
+    if !matches!(
+        claim.status,
+        ClaimStatus::Submitted | ClaimStatus::PartiallyApproved
+    ) {
         return Err(AppError::Validation(format!(
             "claim cannot be approved from status '{}'",
             claim.status.as_str()
@@ -367,22 +437,103 @@ pub async fn approve(
     if let Some(msg) = hard_violation_message(&policy_violations) {
         return Err(AppError::Validation(msg));
     }
+    let level = query.level.unwrap_or(1);
+    if level < 1 {
+        return Err(AppError::Validation("level must be >= 1".into()));
+    }
     let mut tx = state.pool.begin().await?;
     let total: Decimal = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(amount), 0) FROM reimbursement_lines WHERE claim_id = $1",
+        "SELECT COALESCE(SUM(amount + tax_amount), 0) FROM reimbursement_lines WHERE claim_id = $1",
     )
     .bind(claim_id)
     .fetch_one(&mut *tx)
     .await?;
+    let required = approval_routing::required_levels(&mut *tx, ledger_id, total).await?;
+    if !required.contains(&level) {
+        let _ = tx.rollback().await;
+        return Err(AppError::Validation(format!(
+            "level {level} is not required for this claim (required: {required:?})"
+        )));
+    }
+    // Idempotent per level: if this level is already recorded, no-op.
+    // This check runs before eligibility so a repeated approval at an
+    // already-recorded level is always a 200 (spec).
+    let recorded = approval_routing::recorded_levels(&mut *tx, claim_id).await?;
+    if recorded.contains(&level) {
+        let _ = tx.rollback().await;
+        return Ok((StatusCode::OK, "level already approved").into_response());
+    }
+    // Determine the role required for this level and check the caller
+    // is an eligible approver for it.
+    let role = approval_routing::approver_role_for_level(&mut *tx, ledger_id, level, total).await?;
+    let eligible = approval_routing::eligible_approvers(&mut *tx, ledger_id, &role).await?;
+    if !eligible.contains(&user.id) {
+        let _ = tx.rollback().await;
+        return Err(AppError::Forbidden);
+    }
+    // Self-approval: in a single-operator ledger (only one user) the
+    // author may approve their own claim (v1 behaviour). Otherwise the
+    // approver must differ from the author.
+    let user_count = approval_routing::ledger_user_count(&mut *tx, ledger_id).await?;
+    if user_count > 1 && claim.employee_id == user.id {
+        let _ = tx.rollback().await;
+        return Err(AppError::ForbiddenMsg(
+            "Authors cannot approve their own claims.".into(),
+        ));
+    }
+    // Record the approval step.
+    sqlx::query(
+        r#"INSERT INTO reimbursement_approval_steps (claim_id, level, approver_id)
+           VALUES ($1, $2, $3)"#,
+    )
+    .bind(claim_id)
+    .bind(level)
+    .bind(user.id)
+    .execute(&mut *tx)
+    .await?;
+    // Recompute the final status once this level is recorded.
+    let recorded = approval_routing::recorded_levels(&mut *tx, claim_id).await?;
+    let fully_approved = required.iter().all(|l| recorded.contains(l));
+    if !fully_approved {
+        // Stay in the transient partially_approved state.
+        sqlx::query(
+            r#"UPDATE reimbursement_claims
+               SET status = 'partially_approved', updated_at = now()
+               WHERE id = $1 AND ledger_id = $2"#,
+        )
+        .bind(claim_id)
+        .bind(ledger_id)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            r#"INSERT INTO reimbursement_events (claim_id, actor_id, event_type, payload)
+               VALUES ($1, $2, 'approve', $3::jsonb)"#,
+        )
+        .bind(claim_id)
+        .bind(user.id)
+        .bind(serde_json::json!({"level": level, "status": "partially_approved"}))
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let _ = audit::log(
+            &state.pool,
+            Some(ledger_id),
+            user.id,
+            "reimbursement.approve",
+            "reimbursement_claim",
+            Some(claim_id),
+            None,
+            Some(serde_json::json!({"level": level, "status": "partially_approved"})),
+        )
+        .await;
+        return Ok(
+            Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}"))
+                .into_response(),
+        );
+    }
+    // Fully approved: post the GL transaction exactly once.
     let advance_total: Decimal = sqlx::query_scalar(
         "SELECT COALESCE(SUM(advance_amount), 0) FROM reimbursement_lines WHERE claim_id = $1",
-    )
-    .bind(claim_id)
-    .fetch_one(&mut *tx)
-    .await?;
-    // Sum taxable amount for the third leg (tax).
-    let tax_total: Decimal = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(tax_amount), 0) FROM reimbursement_lines WHERE claim_id = $1",
     )
     .bind(claim_id)
     .fetch_one(&mut *tx)
@@ -396,9 +547,11 @@ pub async fn approve(
     .bind(ledger_id)
     .fetch_one(&mut *tx)
     .await
-    .map_err(|_| AppError::Internal(
-        "no EMPLOYEE_PAYABLE account in ledger; create one before approving".into()
-    ))?;
+    .map_err(|_| {
+        AppError::Internal(
+            "no EMPLOYEE_PAYABLE account in ledger; create one before approving".into(),
+        )
+    })?;
     // Group expense by GL account.
     let grouped: Vec<(Uuid, Decimal, Decimal)> = sqlx::query_as(
         r#"SELECT gl_account_id,
@@ -412,9 +565,7 @@ pub async fn approve(
     .await?;
     if grouped.is_empty() {
         let _ = tx.rollback().await;
-        return Err(AppError::Validation(
-            "no lines on claim to approve".into(),
-        ));
+        return Err(AppError::Validation("no lines on claim to approve".into()));
     }
     // Pick the earliest txn_date for the transaction.
     let (txn_date,): (NaiveDate,) = sqlx::query_as(
@@ -511,7 +662,7 @@ pub async fn approve(
     .await?;
     sqlx::query(
         r#"UPDATE reimbursement_claims
-           SET status = 'approved', approved_by = $1, approved_at = now(),
+           SET status = 'fully_approved', approved_by = $1, approved_at = now(),
                updated_at = now()
            WHERE id = $2 AND ledger_id = $3"#,
     )
@@ -526,7 +677,7 @@ pub async fn approve(
     )
     .bind(claim_id)
     .bind(user.id)
-    .bind(serde_json::json!({"txn_id": txn_id, "total": total, "tax": tax_sum}))
+    .bind(serde_json::json!({"txn_id": txn_id, "total": total, "tax": tax_sum, "level": level, "status": "fully_approved"}))
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -538,7 +689,7 @@ pub async fn approve(
         "reimbursement_claim",
         Some(claim_id),
         None,
-        Some(serde_json::json!({"txn_id": txn_id})),
+        Some(serde_json::json!({"txn_id": txn_id, "level": level, "status": "fully_approved"})),
     )
     .await;
     Ok(Redirect::to(&format!(
@@ -863,6 +1014,8 @@ async fn update_status(
     .await?;
     let event = match new_status {
         ClaimStatus::Submitted => "submit",
+        ClaimStatus::PartiallyApproved => "approve",
+        ClaimStatus::FullyApproved => "approve",
         ClaimStatus::Approved => "approve",
         ClaimStatus::Rejected => "reject",
         ClaimStatus::Paid => "pay",

@@ -2,6 +2,7 @@ pub mod account;
 pub mod accounts;
 pub mod admin;
 pub mod aging;
+pub mod approval_policies;
 pub mod audit;
 pub mod backups;
 pub mod budgets;

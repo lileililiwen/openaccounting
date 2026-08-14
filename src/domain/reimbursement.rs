@@ -9,6 +9,12 @@ use uuid::Uuid;
 pub enum ClaimStatus {
     Draft,
     Submitted,
+    /// At least one (but not all) required approval level recorded.
+    PartiallyApproved,
+    /// All required approval levels recorded; semantically replaces
+    /// `Approved`. The legacy `Approved` value stays for backward
+    /// compatibility with rows written before the routing change.
+    FullyApproved,
     Approved,
     Rejected,
     Paid,
@@ -19,6 +25,8 @@ impl ClaimStatus {
         match self {
             ClaimStatus::Draft => "draft",
             ClaimStatus::Submitted => "submitted",
+            ClaimStatus::PartiallyApproved => "partially_approved",
+            ClaimStatus::FullyApproved => "fully_approved",
             ClaimStatus::Approved => "approved",
             ClaimStatus::Rejected => "rejected",
             ClaimStatus::Paid => "paid",
@@ -28,6 +36,8 @@ impl ClaimStatus {
         match s {
             "draft" => Some(Self::Draft),
             "submitted" => Some(Self::Submitted),
+            "partially_approved" => Some(Self::PartiallyApproved),
+            "fully_approved" => Some(Self::FullyApproved),
             "approved" => Some(Self::Approved),
             "rejected" => Some(Self::Rejected),
             "paid" => Some(Self::Paid),
@@ -38,16 +48,22 @@ impl ClaimStatus {
     /// documented state machine:
     ///
     /// draft     → submitted
-    /// submitted → approved | rejected
-    /// approved  → paid
+    /// submitted → partially_approved | fully_approved | rejected
+    /// partially_approved → partially_approved | fully_approved
+    /// fully_approved → paid
+    /// approved  → paid  (legacy backward compatibility)
     /// rejected  → draft  (back to drafting a fix)
     /// paid      → (terminal)
     pub fn can_transition_to(self, target: ClaimStatus) -> bool {
         use ClaimStatus::*;
         match (self, target) {
             (Draft, Submitted) => true,
-            (Submitted, Approved) => true,
+            (Submitted, PartiallyApproved) => true,
+            (Submitted, FullyApproved) => true,
             (Submitted, Rejected) => true,
+            (PartiallyApproved, PartiallyApproved) => true,
+            (PartiallyApproved, FullyApproved) => true,
+            (FullyApproved, Paid) => true,
             (Approved, Paid) => true,
             (Rejected, Draft) => true,
             _ => false,
@@ -111,8 +127,12 @@ mod tests {
     fn state_machine_allows_document_transitions() {
         use ClaimStatus::*;
         assert!(Draft.can_transition_to(Submitted));
-        assert!(Submitted.can_transition_to(Approved));
+        assert!(Submitted.can_transition_to(PartiallyApproved));
+        assert!(Submitted.can_transition_to(FullyApproved));
         assert!(Submitted.can_transition_to(Rejected));
+        assert!(PartiallyApproved.can_transition_to(PartiallyApproved));
+        assert!(PartiallyApproved.can_transition_to(FullyApproved));
+        assert!(FullyApproved.can_transition_to(Paid));
         assert!(Approved.can_transition_to(Paid));
         assert!(Rejected.can_transition_to(Draft));
     }
@@ -127,6 +147,8 @@ mod tests {
         assert!(!Approved.can_transition_to(Submitted));
         assert!(!Paid.can_transition_to(Draft));
         assert!(!Paid.can_transition_to(Approved));
+        assert!(!Submitted.can_transition_to(Approved));
+        assert!(!FullyApproved.can_transition_to(Submitted));
     }
 
     #[test]
