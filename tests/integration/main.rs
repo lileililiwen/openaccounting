@@ -12,4 +12,5 @@ mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
 mod pwa;
+mod reconciliation_rules;
 mod smoke;

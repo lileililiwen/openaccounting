@@ -20,6 +20,7 @@ pub mod ledgers;
 pub mod payments;
 pub mod reconciliation;
 pub mod reports;
+pub mod rules;
 pub mod sharing;
 pub mod taxes;
 pub mod templates;

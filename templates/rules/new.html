@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}New Rule — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">New Reconciliation Rule</h1>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/rules" class="space-y-3 bg-white p-5 rounded-xl border border-slate-200">
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Name</span>
+      <input name="name" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Kind</span>
+      <select name="kind" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="categorize">Categorize (auto-set GL account)</option>
+        <option value="match">Match (auto-pair with existing posting)</option>
+        <option value="flag">Flag (highlight for manual review)</option>
+      </select>
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Priority (lower wins)</span>
+      <input type="number" name="priority" value="100" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Predicate (JSON)</span>
+      <textarea name="predicate" rows="4" required
+                class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono">{"payee_glob": "STARBUCKS%"}</textarea>
+      <span class="text-xs text-slate-500">Keys: <code>payee_glob</code>, <code>description_glob</code>, <code>amount_cents_eq</code>, <code>amount_cents_lt</code>, <code>amount_cents_gt</code>, <code>currency</code>. All present keys are AND-combined.</span>
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Action (JSON)</span>
+      <textarea name="action" rows="3" required
+                class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono">{"gl_account_id": ""}</textarea>
+      <span class="text-xs text-slate-500">For <code>categorize</code>: <code>{"gl_account_id": "&lt;uuid&gt;"}</code>. For <code>match</code>: <code>{"link_by_amount_date": true}</code>. For <code>flag</code>: <code>{"reason_text": "...", "flag_color": "amber"}</code>.</span>
+    </label>
+    <button class="rounded-lg bg-slate-900 text-white text-sm px-4 py-2 hover:bg-slate-800">Create Rule</button>
+  </form>
+</main>
+{% endblock %}

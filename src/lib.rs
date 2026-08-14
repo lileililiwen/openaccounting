@@ -416,6 +416,17 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             "/ledgers/{id}/share/remove/{member_id}",
             post(handlers::sharing::remove_member),
         )
+        .route("/ledgers/{id}/rules", get(handlers::rules::list))
+        .route("/ledgers/{id}/rules/new", get(handlers::rules::new_page))
+        .route("/ledgers/{id}/rules", post(handlers::rules::create))
+        .route(
+            "/ledgers/{id}/rules/{rule_id}/toggle",
+            post(handlers::rules::toggle),
+        )
+        .route(
+            "/ledgers/{id}/rules/{rule_id}/delete",
+            post(handlers::rules::delete),
+        )
         .route("/invitations/{id}/accept", post(handlers::sharing::accept))
         .route(
             "/invitations/{id}/decline",
