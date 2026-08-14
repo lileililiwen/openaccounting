@@ -5,7 +5,7 @@
 <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
   <header>
     <h1 class="text-2xl font-semibold">Import Preview</h1>
-    <p class="text-slate-500 text-sm">File: {{ filename }}</p>
+    <p class="text-slate-500 text-sm">File: {{ filename }} <span class="ml-2 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">format: {{ format }}</span></p>
   </header>
 
   {% if !error.is_empty() %}

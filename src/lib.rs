@@ -20,6 +20,7 @@ pub mod db;
 pub mod domain;
 pub mod error;
 pub mod handlers;
+pub mod import;
 pub mod reports;
 pub mod storage;
 pub mod templates;

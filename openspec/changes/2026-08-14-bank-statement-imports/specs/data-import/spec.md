@@ -101,20 +101,36 @@ as informational footer text.
 ### Requirement: Format Sniff
 
 `POST /ledgers/{id}/import` SHALL inspect the first non-blank
-line of the uploaded file and 303-redirect to the matching
-preview route:
+line of the uploaded file and dispatch to the matching
+parser:
 
-| First non-blank line             | Redirect target                       |
+| First non-blank line             | Parser                                 |
 |----------------------------------|----------------------------------------|
-| `OFXHEADER:`                     | `/ledgers/{id}/import/ofx`             |
-| `<?xml version=` AND contains `<OFX>` | `/ledgers/{id}/import/ofx`        |
-| `!Type:`                          | `/ledgers/{id}/import/qif`             |
-| `:20:` followed by `:25:` AND `:60F:` or `:60M:` | `/ledgers/{id}/import/mt940` |
-| (otherwise)                      | generic CSV preview (existing)         |
+| `OFXHEADER:`                     | `import::ofx::parse`                    |
+| `<?xml version=` AND contains `<OFX>` | `import::ofx::parse` (XML variant) |
+| `!Type:`                          | `import::qif::parse`                    |
+| `:20:` followed by `:25:` AND `:60F:` or `:60M:` | `import::mt940::parse`         |
+| (otherwise)                      | generic CSV reader (existing)           |
 
-If sniffing fails the handler returns `400 Bad Request` with
-the body `Unrecognized file format. Accepted: CSV, OFX (SGML
-or XML), QIF, MT940, WeChat Pay, Alipay.`
+The single preview page is rendered with a `format: <name>`
+chip so the user knows which parser produced the rows. The
+implementation MAY also 303-redirect to a per-format URL; the
+spec is satisfied as long as the same preview payload is
+returned.
+
+#### Scenario: QFX file dispatches to OFX
+
+- **WHEN** the user uploads a file whose first non-blank line
+  is `OFXHEADER:100`
+- **THEN** the handler renders the preview using
+  `import::ofx::parse` and the `format` chip reads `ofx`.
+
+#### Scenario: Unknown file format falls through to CSV
+
+- **WHEN** the user uploads a file whose first non-blank line
+  is `date,description,amount`
+- **THEN** the existing CSV reader is used and the `format`
+  chip reads `csv`.
 
 ### Requirement: Cross-Format Dedup
 
@@ -124,3 +140,10 @@ across all importers (CSV, OFX, QIF, MT940, WeChat, Alipay).
 A row whose fingerprint matches a transaction already in the
 ledger is marked `is_duplicate=true` regardless of source
 format.
+
+#### Scenario: Re-imported QIF row is marked duplicate
+
+- **WHEN** the user commits a QIF file containing a row whose
+  `(date, amount, payee)` already exists in the ledger
+- **THEN** the row's `is_duplicate` flag is `true` and the
+  commit step skips it (the row is not inserted twice).

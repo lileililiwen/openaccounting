@@ -25,6 +25,10 @@ pub struct ImportPreview {
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub filename: String,
+    /// "csv", "ofx", "qif", or "mt940". Shown in the preview
+    /// header so the user knows which parser produced the
+    /// rows.
+    pub format: String,
     pub headers: Vec<String>,
     pub rows: Vec<ParsedRow>,
     pub accounts: Vec<Account>,
