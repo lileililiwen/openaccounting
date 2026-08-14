@@ -18,7 +18,7 @@ path = "src/main.rs"
 # in production builds. The integration test in `tests/integration`
 # enables this feature via `required-features` below.
 default = []
-test-support = ["dep:reqwest", "dep:postgres", "dep:tempfile"]
+test-support = ["dep:postgres", "dep:tempfile"]
 
 [profile.release]
 opt-level = "z"
@@ -92,6 +92,12 @@ hex = "0.4"
 encoding_rs = "0.8"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
+# Bank feeds: AES-256-GCM encryption of provider tokens + HTTP provider clients.
+aes-gcm = "0.10"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false,
+            features = ["json", "rustls-tls", "cookies", "multipart"] }
+
 # Receipt OCR: tesseract-plumbing provides safe Rust bindings to libtesseract.
 # Our TesseractEngine shells out via tokio::process::Command instead of the
 # FFI bindings so that the binary doesn't require libtesseract at link time.
@@ -101,15 +107,12 @@ tesseract-plumbing = { version = "0.11", optional = true }
 # Optional dependencies used by the test-support module.
 # The `test-support` feature above flips these on. They are
 # absent from the production binary.
-reqwest = { version = "0.12", optional = true, default-features = false,
-            features = ["json", "rustls-tls", "cookies", "multipart"] }
 postgres = { version = "0.19", optional = true, default-features = false }
 tempfile = { version = "3", optional = true }
 
 [dev-dependencies]
-# Test HTTP client (per-test server drives the real axum router).
-# Re-exports the same crate as the lib's optional reqwest so the
-# integration test binary doesn't pull in a second copy.
+# reqwest is already a non-optional dep; re-declare for dev to get the
+# same features (cookie_store is needed for the test client).
 reqwest = { version = "0.12", default-features = false,
             features = ["json", "rustls-tls", "cookies", "multipart"] }
 # Sandboxes for the per-test DOCUMENTS_DIR.

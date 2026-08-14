@@ -14,6 +14,7 @@
 
 pub mod audit;
 pub mod auth;
+pub mod bank_feeds;
 pub mod charts;
 pub mod config;
 pub mod db;
@@ -25,6 +26,7 @@ pub mod ocr;
 pub mod reports;
 pub mod storage;
 pub mod templates;
+pub mod workers;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
@@ -144,6 +146,11 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
     // ServeDir handle the rest of the static tree.
     let sw_path = static_path.join("sw.js");
     let public = Router::new()
+        // Unauthenticated webhook endpoints (provider-signed).
+        .route(
+            "/ledgers/{id}/webhooks/plaid",
+            post(handlers::bank_feeds::webhook_plaid),
+        )
         .route("/", get(handlers::dashboard::redirect_to_first_ledger))
         .route(
             "/login",
@@ -218,6 +225,19 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         .route(
             "/ledgers/{id}/documents/{doc_id}/ocr/apply",
             post(handlers::document_ocr::apply),
+        )
+        .route("/ledgers/{id}/bank-feeds", get(handlers::bank_feeds::list))
+        .route(
+            "/ledgers/{id}/bank-feeds/link",
+            get(handlers::bank_feeds::link_page).post(handlers::bank_feeds::link_submit),
+        )
+        .route(
+            "/ledgers/{id}/bank-feeds/{link_id}/sync",
+            post(handlers::bank_feeds::sync),
+        )
+        .route(
+            "/ledgers/{id}/bank-feeds/{link_id}/unlink",
+            post(handlers::bank_feeds::unlink),
         )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
         .route(
@@ -546,6 +566,14 @@ pub async fn run() -> anyhow::Result<()> {
         pool: pool.clone(),
         storage,
     };
+
+    // Start the background bank-feed sync worker.
+    let sync_interval = std::env::var("BANK_FEEDS_SYNC_INTERVAL_HOURS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(6);
+    tokio::spawn(workers::sync::run_sync_loop(state.clone(), sync_interval));
+
     let app_config = AppConfig::new(cfg.app_secret)?;
     let app = build_router(state, app_config);
 

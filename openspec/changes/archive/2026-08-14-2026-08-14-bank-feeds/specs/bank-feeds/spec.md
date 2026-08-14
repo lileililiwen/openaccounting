@@ -5,26 +5,25 @@
 Define the pluggable provider interface and the lifecycle for
 live bank-feed synchronization.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Provider Trait
+
+The system SHALL expose a `Provider` trait:
 
 ```rust
 #[async_trait]
 pub trait BankFeedProvider: Send + Sync {
     fn id(&self) -> &'static str;            // "plaid", etc.
     fn label(&self) -> &'static str;         // "Plaid"
-    async fn list_institutions(&self) -> Result<Vec<Institution>>;
     async fn exchange_public_token(&self, public_token: &str)
         -> Result<AccessTokens>;
-    async fn list_accounts(&self, access: &AccessTokens)
-        -> Result<Vec<ProviderAccount>>;
     async fn fetch_transactions(&self, access: &AccessTokens,
         cursor: Option<&str>) -> Result<TransactionPage>;
 }
 ```
 
-v1 ships five adapters: `plaid`, `gocardless`, `salt_edge`,
+v1 MUST ship five adapters: `plaid`, `gocardless`, `salt_edge`,
 `simplefin`, `manual`. Each adapter is selected via
 `BANK_FEED_PROVIDER` env var; the binary uses one provider at
 a time.
@@ -38,13 +37,10 @@ a time.
 
 ### Requirement: Link Lifecycle
 
-`POST /ledgers/{id}/bank-feeds/{provider}/link` begins the
-OAuth / public-token handshake. The provider returns a redirect
-URL; the user authorizes; the provider posts back to a
-provider-specific callback route with the public token; the
-handler exchanges it for `access_token` + `refresh_token`,
-encrypts both, stores them in `bank_feed_links`, and 303s to
-`/ledgers/{id}/bank-feeds/{link_id}`.
+`POST /ledgers/{id}/bank-feeds/link` SHALL begin the
+OAuth / public-token handshake. The handler MUST exchange the
+public token for an `access_token`, encrypt it, store it in
+`bank_feed_links`, and 303 to `/ledgers/{id}/bank-feeds`.
 
 #### Scenario: Plaid link round-trip
 
@@ -98,10 +94,9 @@ configurable via `BANK_FEEDS_SYNC_INTERVAL_HOURS`). For each
 
 ### Requirement: Manual Sync
 
-`POST /ledgers/{id}/bank-feeds/{link_id}/sync` triggers an
-immediate sync (the worker also runs in-line). The response
-is `303 See Other` to the link detail page with a flash
-message `Synced N transactions.`.
+`POST /ledgers/{id}/bank-feeds/{link_id}/sync` SHALL trigger an
+immediate sync. The response MUST be `303 See Other` to the
+bank-feeds list page.
 
 #### Scenario: Manual sync succeeds
 
@@ -111,11 +106,10 @@ message `Synced N transactions.`.
 
 ### Requirement: Unlink
 
-`POST /ledgers/{id}/bank-feeds/{link_id}/unlink` sets
-`status='unlinked'`, deletes the encrypted tokens, and 303s to
-the bank-feeds list page. Historical transactions imported
-via this link are NOT deleted (they remain in the ledger
-with a `bank_feed_link_id` reference for traceability).
+`POST /ledgers/{id}/bank-feeds/{link_id}/unlink` SHALL set
+`status='disconnected'`, clear the encrypted tokens, and 303
+to the bank-feeds list page. Historical transactions MUST NOT
+be deleted (they remain in the ledger for traceability).
 
 #### Scenario: Unlink preserves imported transactions
 

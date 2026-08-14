@@ -5,6 +5,7 @@ pub mod aging;
 pub mod approval_policies;
 pub mod audit;
 pub mod backups;
+pub mod bank_feeds;
 pub mod budgets;
 pub mod closing;
 pub mod contacts;

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Bank Feeds — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Bank Feeds</h1>
+      <p class="text-slate-500 text-sm">Linked bank accounts in {{ ledger_name }}</p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/bank-feeds/link"
+       class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-700">
+      + Link Account
+    </a>
+  </header>
+
+  {% if links.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No bank accounts linked yet.
+      <a href="/ledgers/{{ ledger_id }}/bank-feeds/link" class="underline ml-1">Link one now</a>
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Provider</th>
+            <th class="text-left px-4 py-2">Account</th>
+            <th class="text-left px-4 py-2">Status</th>
+            <th class="text-left px-4 py-2">Last Sync</th>
+            <th class="text-right px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for l in links %}
+            <tr>
+              <td class="px-4 py-2 font-medium text-slate-800 capitalize">{{ l.provider }}</td>
+              <td class="px-4 py-2 text-slate-600 text-xs">
+                {% if let Some(inst) = l.institution_id %}{{ inst }}{% else %}—{% endif %}
+              </td>
+              <td class="px-4 py-2">
+                {% if l.status == "active" %}
+                  <span class="text-xs rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">Active</span>
+                {% else if l.status == "error" %}
+                  <span class="text-xs rounded-full bg-rose-100 text-rose-700 px-2 py-0.5">Error</span>
+                {% else %}
+                  <span class="text-xs rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">Disconnected</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2 text-slate-500 text-xs tabular">
+                {% if let Some(t) = l.last_synced_at %}{{ t }}{% else %}Never{% endif %}
+              </td>
+              <td class="px-4 py-2 text-right space-x-2">
+                <form method="post" action="/ledgers/{{ ledger_id }}/bank-feeds/{{ l.id }}/sync" class="inline">
+                  <button class="text-sky-600 hover:underline text-xs">Sync</button>
+                </form>
+                <form method="post" action="/ledgers/{{ ledger_id }}/bank-feeds/{{ l.id }}/unlink" class="inline"
+                      onsubmit="return confirm('Unlink this account? Existing transactions are kept.')">
+                  <button class="text-rose-600 hover:underline text-xs">Unlink</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

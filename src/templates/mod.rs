@@ -5,6 +5,7 @@ pub mod approval_policies;
 pub mod audit;
 pub mod auth;
 pub mod backups;
+pub mod bank_feeds;
 pub mod budgets;
 pub mod common;
 pub mod contacts;
