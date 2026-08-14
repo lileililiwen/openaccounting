@@ -1,0 +1,22 @@
+{
+  "name": "openaccounting-mobile",
+  "version": "0.1.0",
+  "description": "OpenAccounting native mobile shell (iOS + Android via Capacitor)",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "build:android": "cap sync && cd android && ./gradlew assembleDebug",
+    "build:ios": "cap sync && cd ios && xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphonesimulator"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/push-notifications": "^6.0.0",
+    "@capacitor-community/camera": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "typescript": "^5.0.0"
+  }
+}

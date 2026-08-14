@@ -1,0 +1,76 @@
+name: Mobile Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-android:
+    name: Android Debug APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Capacitor sync (no native build)
+        run: npx cap sync android --no-open
+        env:
+          OPENACCOUNTING_SERVER_URL: ${{ vars.OPENACCOUNTING_SERVER_URL || 'https://localhost:3000' }}
+
+      - name: Build Android APK
+        run: npm run build:android
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openaccounting-android-${{ github.ref_name }}.apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+
+  build-ios:
+    name: iOS (simulator)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Capacitor sync
+        run: npx cap sync ios --no-open
+        env:
+          OPENACCOUNTING_SERVER_URL: ${{ vars.OPENACCOUNTING_SERVER_URL || 'https://localhost:3000' }}
+
+      - name: Build iOS (simulator)
+        run: npm run build:ios

@@ -10,6 +10,7 @@ mod common;
 mod approval_routing;
 mod bank_feeds;
 mod bank_statement_imports;
+mod notifications;
 mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;

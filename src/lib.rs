@@ -22,6 +22,7 @@ pub mod domain;
 pub mod error;
 pub mod handlers;
 pub mod import;
+pub mod notifications;
 pub mod ocr;
 pub mod reports;
 pub mod storage;
@@ -523,6 +524,14 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         .route(
             "/ledgers/{id}/approval-policies/{policy_id}/delete",
             post(handlers::approval_policies::delete),
+        )
+        .route(
+            "/devices/register",
+            post(handlers::notifications::register),
+        )
+        .route(
+            "/devices/unregister",
+            post(handlers::notifications::unregister),
         )
         .route("/invitations/{id}/accept", post(handlers::sharing::accept))
         .route(

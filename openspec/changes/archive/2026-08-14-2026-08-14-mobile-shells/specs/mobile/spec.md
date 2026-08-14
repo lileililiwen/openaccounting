@@ -5,7 +5,7 @@
 Define the native mobile shells (iOS, Android) that wrap the
 existing web UI via Capacitor.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Capacitor Project
 
@@ -110,14 +110,14 @@ desktop web app. There SHALL NOT be a separate mobile UI.
 
 Define the server-side push notification pipeline.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Device Registration
 
-`POST /devices/register` accepts `{ token: string, platform:
-"ios" | "android" }` and stores it in `device_tokens`
+`POST /devices/register` MUST accept `{ token: string, platform:
+"ios" | "android" }` and store it in `device_tokens`
 (`id, user_id, token, platform, last_seen_at`). The handler
-requires authentication.
+SHALL require authentication.
 
 #### Scenario: User registers their device
 
@@ -156,10 +156,10 @@ title `"Bank feed sync"`, body `"<N> new transactions on
 
 ### Requirement: Push Provider Pluggability
 
-The notifications module exposes a `Notifier` trait with two
+The notifications module SHALL expose a `Notifier` trait with two
 implementations in v1: `ApnsNotifier` (iOS) and
-`FcmNotifier` (Android). The implementation is selected by
-`PUSH_PROVIDER` env var (`apns | fcm | none`); `none` disables
+`FcmNotifier` (Android). The implementation MUST be selected by
+`PUSH_PROVIDER` env var (`apns | fcm | none`); `none` SHALL disable
 pushes without breaking the routes.
 
 #### Scenario: Push disabled in dev

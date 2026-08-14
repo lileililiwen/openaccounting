@@ -12,6 +12,7 @@ pub mod contacts;
 pub mod dashboard;
 pub mod document_ocr;
 pub mod documents;
+pub mod notifications;
 pub mod entities;
 pub mod fixed_assets;
 pub mod import;
