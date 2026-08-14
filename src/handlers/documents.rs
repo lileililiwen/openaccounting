@@ -11,11 +11,11 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::Document,
     error::{AppError, AppResult},
-    handlers::ledgers,
+    handlers::{document_ocr, ledgers},
     templates::documents::{DocumentList, DocumentWithTxn},
     AppState,
 };
@@ -26,6 +26,8 @@ struct DocWithTxn {
     pub doc: Document,
     pub transaction_date: NaiveDate,
     pub transaction_description: String,
+    /// Derived from `document_ocr_results`: `"done"`, `"failed"`, `"pending"`, or `""`.
+    pub ocr_status: String,
 }
 
 impl From<DocWithTxn> for DocumentWithTxn {
@@ -39,6 +41,7 @@ impl From<DocWithTxn> for DocumentWithTxn {
             transaction_id: row.doc.transaction_id,
             transaction_date: row.transaction_date,
             transaction_description: row.transaction_description,
+            ocr_status: row.ocr_status,
         }
     }
 }
@@ -81,9 +84,17 @@ pub async fn list(
 
     let rows = sqlx::query_as::<_, DocWithTxn>(
         r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at,
-                  t.txn_date AS transaction_date, t.description AS transaction_description
+                  t.txn_date AS transaction_date, t.description AS transaction_description,
+                  COALESCE(
+                      CASE
+                          WHEN o.error_message IS NOT NULL THEN 'failed'
+                          WHEN o.id IS NOT NULL             THEN 'done'
+                          ELSE ''
+                      END, ''
+                  ) AS ocr_status
            FROM documents d
            JOIN transactions t ON t.id = d.transaction_id
+           LEFT JOIN document_ocr_results o ON o.document_id = d.id
            WHERE t.ledger_id = $1
                  AND ($2::text IS NULL OR d.filename ILIKE '%' || $2 || '%')
                  AND ($3::text IS NULL OR d.category = $3)
@@ -115,8 +126,10 @@ pub async fn upload(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path((ledger_id, txn_id)): Path<(Uuid, Uuid)>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
     mut multipart: Multipart,
 ) -> AppResult<Response> {
+    let skip_ocr = query.get("ocr").map(|v| v == "false").unwrap_or(false);
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     // Confirm transaction belongs to this ledger.
@@ -140,13 +153,23 @@ pub async fn upload(
     {
         let name = field.name().unwrap_or("").to_string();
         if name == "category" {
-            let v = field.text().await.map_err(|e| AppError::Multipart(e.to_string()))?;
+            let v = field
+                .text()
+                .await
+                .map_err(|e| AppError::Multipart(e.to_string()))?;
             category = v;
             continue;
         }
         if name == "tags" {
-            let v = field.text().await.map_err(|e| AppError::Multipart(e.to_string()))?;
-            tags = v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let v = field
+                .text()
+                .await
+                .map_err(|e| AppError::Multipart(e.to_string()))?;
+            tags = v
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
             continue;
         }
         if name != "file" {
@@ -235,6 +258,12 @@ pub async fn upload(
             })),
         )
         .await;
+
+        // Enqueue OCR in background for image and PDF files
+        // unless the caller explicitly opts out with ?ocr=false.
+        if !skip_ocr && (mime.starts_with("image/") || mime == "application/pdf") {
+            document_ocr::enqueue_ocr(state.clone(), doc_id, buf.clone(), mime.clone());
+        }
 
         count += 1;
     }

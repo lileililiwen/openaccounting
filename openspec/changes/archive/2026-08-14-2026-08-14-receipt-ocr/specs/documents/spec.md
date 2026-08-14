@@ -71,10 +71,10 @@ On success the handler:
 
 ### Requirement: Skip OCR
 
-`POST /ledgers/{id}/documents` accepts an optional form field
-`ocr=false` (default `true`). When `false`, the upload
-completes without enqueuing an OCR job; no
-`document_ocr_results` row is created.
+`POST /ledgers/{id}/documents` MUST accept an optional query
+parameter `ocr=false` (default `true`). When `false`, the
+upload SHALL complete without enqueuing an OCR job; no
+`document_ocr_results` row SHALL be created.
 
 #### Scenario: Bulk PDF upload without OCR
 
@@ -86,7 +86,7 @@ completes without enqueuing an OCR job; no
 
 ### Requirement: OCR Engine Pluggability
 
-The OCR module exposes a trait:
+The OCR module SHALL expose a trait:
 
 ```rust
 #[async_trait]
@@ -96,8 +96,8 @@ pub trait OcrEngine: Send + Sync {
 }
 ```
 
-v1 ships one implementation: `TesseractEngine`. Future
-implementations (cloud providers) plug into the same trait.
+v1 MUST ship one implementation: `TesseractEngine`. Future
+implementations (cloud providers) SHALL plug into the same trait.
 
 #### Scenario: Default engine is Tesseract
 

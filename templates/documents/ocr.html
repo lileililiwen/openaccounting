@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}OCR — {{ filename }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Receipt OCR</h1>
+      <p class="text-slate-500 text-sm truncate max-w-xs">{{ filename }}</p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/documents" class="text-sm text-slate-500 hover:underline">← Documents</a>
+  </header>
+
+  {% if let Some(r) = result %}
+    {% if let Some(err) = r.error_message %}
+      <div class="rounded-xl bg-rose-50 border border-rose-200 p-4 text-rose-700 text-sm">
+        <strong>OCR failed:</strong> {{ err }}
+      </div>
+    {% else %}
+      <div class="rounded-xl bg-white border border-slate-200 divide-y divide-slate-100">
+        <div class="px-4 py-3 flex justify-between text-sm">
+          <span class="text-slate-500">Merchant</span>
+          <span class="font-medium text-slate-800">
+            {% if let Some(m) = r.merchant %}{{ m }}{% else %}<em class="text-slate-400">not detected</em>{% endif %}
+          </span>
+        </div>
+        <div class="px-4 py-3 flex justify-between text-sm">
+          <span class="text-slate-500">Amount</span>
+          <span class="font-medium tabular text-slate-800">
+            {% if let Some(a) = r.amount %}{{ a }}{% else %}<em class="text-slate-400">not detected</em>{% endif %}
+          </span>
+        </div>
+        <div class="px-4 py-3 flex justify-between text-sm">
+          <span class="text-slate-500">Date</span>
+          <span class="font-medium tabular text-slate-800">
+            {% if let Some(d) = r.txn_date %}{{ d }}{% else %}<em class="text-slate-400">not detected</em>{% endif %}
+          </span>
+        </div>
+        <div class="px-4 py-3 flex justify-between text-sm">
+          <span class="text-slate-500">Confidence</span>
+          <span class="tabular text-slate-600">{{ r.confidence }}%</span>
+        </div>
+      </div>
+
+      <details class="rounded-xl border border-slate-200 bg-white">
+        <summary class="px-4 py-3 text-sm cursor-pointer text-slate-600">Raw OCR text</summary>
+        <pre class="px-4 pb-4 text-xs text-slate-700 whitespace-pre-wrap break-words">{{ r.raw_text }}</pre>
+      </details>
+
+      {% if let Some(claim_id) = r.claim_id %}
+        <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ document_id }}/ocr/apply">
+          <input type="hidden" name="claim_id" value="{{ claim_id }}" />
+          <button class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-sm font-semibold">
+            Apply to Reimbursement Claim
+          </button>
+        </form>
+      {% endif %}
+    {% endif %}
+  {% else %}
+    <div class="rounded-xl bg-amber-50 border border-amber-200 p-6 text-center">
+      <p class="text-amber-700 font-medium">OCR pending…</p>
+      <p class="text-sm text-amber-600 mt-1">The receipt is being processed. Refresh this page in a moment.</p>
+      <a href="/ledgers/{{ ledger_id }}/documents/{{ document_id }}/ocr"
+         class="inline-block mt-4 text-sm text-amber-700 underline">
+        Refresh
+      </a>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

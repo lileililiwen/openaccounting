@@ -52,7 +52,8 @@ pub fn detect(content: &str) -> Format {
     }
     // MT940: the file must have a `:20:`, a `:25:`, and an
     // opening balance marker (`:60F:` or `:60M:`).
-    if content.contains(":20:") && content.contains(":25:")
+    if content.contains(":20:")
+        && content.contains(":25:")
         && (content.contains(":60F:") || content.contains(":60M:"))
     {
         return Format::Mt940;

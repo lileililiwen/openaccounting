@@ -28,14 +28,13 @@ async fn make_ledger(server: &TestServer) -> Uuid {
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }
 
@@ -113,10 +112,7 @@ async fn http_create_draft_claim() {
     let ledger_id = make_ledger(&server).await;
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{ledger_id}/reimbursements",
-            server.base_url()
-        ),
+        &format!("{}/ledgers/{ledger_id}/reimbursements", server.base_url()),
         &cookie,
         &[
             ("title", "Trip to NYC"),
@@ -154,10 +150,7 @@ async fn http_create_claim_currency_mismatch() {
     let ledger_id = make_ledger(&server).await;
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{ledger_id}/reimbursements",
-            server.base_url()
-        ),
+        &format!("{}/ledgers/{ledger_id}/reimbursements", server.base_url()),
         &cookie,
         &[
             ("title", "Trip"),
@@ -171,7 +164,6 @@ async fn http_create_claim_currency_mismatch() {
     assert_eq!(status, 400, "currency mismatch should 400; body={body}");
     assert!(body.contains("currency mismatch"));
 }
-
 
 #[tokio::test]
 async fn http_submit_empty_claim() {

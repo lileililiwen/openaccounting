@@ -87,20 +87,23 @@ async fn compute_aging(
     .await?;
 
     // Group by contact
-    let mut by_contact: std::collections::HashMap<Uuid, AgingBucketData> = std::collections::HashMap::new();
+    let mut by_contact: std::collections::HashMap<Uuid, AgingBucketData> =
+        std::collections::HashMap::new();
 
     for (contact_id, contact_name, due_date, outstanding) in invoices {
         let days_overdue = (today - due_date).num_days();
 
-        let bucket = by_contact.entry(contact_id).or_insert_with(|| AgingBucketData {
-            contact_name,
-            current: Decimal::ZERO,
-            days_1_30: Decimal::ZERO,
-            days_31_60: Decimal::ZERO,
-            days_61_90: Decimal::ZERO,
-            days_90_plus: Decimal::ZERO,
-            total: Decimal::ZERO,
-        });
+        let bucket = by_contact
+            .entry(contact_id)
+            .or_insert_with(|| AgingBucketData {
+                contact_name,
+                current: Decimal::ZERO,
+                days_1_30: Decimal::ZERO,
+                days_31_60: Decimal::ZERO,
+                days_61_90: Decimal::ZERO,
+                days_90_plus: Decimal::ZERO,
+                total: Decimal::ZERO,
+            });
 
         if days_overdue <= 0 {
             bucket.current += outstanding;

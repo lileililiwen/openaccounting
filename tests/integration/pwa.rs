@@ -46,9 +46,9 @@ async fn http_manifest_fetches_correctly() {
         "512x512 icon missing"
     );
     assert!(
-        icons.iter().any(|i| {
-            i["sizes"] == "512x512" && i["purpose"] == "maskable"
-        }),
+        icons
+            .iter()
+            .any(|i| { i["sizes"] == "512x512" && i["purpose"] == "maskable" }),
         "maskable 512x512 icon missing"
     );
 }

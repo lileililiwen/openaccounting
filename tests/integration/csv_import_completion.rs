@@ -33,14 +33,13 @@ async fn make_ledger(server: &TestServer) -> Uuid {
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }
 
@@ -108,11 +107,7 @@ async fn http_csv_import_creates_n_transactions() {
 
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{}/import/confirm",
-            server.base_url(),
-            ledger_id
-        ),
+        &format!("{}/ledgers/{}/import/confirm", server.base_url(), ledger_id),
         &cookie,
         &[
             ("filename", "items.csv"),
@@ -134,13 +129,11 @@ async fn http_csv_import_creates_n_transactions() {
         "should redirect; got {status} body={body}"
     );
 
-    let (count,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
+        .bind(ledger_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count, 12, "expected 12 transactions, got {count}");
 }
 
@@ -168,11 +161,7 @@ async fn http_csv_import_rolls_back_on_bad_date() {
 
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{}/import/confirm",
-            server.base_url(),
-            ledger_id
-        ),
+        &format!("{}/ledgers/{}/import/confirm", server.base_url(), ledger_id),
         &cookie,
         &[
             ("filename", "items.csv"),
@@ -188,13 +177,11 @@ async fn http_csv_import_rolls_back_on_bad_date() {
     assert_eq!(status, 422, "bad-date batch should return 422");
     assert!(body.contains("rolled back"), "body should explain: {body}");
 
-    let (count,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
+        .bind(ledger_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count, 0, "expected 0 committed on rollback");
 }
 
@@ -208,19 +195,13 @@ async fn http_csv_import_rejects_both_debit_and_credit() {
     let ledger_id = make_ledger(&server).await;
     let other = account_id(&pool, ledger_id, "Other Expense").await;
 
-    let csv = format!(
-        "{CSV_HEADER}2026-08-01,Bad,10.00,10.00,,X,\n"
-    );
+    let csv = format!("{CSV_HEADER}2026-08-01,Bad,10.00,10.00,,X,\n");
     let parsed = openaccounting::import::csv::parse(&csv);
     let rows_json = serde_json::to_string(&parsed).unwrap();
 
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{}/import/confirm",
-            server.base_url(),
-            ledger_id
-        ),
+        &format!("{}/ledgers/{}/import/confirm", server.base_url(), ledger_id),
         &cookie,
         &[
             ("filename", "items.csv"),
@@ -256,19 +237,13 @@ async fn http_csv_import_unresolved_account_falls_back() {
 
     // Row has an empty `account` column; the handler should use
     // `default_account_id` (the `Other Expense` account).
-    let csv = format!(
-        "{CSV_HEADER}2026-08-01,NoAccount,10.00,,,Payee,\n"
-    );
+    let csv = format!("{CSV_HEADER}2026-08-01,NoAccount,10.00,,,Payee,\n");
     let parsed = openaccounting::import::csv::parse(&csv);
     let rows_json = serde_json::to_string(&parsed).unwrap();
 
     let resp = post_form(
         server.client(),
-        &format!(
-            "{}/ledgers/{}/import/confirm",
-            server.base_url(),
-            ledger_id
-        ),
+        &format!("{}/ledgers/{}/import/confirm", server.base_url(), ledger_id),
         &cookie,
         &[
             ("filename", "items.csv"),

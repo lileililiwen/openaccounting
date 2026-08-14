@@ -10,8 +10,8 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::{Contact, Invoice},
     error::{AppError, AppResult},
     handlers::ledgers,
@@ -43,11 +43,12 @@ pub async fn list(
     // Get contact names
     let mut invoices_with_contacts = Vec::new();
     for inv in invoices {
-        let contact_name: Option<String> = sqlx::query_scalar("SELECT name FROM contacts WHERE id = $1")
-            .bind(inv.contact_id)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+        let contact_name: Option<String> =
+            sqlx::query_scalar("SELECT name FROM contacts WHERE id = $1")
+                .bind(inv.contact_id)
+                .fetch_optional(&state.pool)
+                .await
+                .unwrap_or(None);
         invoices_with_contacts.push((inv, contact_name.unwrap_or_default()));
     }
 
@@ -136,11 +137,15 @@ pub async fn create(
     let due_date = NaiveDate::parse_from_str(&form.due_date, "%Y-%m-%d")
         .map_err(|_| AppError::Validation("Invalid due date".into()))?;
 
-    let total: Decimal = form.total.parse()
+    let total: Decimal = form
+        .total
+        .parse()
         .map_err(|_| AppError::Validation("Invalid total amount".into()))?;
 
     if total <= Decimal::ZERO {
-        return Err(AppError::Validation("Total must be greater than zero".into()));
+        return Err(AppError::Validation(
+            "Total must be greater than zero".into(),
+        ));
     }
 
     let result = sqlx::query(

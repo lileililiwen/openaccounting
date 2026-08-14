@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::{Account, AccountSubtype, AccountType},
     error::{AppError, AppResult},
     handlers::ledgers,

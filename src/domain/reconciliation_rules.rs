@@ -155,16 +155,25 @@ pub fn first_match<'a>(rules: &'a [Rule], line: &Line) -> Option<(&'a Rule, Appl
 
 #[derive(Clone, Debug)]
 pub enum AppliedAction {
-    Categorize { gl_account_id: Uuid },
-    Match { link_by_amount_date: bool },
-    Flag { reason_text: String, flag_color: String },
+    Categorize {
+        gl_account_id: Uuid,
+    },
+    Match {
+        link_by_amount_date: bool,
+    },
+    Flag {
+        reason_text: String,
+        flag_color: String,
+    },
 }
 
 impl AppliedAction {
     pub fn from(value: &Value) -> Self {
         if let Some(id) = value.get("gl_account_id").and_then(|v| v.as_str()) {
             if let Ok(uuid) = Uuid::parse_str(id) {
-                return Self::Categorize { gl_account_id: uuid };
+                return Self::Categorize {
+                    gl_account_id: uuid,
+                };
             }
         }
         if value

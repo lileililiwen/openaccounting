@@ -105,14 +105,13 @@ async fn make_ledger(server: &TestServer) -> Uuid {
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }
 
@@ -123,8 +122,7 @@ async fn upload_file(
     filename: &str,
     content: &str,
 ) -> reqwest::Response {
-    let part = reqwest::multipart::Part::text(content.to_string())
-        .file_name(filename.to_string());
+    let part = reqwest::multipart::Part::text(content.to_string()).file_name(filename.to_string());
     let form = reqwest::multipart::Form::new()
         .text("filename", filename.to_string())
         .part("file", part);
@@ -149,14 +147,7 @@ async fn http_qfx_upload_previews_one_row() {
         .bootstrap_user("alice", "alice@example.com", "correct horse battery staple")
         .await;
     let ledger_id = make_ledger(&server).await;
-    let resp = upload_file(
-        &server,
-        &cookie,
-        ledger_id,
-        "statement.qfx",
-        QFX_SAMPLE,
-    )
-    .await;
+    let resp = upload_file(&server, &cookie, ledger_id, "statement.qfx", QFX_SAMPLE).await;
     let status = resp.status();
     let body = resp.text().await.expect("body");
     assert_eq!(status, 200);
@@ -174,14 +165,7 @@ async fn http_qif_upload_previews_two_rows() {
         .bootstrap_user("bob", "bob@example.com", "correct horse battery staple")
         .await;
     let ledger_id = make_ledger(&server).await;
-    let resp = upload_file(
-        &server,
-        &cookie,
-        ledger_id,
-        "statement.qif",
-        QIF_SAMPLE,
-    )
-    .await;
+    let resp = upload_file(&server, &cookie, ledger_id, "statement.qif", QIF_SAMPLE).await;
     let status = resp.status();
     let body = resp.text().await.expect("body");
     assert_eq!(status, 200);
@@ -197,14 +181,7 @@ async fn http_mt940_upload_previews_two_rows() {
         .bootstrap_user("carol", "carol@example.com", "correct horse battery staple")
         .await;
     let ledger_id = make_ledger(&server).await;
-    let resp = upload_file(
-        &server,
-        &cookie,
-        ledger_id,
-        "statement.sta",
-        MT940_SAMPLE,
-    )
-    .await;
+    let resp = upload_file(&server, &cookie, ledger_id, "statement.sta", MT940_SAMPLE).await;
     let status = resp.status();
     let body = resp.text().await.expect("body");
     assert_eq!(status, 200);
@@ -222,14 +199,7 @@ async fn http_qfx_commit_creates_transactions() {
         .await;
     let ledger_id = make_ledger(&server).await;
     let cash = account_id(&pool, ledger_id, "Cash on Hand").await;
-    let resp = upload_file(
-        &server,
-        &cookie,
-        ledger_id,
-        "statement.qfx",
-        QFX_SAMPLE,
-    )
-    .await;
+    let resp = upload_file(&server, &cookie, ledger_id, "statement.qfx", QFX_SAMPLE).await;
     assert_eq!(resp.status(), 200);
 
     // Now POST /import/confirm with the rows from the parser.
@@ -277,13 +247,11 @@ async fn http_qfx_commit_creates_transactions() {
     );
 
     // Verify the transaction was created.
-    let (count,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
+        .bind(ledger_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count, 1);
     let (sum_d, sum_c): (Decimal, Decimal) = sqlx::query_as(
         r#"SELECT

@@ -37,8 +37,12 @@ fn normalise_date(s: &str) -> String {
 }
 
 fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
-    let Some(date) = t.date.as_deref() else { return };
-    let Some(amt) = t.amount.as_deref() else { return };
+    let Some(date) = t.date.as_deref() else {
+        return;
+    };
+    let Some(amt) = t.amount.as_deref() else {
+        return;
+    };
     let mut amt = amt.trim().to_string();
     if amt.is_empty() {
         return;

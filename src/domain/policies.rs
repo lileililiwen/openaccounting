@@ -84,11 +84,21 @@ pub struct PolicyLine {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Violation {
     /// Sum of category X on date Y exceeds the cap.
-    CategoryCapOver { category: String, date: NaiveDate, actual: i64, cap: i64 },
+    CategoryCapOver {
+        category: String,
+        date: NaiveDate,
+        actual: i64,
+        cap: i64,
+    },
     /// Line amount ≥ N but no receipt attached.
     ReceiptMissing { amount: i64, min_required: i64 },
     /// Per-diem line exceeds the daily allowance.
-    PerDiemOver { destination: String, date: NaiveDate, actual: i64, daily_rate: i64 },
+    PerDiemOver {
+        destination: String,
+        date: NaiveDate,
+        actual: i64,
+        daily_rate: i64,
+    },
 }
 
 impl Violation {
@@ -192,7 +202,10 @@ fn eval_per_diem(policy: &Policy, lines: &[PolicyLine]) -> Vec<Violation> {
 }
 
 fn decimal_to_cents(d: Decimal) -> i64 {
-    (d * Decimal::from(100)).to_string().parse::<f64>().unwrap_or(0.0) as i64
+    (d * Decimal::from(100))
+        .to_string()
+        .parse::<f64>()
+        .unwrap_or(0.0) as i64
 }
 
 #[cfg(test)]

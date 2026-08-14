@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::fixed_assets::{FixedAssetForm, FixedAssetList, FixedAssetRow, FixedAssetShow},
@@ -226,9 +226,17 @@ pub async fn calculate_depreciation(
         Decimal::ZERO
     };
     let max_additional = depreciable - asset.4;
-    let to_add = if monthly < max_additional { monthly } else { max_additional };
+    let to_add = if monthly < max_additional {
+        monthly
+    } else {
+        max_additional
+    };
     let new_total = asset.4 + to_add;
-    let new_status = if new_total >= depreciable { "fully_depreciated" } else { "active" };
+    let new_status = if new_total >= depreciable {
+        "fully_depreciated"
+    } else {
+        "active"
+    };
 
     sqlx::query("UPDATE fixed_assets SET accumulated_depreciation = $1, status = $2, updated_at = now() WHERE id = $3")
         .bind(new_total)

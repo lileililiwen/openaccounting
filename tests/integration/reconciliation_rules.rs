@@ -28,21 +28,22 @@ async fn make_ledger(server: &TestServer) -> Uuid {
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }
 
 fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
-        if c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '~' | '{' | '}' | '"' | ':' | ',') {
+        if c.is_ascii_alphanumeric()
+            || matches!(c, '-' | '.' | '_' | '~' | '{' | '}' | '"' | ':' | ',')
+        {
             out.push(c);
         } else {
             for b in c.to_string().as_bytes() {
@@ -86,11 +87,7 @@ async fn http_rules_list_empty() {
     let ledger_id = make_ledger(&server).await;
     let resp = server
         .client()
-        .get(format!(
-            "{}/ledgers/{}/rules",
-            server.base_url(),
-            ledger_id
-        ))
+        .get(format!("{}/ledgers/{}/rules", server.base_url(), ledger_id))
         .header(reqwest::header::COOKIE, cookie)
         .send()
         .await
@@ -263,11 +260,7 @@ async fn http_rule_priority_tiebreak_picks_lower() {
     // The list page shows rules ordered by priority.
     let resp = server
         .client()
-        .get(format!(
-            "{}/ledgers/{}/rules",
-            server.base_url(),
-            ledger_id
-        ))
+        .get(format!("{}/ledgers/{}/rules", server.base_url(), ledger_id))
         .header(reqwest::header::COOKIE, cookie)
         .send()
         .await

@@ -287,13 +287,12 @@ async fn http_soft_warning_does_not_block() {
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }

@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::payments::{PaymentForm, PaymentList, PaymentRegister, PaymentRow},
@@ -150,7 +150,9 @@ pub async fn create(
     }
 
     let payment_method = form.payment_method.clone();
-    if !["cash", "check", "bank_transfer", "credit_card", "other"].contains(&payment_method.as_str()) {
+    if !["cash", "check", "bank_transfer", "credit_card", "other"]
+        .contains(&payment_method.as_str())
+    {
         return Err(AppError::Validation("Invalid payment method".into()));
     }
 
@@ -175,7 +177,9 @@ pub async fn create(
     .await?;
 
     // Determine the appropriate accounts.
-    let (cash_account, contra_account, contra_type): (Uuid, Uuid, String) = if let Some(inv_id) = invoice_id {
+    let (cash_account, contra_account, contra_type): (Uuid, Uuid, String) = if let Some(inv_id) =
+        invoice_id
+    {
         let invoice = sqlx::query_as::<_, (String, String)>(
             r#"SELECT contact_id::text, kind FROM invoices WHERE id = $1"#,
         )
@@ -183,7 +187,10 @@ pub async fn create(
         .fetch_one(&mut *tx)
         .await?;
 
-        let contact_id_from_invoice: Uuid = invoice.0.parse().map_err(|_| AppError::Internal("Invalid contact id".into()))?;
+        let contact_id_from_invoice: Uuid = invoice
+            .0
+            .parse()
+            .map_err(|_| AppError::Internal("Invalid contact id".into()))?;
         let invoice_kind = invoice.1;
 
         let cash_account: Uuid = if invoice_kind == "receivable" {
@@ -295,21 +302,26 @@ pub async fn create(
             .bind(inv_id)
             .fetch_one(&mut *tx)
             .await?;
-        let new_amount_paid: Decimal = sqlx::query_scalar(
-            "SELECT COALESCE(amount_paid, 0) + $1 FROM invoices WHERE id = $2",
-        )
-        .bind(amount)
-        .bind(inv_id)
-        .fetch_one(&mut *tx)
-        .await?;
+        let new_amount_paid: Decimal =
+            sqlx::query_scalar("SELECT COALESCE(amount_paid, 0) + $1 FROM invoices WHERE id = $2")
+                .bind(amount)
+                .bind(inv_id)
+                .fetch_one(&mut *tx)
+                .await?;
 
-        let new_status = if new_amount_paid >= invoice_total { "paid" } else { "partial" };
-        sqlx::query("UPDATE invoices SET amount_paid = $1, status = $2, updated_at = now() WHERE id = $3")
-            .bind(new_amount_paid)
-            .bind(new_status)
-            .bind(inv_id)
-            .execute(&mut *tx)
-            .await?;
+        let new_status = if new_amount_paid >= invoice_total {
+            "paid"
+        } else {
+            "partial"
+        };
+        sqlx::query(
+            "UPDATE invoices SET amount_paid = $1, status = $2, updated_at = now() WHERE id = $3",
+        )
+        .bind(new_amount_paid)
+        .bind(new_status)
+        .bind(inv_id)
+        .execute(&mut *tx)
+        .await?;
     }
 
     tx.commit().await?;
@@ -395,26 +407,31 @@ pub async fn apply(
         .bind(invoice_id)
         .fetch_one(&mut *tx)
         .await?;
-    let new_amount_paid: Decimal = sqlx::query_scalar(
-        "SELECT COALESCE(amount_paid, 0) + $1 FROM invoices WHERE id = $2",
-    )
-    .bind(amount)
-    .bind(invoice_id)
-    .fetch_one(&mut *tx)
-    .await?;
+    let new_amount_paid: Decimal =
+        sqlx::query_scalar("SELECT COALESCE(amount_paid, 0) + $1 FROM invoices WHERE id = $2")
+            .bind(amount)
+            .bind(invoice_id)
+            .fetch_one(&mut *tx)
+            .await?;
 
-    let new_status = if new_amount_paid >= invoice_total { "paid" } else { "partial" };
+    let new_status = if new_amount_paid >= invoice_total {
+        "paid"
+    } else {
+        "partial"
+    };
     sqlx::query("UPDATE payments SET invoice_id = $1 WHERE id = $2")
         .bind(invoice_id)
         .bind(payment_id)
         .execute(&mut *tx)
         .await?;
-    sqlx::query("UPDATE invoices SET amount_paid = $1, status = $2, updated_at = now() WHERE id = $3")
-        .bind(new_amount_paid)
-        .bind(new_status)
-        .bind(invoice_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE invoices SET amount_paid = $1, status = $2, updated_at = now() WHERE id = $3",
+    )
+    .bind(new_amount_paid)
+    .bind(new_status)
+    .bind(invoice_id)
+    .execute(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 

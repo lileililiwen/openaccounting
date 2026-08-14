@@ -24,6 +24,8 @@ pub struct DocumentWithTxn {
     pub transaction_id: Uuid,
     pub transaction_date: chrono::NaiveDate,
     pub transaction_description: String,
+    /// One of: `""`, `"pending"`, `"done"`, `"failed"`.
+    pub ocr_status: String,
 }
 
 impl From<(Document, chrono::NaiveDate, String)> for DocumentWithTxn {
@@ -37,6 +39,7 @@ impl From<(Document, chrono::NaiveDate, String)> for DocumentWithTxn {
             transaction_id: d.transaction_id,
             transaction_date: date,
             transaction_description: desc,
+            ocr_status: String::new(),
         }
     }
 }

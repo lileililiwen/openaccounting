@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::reconciliation::{ReconHistory, ReconPage, ReconStatementLine, ReconTxn},
@@ -103,9 +103,18 @@ pub async fn upload_csv(
     let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
     let mut csv_data: Option<String> = None;
-    while let Some(field) = multipart.next_field().await.map_err(|e| AppError::Internal(e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    {
         if field.name() == Some("file") {
-            csv_data = Some(field.text().await.map_err(|e| AppError::Internal(e.to_string()))?);
+            csv_data = Some(
+                field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::Internal(e.to_string()))?,
+            );
         }
     }
 
@@ -130,7 +139,11 @@ pub async fn upload_csv(
             .map_err(|_| AppError::Validation("Invalid amount".into()))?;
         let check_number = if record.len() > 3 {
             let c = record.get(3).unwrap_or("").to_string();
-            if c.is_empty() { None } else { Some(c) }
+            if c.is_empty() {
+                None
+            } else {
+                Some(c)
+            }
         } else {
             None
         };
@@ -272,7 +285,11 @@ pub async fn complete(
     )
     .await;
 
-    Ok(Redirect::to(&format!("/ledgers/{}/reconcile/{}/history", ledger_id, account_id)).into_response())
+    Ok(Redirect::to(&format!(
+        "/ledgers/{}/reconcile/{}/history",
+        ledger_id, account_id
+    ))
+    .into_response())
 }
 
 pub async fn history(
@@ -283,7 +300,16 @@ pub async fn history(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
-    let rows = sqlx::query_as::<_, (chrono::NaiveDate, Decimal, Decimal, Decimal, chrono::DateTime<chrono::Utc>)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            chrono::NaiveDate,
+            Decimal,
+            Decimal,
+            Decimal,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         r#"SELECT statement_date, statement_balance, ledger_balance, difference, completed_at
            FROM reconciliations
            WHERE ledger_id = $1 AND account_id = $2
@@ -294,7 +320,13 @@ pub async fn history(
     .fetch_all(&state.pool)
     .await?;
 
-    let history: Vec<(NaiveDate, Decimal, Decimal, Decimal, chrono::DateTime<chrono::Utc>)> = rows;
+    let history: Vec<(
+        NaiveDate,
+        Decimal,
+        Decimal,
+        Decimal,
+        chrono::DateTime<chrono::Utc>,
+    )> = rows;
 
     Ok(render_response(ReconHistory {
         user_id: user.id,

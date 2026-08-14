@@ -10,8 +10,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::reconciliation_rules::{Rule, RuleKind},
     error::{AppError, AppResult},
     handlers::ledgers,

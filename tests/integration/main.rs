@@ -7,12 +7,13 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod approval_routing;
 mod bank_statement_imports;
 mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
+mod document_ocr;
 mod expense_reimbursement;
-mod approval_routing;
 mod import_alipay;
 mod import_wechat;
 mod policies;

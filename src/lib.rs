@@ -21,6 +21,7 @@ pub mod domain;
 pub mod error;
 pub mod handlers;
 pub mod import;
+pub mod ocr;
 pub mod reports;
 pub mod storage;
 pub mod templates;
@@ -209,6 +210,14 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         .route(
             "/ledgers/{id}/documents/{doc_id}/delete",
             post(handlers::documents::delete),
+        )
+        .route(
+            "/ledgers/{id}/documents/{doc_id}/ocr",
+            get(handlers::document_ocr::show).post(handlers::document_ocr::run),
+        )
+        .route(
+            "/ledgers/{id}/documents/{doc_id}/ocr/apply",
+            post(handlers::document_ocr::apply),
         )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
         .route(

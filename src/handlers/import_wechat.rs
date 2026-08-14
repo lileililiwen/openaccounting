@@ -10,8 +10,8 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::Account,
     error::{AppError, AppResult},
     handlers::ledgers,

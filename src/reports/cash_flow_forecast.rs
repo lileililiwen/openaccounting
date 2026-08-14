@@ -145,7 +145,7 @@ pub fn materialize_forecast(
         while d <= horizon && guard < 400 {
             if d >= today {
                 let signed = match t.cash_direction.as_str() {
-                    "DEBIT" => t.amount, // cash out: subtract from balance
+                    "DEBIT" => t.amount,   // cash out: subtract from balance
                     "CREDIT" => -t.amount, // cash in: add to balance
                     _ => t.amount,
                 };
@@ -165,7 +165,10 @@ pub fn materialize_forecast(
 }
 
 fn is_recognised_frequency(f: &str) -> bool {
-    matches!(f, "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly")
+    matches!(
+        f,
+        "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly"
+    )
 }
 
 /// Walk day-by-day from today through the horizon, applying
@@ -187,10 +190,7 @@ pub fn project(
             balance += entries[idx].amount;
             idx += 1;
         }
-        points.push(ForecastPoint {
-            date: d,
-            balance,
-        });
+        points.push(ForecastPoint { date: d, balance });
         running = d;
     }
     let _ = running; // suppress unused warning
@@ -202,10 +202,7 @@ pub fn project(
 /// is in the cash / bank set). If the template has postings on
 /// non-cash accounts, we project only the net cash impact (the
 /// single leg whose account name matches the cash heuristic).
-pub async fn load_active_templates(
-    pool: &PgPool,
-    ledger_id: Uuid,
-) -> AppResult<Vec<TemplateRow>> {
+pub async fn load_active_templates(pool: &PgPool, ledger_id: Uuid) -> AppResult<Vec<TemplateRow>> {
     let rows: Vec<TemplateRow> = sqlx::query_as(
         r#"
         SELECT t.id, t.description, t.payee, t.frequency, t.next_date,
@@ -274,10 +271,7 @@ pub async fn build_forecast(
             date: today,
             balance: today_balance,
         });
-    let ending_balance = points
-        .last()
-        .map(|p| p.balance)
-        .unwrap_or(today_balance);
+    let ending_balance = points.last().map(|p| p.balance).unwrap_or(today_balance);
 
     Ok(ForecastResult {
         today_balance,
@@ -354,7 +348,10 @@ mod tests {
         let entries = materialize_forecast(&templates, today, 30);
         // 1/15 falls within [1/1, 1/31].
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].date, NaiveDate::from_ymd_opt(2026, 1, 15).unwrap());
+        assert_eq!(
+            entries[0].date,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap()
+        );
         assert_eq!(entries[0].amount, dec!(100));
     }
 

@@ -5,8 +5,8 @@ use axum_login::AuthSession;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::audit::AuditLogPage,
@@ -43,11 +43,12 @@ pub async fn list(
     // Get actor names for the entries
     let mut entries_with_names = Vec::new();
     for entry in entries {
-        let actor_name: Option<String> = sqlx::query_scalar("SELECT username FROM users WHERE id = $1")
-            .bind(entry.actor_id)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+        let actor_name: Option<String> =
+            sqlx::query_scalar("SELECT username FROM users WHERE id = $1")
+                .bind(entry.actor_id)
+                .fetch_optional(&state.pool)
+                .await
+                .unwrap_or(None);
         entries_with_names.push((entry, actor_name.unwrap_or_default()));
     }
 

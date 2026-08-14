@@ -363,11 +363,10 @@ fn render_forecast_chart(result: &crate::reports::ForecastResult) -> String {
 
     let pts = &result.points;
     let n = pts.len();
-    let (min_b, max_b) = pts
-        .iter()
-        .fold((result.today_balance, result.today_balance), |(lo, hi), p| {
-            (lo.min(p.balance), hi.max(p.balance))
-        });
+    let (min_b, max_b) = pts.iter().fold(
+        (result.today_balance, result.today_balance),
+        |(lo, hi), p| (lo.min(p.balance), hi.max(p.balance)),
+    );
     let span_f = {
         let lo = decimal_to_f64(min_b);
         let hi = decimal_to_f64(max_b);

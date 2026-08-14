@@ -11,10 +11,10 @@ use std::path::Path as StdPath;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
-    templates::backups::{BackupList, IntegrityReport, IntegrityIssue},
+    templates::backups::{BackupList, IntegrityIssue, IntegrityReport},
     AppState,
 };
 
@@ -65,7 +65,9 @@ pub async fn create_manual(
 
 async fn create_backup(state: &AppState, user_id: Uuid, kind: &str) -> AppResult<String> {
     let backup_dir = std::env::var("BACKUP_DIR").unwrap_or_else(|_| "./backups".to_string());
-    tokio::fs::create_dir_all(&backup_dir).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    tokio::fs::create_dir_all(&backup_dir)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
     let filename = format!("openaccounting_{}.sql.gz", timestamp);
@@ -74,19 +76,25 @@ async fn create_backup(state: &AppState, user_id: Uuid, kind: &str) -> AppResult
     // Create a logical backup by streaming from each table to SQL.
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     write_sql_dump(&mut encoder, state).await?;
-    let compressed = encoder.finish().map_err(|e| AppError::Internal(e.to_string()))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    tokio::fs::write(&path, &compressed).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    tokio::fs::write(&path, &compressed)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let size_bytes = compressed.len() as i64;
 
-    sqlx::query("INSERT INTO backups (filename, size_bytes, created_by, kind) VALUES ($1, $2, $3, $4)")
-        .bind(&filename)
-        .bind(size_bytes)
-        .bind(user_id)
-        .bind(kind)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query(
+        "INSERT INTO backups (filename, size_bytes, created_by, kind) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(&filename)
+    .bind(size_bytes)
+    .bind(user_id)
+    .bind(kind)
+    .execute(&state.pool)
+    .await?;
 
     let _ = audit::log(
         &state.pool,
@@ -109,14 +117,29 @@ async fn create_backup(state: &AppState, user_id: Uuid, kind: &str) -> AppResult
 }
 
 async fn write_sql_dump<W: Write>(encoder: &mut GzEncoder<W>, state: &AppState) -> AppResult<()> {
-    let tables = ["ledgers", "users", "accounts", "transactions", "postings", "contacts", "invoices", "payments"];
-    encoder.write_all(b"-- OpenAccounting SQL Dump\n").map_err(|e| AppError::Internal(e.to_string()))?;
-    encoder.write_all(b"BEGIN;\n").map_err(|e| AppError::Internal(e.to_string()))?;
+    let tables = [
+        "ledgers",
+        "users",
+        "accounts",
+        "transactions",
+        "postings",
+        "contacts",
+        "invoices",
+        "payments",
+    ];
+    encoder
+        .write_all(b"-- OpenAccounting SQL Dump\n")
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    encoder
+        .write_all(b"BEGIN;\n")
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     for table in &tables {
-        encoder.write_all(format!("\n-- Table: {}\n", table).as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+        encoder
+            .write_all(format!("\n-- Table: {}\n", table).as_bytes())
+            .map_err(|e| AppError::Internal(e.to_string()))?;
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = $1)"
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = $1)",
         )
         .bind(table)
         .fetch_one(&state.pool)
@@ -128,10 +151,14 @@ async fn write_sql_dump<W: Write>(encoder: &mut GzEncoder<W>, state: &AppState) 
         let count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {}", table))
             .fetch_one(&state.pool)
             .await?;
-        encoder.write_all(format!("-- {} rows\n", count).as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+        encoder
+            .write_all(format!("-- {} rows\n", count).as_bytes())
+            .map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
-    encoder.write_all(b"COMMIT;\n").map_err(|e| AppError::Internal(e.to_string()))?;
+    encoder
+        .write_all(b"COMMIT;\n")
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(())
 }
 
@@ -177,13 +204,18 @@ pub async fn download(
         return Err(AppError::NotFound);
     }
 
-    let bytes = tokio::fs::read(&path).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     let safe_filename = filename.replace("\"", "");
 
     Ok(Response::builder()
         .status(200)
         .header("content-type", "application/gzip")
-        .header("content-disposition", format!("attachment; filename=\"{}\"", safe_filename))
+        .header(
+            "content-disposition",
+            format!("attachment; filename=\"{}\"", safe_filename),
+        )
         .body(axum::body::Body::from(bytes))
         .map_err(|e| AppError::Internal(e.to_string()))?)
 }

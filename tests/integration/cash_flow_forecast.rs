@@ -11,11 +11,7 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-async fn create_ledger_with_basis(
-    client: &reqwest::Client,
-    base_url: &str,
-    name: &str,
-) -> Uuid {
+async fn create_ledger_with_basis(client: &reqwest::Client, base_url: &str, name: &str) -> Uuid {
     let resp = client
         .post(format!("{base_url}/ledgers/new"))
         .form(&[
@@ -37,14 +33,13 @@ async fn create_ledger_with_basis(
 }
 
 async fn account_id(pool: &PgPool, ledger_id: Uuid, name: &str) -> Uuid {
-    let (id,): (Uuid,) = sqlx::query_as(
-        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2",
-    )
-    .bind(ledger_id)
-    .bind(name)
-    .fetch_one(pool)
-    .await
-    .expect("account exists");
+    let (id,): (Uuid,) =
+        sqlx::query_as("SELECT id FROM accounts WHERE ledger_id = $1 AND name = $2")
+            .bind(ledger_id)
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .expect("account exists");
     id
 }
 
@@ -92,8 +87,7 @@ async fn http_forecast_with_no_templates_is_flat() {
     let cookie = server
         .bootstrap_user("alice", "alice@example.com", "correct horse battery staple")
         .await;
-    let ledger_id =
-        create_ledger_with_basis(server.client(), server.base_url(), "Flat Co").await;
+    let ledger_id = create_ledger_with_basis(server.client(), server.base_url(), "Flat Co").await;
 
     // Seed today's cash balance: DR Cash 5000 / CR Owner's Equity 5000.
     let user_id: (Uuid,) = sqlx::query_as("SELECT id FROM users LIMIT 1")
@@ -167,8 +161,7 @@ async fn http_forecast_with_monthly_rent_drops_balance() {
     let cookie = server
         .bootstrap_user("bob", "bob@example.com", "correct horse battery staple")
         .await;
-    let ledger_id =
-        create_ledger_with_basis(server.client(), server.base_url(), "Rent Co").await;
+    let ledger_id = create_ledger_with_basis(server.client(), server.base_url(), "Rent Co").await;
     let cash = account_id(&pool, ledger_id, "Cash on Hand").await;
     let rent = account_id(&pool, ledger_id, "Office Supplies").await;
     let _ = rent; // referenced to silence warning

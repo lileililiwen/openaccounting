@@ -7,8 +7,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::sharing::SharePage,
@@ -219,11 +219,13 @@ pub async fn decline(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
 
-    sqlx::query("UPDATE ledger_invitations SET status = 'declined' WHERE id = $1 AND invitee_email = $2")
-        .bind(invitation_id)
-        .bind(&user.email)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query(
+        "UPDATE ledger_invitations SET status = 'declined' WHERE id = $1 AND invitee_email = $2",
+    )
+    .bind(invitation_id)
+    .bind(&user.email)
+    .execute(&state.pool)
+    .await?;
 
     Ok(Redirect::to("/ledgers").into_response())
 }

@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::taxes::{TaxForm, TaxList, TaxRateRow, TaxReport},
@@ -228,7 +228,18 @@ pub async fn export_csv(
         .get("to")
         .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
 
-    let rows = sqlx::query_as::<_, (chrono::NaiveDate, Option<String>, Option<String>, Option<String>, Decimal, String, Decimal)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            chrono::NaiveDate,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Decimal,
+            String,
+            Decimal,
+        ),
+    >(
         r#"SELECT t.txn_date,
                   i.number AS invoice_number,
                   c.name AS contact_name,

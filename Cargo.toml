@@ -92,6 +92,12 @@ hex = "0.4"
 encoding_rs = "0.8"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
+# Receipt OCR: tesseract-plumbing provides safe Rust bindings to libtesseract.
+# Our TesseractEngine shells out via tokio::process::Command instead of the
+# FFI bindings so that the binary doesn't require libtesseract at link time.
+# The crate is kept as an optional dependency for future native integration.
+tesseract-plumbing = { version = "0.11", optional = true }
+
 # Optional dependencies used by the test-support module.
 # The `test-support` feature above flips these on. They are
 # absent from the production binary.

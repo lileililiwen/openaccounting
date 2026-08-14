@@ -38,12 +38,10 @@ pub async fn close_year(
     }
 
     // Get all income and expense accounts with their balances
-    let period_start = NaiveDate::from_ymd_opt(year, 1, 1).ok_or_else(|| {
-        AppError::Internal("Invalid year".into())
-    })?;
-    let period_end = NaiveDate::from_ymd_opt(year, 12, 31).ok_or_else(|| {
-        AppError::Internal("Invalid year".into())
-    })?;
+    let period_start = NaiveDate::from_ymd_opt(year, 1, 1)
+        .ok_or_else(|| AppError::Internal("Invalid year".into()))?;
+    let period_end = NaiveDate::from_ymd_opt(year, 12, 31)
+        .ok_or_else(|| AppError::Internal("Invalid year".into()))?;
 
     let account_balances = sqlx::query_as::<_, (Uuid, String, String, Decimal)>(
         r#"

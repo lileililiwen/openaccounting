@@ -9,8 +9,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::inventory::{InventoryForm, InventoryItem, InventoryList, InventoryValuation},
@@ -203,10 +203,11 @@ pub async fn purchase(
     .bind(item_id)
     .fetch_one(&mut *tx)
     .await?;
-    let new_qty: i32 = sqlx::query_scalar("SELECT quantity_on_hand FROM inventory_items WHERE id = $1")
-        .bind(item_id)
-        .fetch_one(&mut *tx)
-        .await?;
+    let new_qty: i32 =
+        sqlx::query_scalar("SELECT quantity_on_hand FROM inventory_items WHERE id = $1")
+            .bind(item_id)
+            .fetch_one(&mut *tx)
+            .await?;
     let new_unit_cost = if new_qty > 0 {
         new_total / Decimal::from(new_qty)
     } else {
@@ -235,7 +236,10 @@ pub async fn purchase(
     )
     .bind(ledger_id)
     .bind(purchase_date)
-    .bind(format!("Inventory purchase: qty {} @ {}", quantity, unit_cost))
+    .bind(format!(
+        "Inventory purchase: qty {} @ {}",
+        quantity, unit_cost
+    ))
     .bind(user.id)
     .fetch_one(&mut *tx)
     .await?;
@@ -296,11 +300,13 @@ pub async fn adjust(
 
     let mut tx = state.pool.begin().await?;
 
-    sqlx::query("UPDATE inventory_items SET quantity_on_hand = $1, updated_at = now() WHERE id = $2")
-        .bind(new_qty)
-        .bind(item_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE inventory_items SET quantity_on_hand = $1, updated_at = now() WHERE id = $2",
+    )
+    .bind(new_qty)
+    .bind(item_id)
+    .execute(&mut *tx)
+    .await?;
 
     // Create journal entry
     let txn_id: Uuid = sqlx::query_scalar(

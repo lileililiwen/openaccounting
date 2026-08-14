@@ -8,8 +8,8 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     domain::Contact,
     error::{AppError, AppResult},
     handlers::ledgers,

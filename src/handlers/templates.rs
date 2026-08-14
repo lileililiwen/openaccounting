@@ -9,11 +9,11 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
-    templates::templates::{TemplateList, TemplateRow, TemplateShow, TemplateNew},
+    templates::templates::{TemplateList, TemplateNew, TemplateRow, TemplateShow},
     AppState,
 };
 
@@ -287,7 +287,17 @@ pub async fn run(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
-    let template = sqlx::query_as::<_, (String, Option<String>, Option<String>, String, NaiveDate, bool)>(
+    let template = sqlx::query_as::<
+        _,
+        (
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+            NaiveDate,
+            bool,
+        ),
+    >(
         r#"SELECT description, payee, reference, frequency, next_date, is_active
            FROM transaction_templates WHERE id = $1"#,
     )
@@ -313,17 +323,34 @@ pub async fn run(
     Ok(Redirect::to(&format!("/ledgers/{}/templates", ledger_id)).into_response())
 }
 
-pub async fn process_due(auth: AuthSession<Backend>, State(state): State<AppState>) -> AppResult<Response> {
+pub async fn process_due(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+) -> AppResult<Response> {
     let _user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
 
-    let due = sqlx::query_as::<_, (Uuid, Uuid, String, Option<String>, Option<String>, String, NaiveDate, bool)>(
+    let due = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+            NaiveDate,
+            bool,
+        ),
+    >(
         r#"SELECT id, ledger_id, description, payee, reference, frequency, next_date, is_active
            FROM transaction_templates WHERE is_active = TRUE AND next_date <= CURRENT_DATE"#,
     )
     .fetch_all(&state.pool)
     .await?;
 
-    for (template_id, ledger_id, description, payee, reference, frequency, next_date, _is_active) in due {
+    for (template_id, ledger_id, description, payee, reference, frequency, next_date, _is_active) in
+        due
+    {
         let template = (description, payee, reference, frequency, next_date, true);
         let postings = sqlx::query_as::<_, (Uuid, String, Decimal, Option<String>)>(
             r#"SELECT account_id, direction, amount, memo FROM template_postings WHERE template_id = $1"#,
@@ -342,7 +369,14 @@ pub async fn process_due(auth: AuthSession<Backend>, State(state): State<AppStat
 async fn run_template(
     state: &AppState,
     ledger_id: Uuid,
-    template: &(String, Option<String>, Option<String>, String, NaiveDate, bool),
+    template: &(
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+        NaiveDate,
+        bool,
+    ),
     postings: &[(Uuid, String, Decimal, Option<String>)],
     due_date: NaiveDate,
     user_id: Uuid,
@@ -380,11 +414,13 @@ async fn run_template(
     }
 
     let advance_date = advance_frequency(due_date, &template.3);
-    sqlx::query("UPDATE transaction_templates SET next_date = $1, updated_at = now() WHERE id = $2")
-        .bind(advance_date)
-        .bind(txn_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE transaction_templates SET next_date = $1, updated_at = now() WHERE id = $2",
+    )
+    .bind(advance_date)
+    .bind(txn_id)
+    .execute(&mut *tx)
+    .await?;
 
     let _ = audit::log(
         &state.pool,

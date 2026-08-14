@@ -75,10 +75,7 @@ pub fn parse(input: &str) -> Mt940 {
         // Some banks split a :61: line across two physical
         // lines; treat the next non-tagged line as a
         // continuation.
-        if current.value_date.is_some()
-            && !line.starts_with(':')
-            && !line.is_empty()
-        {
+        if current.value_date.is_some() && !line.starts_with(':') && !line.is_empty() {
             current.narrative = Some(line.to_string());
             i += 1;
             continue;
@@ -124,9 +121,7 @@ fn parse_61(body: &str) -> Txn {
     // Amount: digits, optional comma, digits, stopping at the
     // first 'N' (or non-digit / non-comma).
     let amount_start = idx;
-    while idx < bytes.len()
-        && (bytes[idx].is_ascii_digit() || bytes[idx] == b',')
-    {
+    while idx < bytes.len() && (bytes[idx].is_ascii_digit() || bytes[idx] == b',') {
         idx += 1;
     }
     let amount = s[amount_start..idx].to_string();
@@ -141,7 +136,12 @@ fn parse_61(body: &str) -> Txn {
     Txn {
         value_date: if value_date.len() == 6 {
             // We have YYMMDD; convert to ISO YYYY-MM-DD.
-            Some(format!("20{}-{}-{}", &value_date[0..2], &value_date[2..4], &value_date[4..6]))
+            Some(format!(
+                "20{}-{}-{}",
+                &value_date[0..2],
+                &value_date[2..4],
+                &value_date[4..6]
+            ))
         } else {
             None
         },
@@ -216,7 +216,7 @@ fn split_subfields(body: &str) -> Vec<String> {
             break;
         }
         let code = &rest[idx..idx + 3]; // "?NN"
-        // The next subfield starts at the next `?`.
+                                        // The next subfield starts at the next `?`.
         let after = &rest[idx + 3..];
         let end = after.find('?').unwrap_or(after.len());
         out.push(format!("{code}{}", &after[..end]));
@@ -226,7 +226,9 @@ fn split_subfields(body: &str) -> Vec<String> {
 }
 
 fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
-    let Some(amount) = t.amount.as_deref() else { return };
+    let Some(amount) = t.amount.as_deref() else {
+        return;
+    };
     let mut amount = amount.trim().to_string();
     if amount.is_empty() {
         return;
@@ -241,10 +243,7 @@ fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
         (String::new(), amount.clone())
     };
     out.push(ParsedRow {
-        date: t
-            .value_date
-            .clone()
-            .unwrap_or_default(),
+        date: t.value_date.clone().unwrap_or_default(),
         description: t.narrative.clone().unwrap_or_default(),
         debit,
         credit,

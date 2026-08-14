@@ -14,8 +14,12 @@ struct Txn {
 }
 
 fn push_txn(out: &mut Vec<ParsedRow>, t: &Txn) {
-    let Some(date) = t.dtposted.as_deref() else { return };
-    let Some(amt) = t.trnamt.as_deref() else { return };
+    let Some(date) = t.dtposted.as_deref() else {
+        return;
+    };
+    let Some(amt) = t.trnamt.as_deref() else {
+        return;
+    };
     let mut amt = amt.trim().to_string();
     if amt.is_empty() {
         return;
@@ -229,8 +233,7 @@ pub fn parse_xml(input: &str) -> Vec<ParsedRow> {
     // Find each <STMTTRN>…</STMTTRN> region.
     let mut cursor = 0usize;
     while let Some(open) = find_ci(body, cursor, "<STMTTRN>") {
-        let close = find_ci(body, open + 9, "</STMTTRN>")
-            .unwrap_or_else(|| body.len());
+        let close = find_ci(body, open + 9, "</STMTTRN>").unwrap_or_else(|| body.len());
         let region = &body[open + 9..close];
         let mut current = Txn::default();
         for child in extract_elements(region) {

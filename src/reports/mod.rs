@@ -8,7 +8,7 @@ pub mod trial_balance;
 pub use balance_sheet::{build_balance_sheet, BalanceSheetSection};
 pub use cash_flow::build_cash_flow;
 pub use cash_flow_forecast::{
-    build_forecast, advance, materialize_forecast, project, ForecastEntry, ForecastPoint,
+    advance, build_forecast, materialize_forecast, project, ForecastEntry, ForecastPoint,
     ForecastResult,
 };
 pub use general_ledger::{build_general_ledger, GeneralLedgerEntry};

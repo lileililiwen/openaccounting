@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::account::{AccountSubtype, AccountType};
 use super::account::AccountSubtype::{
     CurrentAsset, CurrentLiability, EmployeeAdvance, EmployeePayable, OperatingExpense,
     OperatingIncome,
 };
+use super::account::{AccountSubtype, AccountType};
 
 #[derive(Clone, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Ledger {
@@ -69,7 +69,13 @@ impl Ledger {
             ("5500", "Rent", Expense, OperatingExpense, false),
             ("5600", "Utilities", Expense, OperatingExpense, false),
             ("5900", "Other Expense", Expense, OperatingExpense, false),
-            ("2100", "Employee Payable", Liability, EmployeePayable, false),
+            (
+                "2100",
+                "Employee Payable",
+                Liability,
+                EmployeePayable,
+                false,
+            ),
             ("1100", "Employee Advance", Asset, EmployeeAdvance, false),
         ]
         .into_iter()

@@ -9,6 +9,7 @@ pub mod budgets;
 pub mod common;
 pub mod contacts;
 pub mod dashboard;
+pub mod document_ocr;
 pub mod documents;
 pub mod entities;
 pub mod error;

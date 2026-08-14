@@ -9,11 +9,11 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::Backend,
     audit,
+    auth::Backend,
     error::{AppError, AppResult},
     handlers::ledgers,
-    templates::budgets::{BudgetForm, BudgetList, BudgetRow, BudgetReport, BudgetVsActual},
+    templates::budgets::{BudgetForm, BudgetList, BudgetReport, BudgetRow, BudgetVsActual},
     AppState,
 };
 
@@ -120,7 +120,9 @@ pub async fn create(
     let end_date = chrono::NaiveDate::parse_from_str(&form.end_date, "%Y-%m-%d")
         .map_err(|_| AppError::Validation("Invalid end date".into()))?;
     if end_date < start_date {
-        return Err(AppError::Validation("End date must be after start date".into()));
+        return Err(AppError::Validation(
+            "End date must be after start date".into(),
+        ));
     }
 
     let budget_id: Uuid = sqlx::query_scalar(
@@ -193,7 +195,17 @@ pub async fn report(
         chrono::NaiveDate::parse_from_str(&to_str, "%Y-%m-%d").unwrap_or(today)
     };
 
-    let rows = sqlx::query_as::<_, (Uuid, String, Decimal, Decimal, chrono::NaiveDate, chrono::NaiveDate)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            Decimal,
+            Decimal,
+            chrono::NaiveDate,
+            chrono::NaiveDate,
+        ),
+    >(
         r#"SELECT b.id, a.name, b.amount, b.alert_threshold, b.start_date, b.end_date
            FROM budgets b
            JOIN accounts a ON a.id = b.account_id
@@ -254,7 +266,18 @@ pub async fn report(
 }
 
 pub async fn check_alerts(state: &AppState, user_id: Uuid) -> AppResult<()> {
-    let budgets = sqlx::query_as::<_, (Uuid, Uuid, Uuid, Decimal, Decimal, chrono::NaiveDate, chrono::NaiveDate)>(
+    let budgets = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            Uuid,
+            Decimal,
+            Decimal,
+            chrono::NaiveDate,
+            chrono::NaiveDate,
+        ),
+    >(
         r#"SELECT id, ledger_id, account_id, amount, alert_threshold, start_date, end_date
            FROM budgets WHERE end_date >= CURRENT_DATE AND start_date <= CURRENT_DATE"#,
     )
@@ -275,10 +298,11 @@ pub async fn check_alerts(state: &AppState, user_id: Uuid) -> AppResult<()> {
 
         if amount > Decimal::ZERO && actual / amount >= threshold {
             let pct = actual / amount;
-            let account_name: String = sqlx::query_scalar("SELECT name FROM accounts WHERE id = $1")
-                .bind(account_id)
-                .fetch_one(&state.pool)
-                .await?;
+            let account_name: String =
+                sqlx::query_scalar("SELECT name FROM accounts WHERE id = $1")
+                    .bind(account_id)
+                    .fetch_one(&state.pool)
+                    .await?;
 
             let message = format!(
                 "{}: {:.1}% of budget used ({:.2} / {:.2})",

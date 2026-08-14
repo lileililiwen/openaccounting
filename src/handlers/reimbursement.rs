@@ -142,10 +142,7 @@ pub async fn create(
         Some(serde_json::json!({"title": form.title})),
     )
     .await;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{new_id}"
-    ))
-    .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{new_id}")).into_response())
 }
 
 pub async fn show(
@@ -278,14 +275,13 @@ pub async fn add_line(
     let txn_date = NaiveDate::parse_from_str(&form.txn_date, "%Y-%m-%d")
         .map_err(|e| AppError::Validation(format!("bad date: {e}")))?;
     // Validate that the GL account is an EXPENSE subtype.
-    let (gl_subtype,): (String,) = sqlx::query_as(
-        "SELECT subtype FROM accounts WHERE id = $1 AND ledger_id = $2",
-    )
-    .bind(form.gl_account_id)
-    .bind(ledger_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| AppError::Validation("gl_account not in ledger".into()))?;
+    let (gl_subtype,): (String,) =
+        sqlx::query_as("SELECT subtype FROM accounts WHERE id = $1 AND ledger_id = $2")
+            .bind(form.gl_account_id)
+            .bind(ledger_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or_else(|| AppError::Validation("gl_account not in ledger".into()))?;
     if !matches!(
         gl_subtype.as_str(),
         "OPERATING_EXPENSE" | "COST_OF_GOODS_SOLD" | "NON_OPERATING_EXPENSE" | "TAX_EXPENSE"
@@ -309,10 +305,7 @@ pub async fn add_line(
     .bind(advance)
     .execute(&state.pool)
     .await?;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{claim_id}"
-    ))
-    .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}")).into_response())
 }
 
 pub async fn submit(
@@ -329,27 +322,29 @@ pub async fn submit(
             claim.status.as_str()
         )));
     }
-    let (line_count,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM reimbursement_lines WHERE claim_id = $1",
-    )
-    .bind(claim_id)
-    .fetch_one(&state.pool)
-    .await?;
+    let (line_count,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM reimbursement_lines WHERE claim_id = $1")
+            .bind(claim_id)
+            .fetch_one(&state.pool)
+            .await?;
     if line_count == 0 {
-        return Err(AppError::Validation(
-            "cannot submit an empty claim".into(),
-        ));
+        return Err(AppError::Validation("cannot submit an empty claim".into()));
     }
     // Policy evaluation. Hard violations block submit.
     let policy_violations = collect_policy_violations(&state, claim_id).await?;
     if let Some(msg) = hard_violation_message(&policy_violations) {
         return Err(AppError::Validation(msg));
     }
-    update_status(&state, ledger_id, claim_id, user.id, ClaimStatus::Submitted, None).await?;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{claim_id}"
-    ))
-    .into_response())
+    update_status(
+        &state,
+        ledger_id,
+        claim_id,
+        user.id,
+        ClaimStatus::Submitted,
+        None,
+    )
+    .await?;
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}")).into_response())
 }
 
 #[derive(Deserialize)]
@@ -394,10 +389,7 @@ pub async fn reject(
         Some(serde_json::json!({"reason": form.reason})),
     )
     .await?;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{claim_id}"
-    ))
-    .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}")).into_response())
 }
 
 #[derive(Deserialize, Default)]
@@ -568,12 +560,11 @@ pub async fn approve(
         return Err(AppError::Validation("no lines on claim to approve".into()));
     }
     // Pick the earliest txn_date for the transaction.
-    let (txn_date,): (NaiveDate,) = sqlx::query_as(
-        "SELECT MIN(txn_date) FROM reimbursement_lines WHERE claim_id = $1",
-    )
-    .bind(claim_id)
-    .fetch_one(&mut *tx)
-    .await?;
+    let (txn_date,): (NaiveDate,) =
+        sqlx::query_as("SELECT MIN(txn_date) FROM reimbursement_lines WHERE claim_id = $1")
+            .bind(claim_id)
+            .fetch_one(&mut *tx)
+            .await?;
     // Sum of (amount - advance) across all lines is the
     // net expense the company books.
     let net_expense: Decimal = grouped.iter().map(|(_, net, _)| *net).sum();
@@ -692,10 +683,7 @@ pub async fn approve(
         Some(serde_json::json!({"txn_id": txn_id, "level": level, "status": "fully_approved"})),
     )
     .await;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{claim_id}"
-    ))
-    .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}")).into_response())
 }
 
 #[derive(Deserialize)]
@@ -719,14 +707,13 @@ pub async fn pay(
         )));
     }
     // Validate the payout account is a cash / bank account.
-    let (payout_subtype, payout_type): (String, String) = sqlx::query_as(
-        "SELECT subtype, type FROM accounts WHERE id = $1 AND ledger_id = $2",
-    )
-    .bind(form.payout_account_id)
-    .bind(ledger_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| AppError::Validation("payout account not in ledger".into()))?;
+    let (payout_subtype, payout_type): (String, String) =
+        sqlx::query_as("SELECT subtype, type FROM accounts WHERE id = $1 AND ledger_id = $2")
+            .bind(form.payout_account_id)
+            .bind(ledger_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or_else(|| AppError::Validation("payout account not in ledger".into()))?;
     if payout_type != "ASSET"
         || !matches!(
             payout_subtype.as_str(),
@@ -747,9 +734,7 @@ pub async fn pay(
     .bind(ledger_id)
     .fetch_one(&mut *tx)
     .await
-    .map_err(|_| AppError::Internal(
-        "no EMPLOYEE_PAYABLE account in ledger".into()
-    ))?;
+    .map_err(|_| AppError::Internal("no EMPLOYEE_PAYABLE account in ledger".into()))?;
     // Find the existing approved transaction for this claim
     // so the payout references the same bookkeeping.
     let (txn_id,): (Uuid,) = sqlx::query_as(
@@ -761,9 +746,7 @@ pub async fn pay(
     .bind(&claim.short_id)
     .fetch_one(&mut *tx)
     .await
-    .map_err(|_| AppError::Internal(
-        "no approved transaction found for claim".into()
-    ))?;
+    .map_err(|_| AppError::Internal("no approved transaction found for claim".into()))?;
     let net_payable: Decimal = sqlx::query_scalar(
         r#"SELECT COALESCE(SUM(p.amount), 0)
            FROM postings p
@@ -855,10 +838,7 @@ pub async fn pay(
         None,
     )
     .await;
-    Ok(Redirect::to(&format!(
-        "/ledgers/{ledger_id}/reimbursements/{claim_id}"
-    ))
-    .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/reimbursements/{claim_id}")).into_response())
 }
 
 async fn load_claim(
@@ -866,7 +846,24 @@ async fn load_claim(
     claim_id: Uuid,
     ledger_id: Uuid,
 ) -> AppResult<crate::domain::reimbursement::Claim> {
-    let row: Option<(Uuid, Uuid, String, Uuid, String, String, Option<String>, String, String, Option<Uuid>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>, Option<Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+    let row: Option<(
+        Uuid,
+        Uuid,
+        String,
+        Uuid,
+        String,
+        String,
+        Option<String>,
+        String,
+        String,
+        Option<Uuid>,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<String>,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<Uuid>,
+        chrono::DateTime<chrono::Utc>,
+        chrono::DateTime<chrono::Utc>,
+    )> = sqlx::query_as(
         r#"SELECT id, ledger_id, short_id, employee_id, employee_name,
                   title, description, currency, status, approved_by,
                   approved_at, rejected_reason, paid_at, payout_account_id,
@@ -878,7 +875,25 @@ async fn load_claim(
     .bind(ledger_id)
     .fetch_optional(&state.pool)
     .await?;
-    let Some((id, ledger_id, short_id, employee_id, employee_name, title, description, currency, status, approved_by, approved_at, rejected_reason, paid_at, payout_account_id, created_at, updated_at)) = row else {
+    let Some((
+        id,
+        ledger_id,
+        short_id,
+        employee_id,
+        employee_name,
+        title,
+        description,
+        currency,
+        status,
+        approved_by,
+        approved_at,
+        rejected_reason,
+        paid_at,
+        payout_account_id,
+        created_at,
+        updated_at,
+    )) = row
+    else {
         return Err(AppError::NotFound);
     };
     Ok(crate::domain::reimbursement::Claim {
@@ -890,7 +905,8 @@ async fn load_claim(
         title,
         description,
         currency,
-        status: ClaimStatus::parse(&status).ok_or_else(|| AppError::Internal("bad status".into()))?,
+        status: ClaimStatus::parse(&status)
+            .ok_or_else(|| AppError::Internal("bad status".into()))?,
         approved_by,
         approved_at,
         rejected_reason,
@@ -909,22 +925,20 @@ async fn collect_policy_violations(
     claim_id: Uuid,
 ) -> AppResult<Vec<(Policy, Violation)>> {
     // Find the claim's ledger.
-    let (ledger_id,): (Uuid,) = sqlx::query_as(
-        "SELECT ledger_id FROM reimbursement_claims WHERE id = $1",
-    )
-    .bind(claim_id)
-    .fetch_one(&state.pool)
-    .await?;
+    let (ledger_id,): (Uuid,) =
+        sqlx::query_as("SELECT ledger_id FROM reimbursement_claims WHERE id = $1")
+            .bind(claim_id)
+            .fetch_one(&state.pool)
+            .await?;
     // Load active policies.
-    let policy_rows: Vec<(Uuid, String, String, serde_json::Value, String)> =
-        sqlx::query_as(
-            r#"SELECT id, name, kind, config, severity
+    let policy_rows: Vec<(Uuid, String, String, serde_json::Value, String)> = sqlx::query_as(
+        r#"SELECT id, name, kind, config, severity
                FROM reimbursement_policies
                WHERE ledger_id = $1 AND is_active = TRUE"#,
-        )
-        .bind(ledger_id)
-        .fetch_all(&state.pool)
-        .await?;
+    )
+    .bind(ledger_id)
+    .fetch_all(&state.pool)
+    .await?;
     // Load the claim's lines.
     let line_rows: Vec<(String, NaiveDate, Decimal, bool)> = sqlx::query_as(
         r#"SELECT
@@ -949,8 +963,12 @@ async fn collect_policy_violations(
         .collect();
     let mut all = Vec::new();
     for (id, name, kind_s, config, severity_s) in policy_rows {
-        let Some(kind) = PolicyKind::parse(&kind_s) else { continue };
-        let Some(severity) = Severity::parse(&severity_s) else { continue };
+        let Some(kind) = PolicyKind::parse(&kind_s) else {
+            continue;
+        };
+        let Some(severity) = Severity::parse(&severity_s) else {
+            continue;
+        };
         let policy = Policy {
             id,
             name,
@@ -972,13 +990,26 @@ fn hard_violation_message(violations: &[(Policy, Violation)]) -> Option<String> 
             continue;
         }
         let detail = match v {
-            Violation::CategoryCapOver { category, actual, cap, .. } => {
+            Violation::CategoryCapOver {
+                category,
+                actual,
+                cap,
+                ..
+            } => {
                 format!("category '{category}' cap exceeded (actual {actual}¢ > cap {cap}¢)")
             }
-            Violation::ReceiptMissing { amount, min_required } => {
+            Violation::ReceiptMissing {
+                amount,
+                min_required,
+            } => {
                 format!("receipt required for {amount}¢ (min {min_required}¢)")
             }
-            Violation::PerDiemOver { destination, actual, daily_rate, .. } => {
+            Violation::PerDiemOver {
+                destination,
+                actual,
+                daily_rate,
+                ..
+            } => {
                 format!(
                     "per-diem for '{destination}' exceeded (actual {actual}¢ > rate {daily_rate}¢)"
                 )
