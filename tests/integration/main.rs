@@ -24,5 +24,6 @@ mod policies;
 mod pwa;
 mod reconciliation_rules;
 mod secure_cookie;
+mod session_timeout;
 mod smoke;
 mod totp;

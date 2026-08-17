@@ -3,6 +3,7 @@ use crate::{
     auth::{
         create_user, password,
         rate_limit::{self, Decision},
+        session_timeout::mark_authenticated,
         totp, Backend, Credentials,
     },
     error::{AppError, AppResult},
@@ -58,8 +59,13 @@ pub struct RegisterPage {
 pub async fn login_page(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
+    let error = if params.get("expired").map(|s| s.as_str()) == Some("1") {
+        "Your session expired; please sign in again."
+    } else {
+        ""
+    };
     Ok(render_response(LoginPage {
-        error: String::new(),
+        error: error.to_string(),
         next: params.get("next").cloned().unwrap_or_default(),
     }))
 }
@@ -180,6 +186,7 @@ pub async fn login_submit(
     rate_limit::record_success(&state.pool, &ip, &email_norm, now)
         .await
         .map_err(AppError::Db)?;
+    mark_authenticated(&session).await;
     auth.login(&user)
         .await
         .map_err(|e| AppError::Internal(format!("auth: {e}")))?;
@@ -285,6 +292,7 @@ pub async fn login_2fa_submit(
         .flatten()
         .unwrap_or_else(|| form.next.clone().unwrap_or_else(|| "/".into()));
 
+    mark_authenticated(&session).await;
     auth.login(&user)
         .await
         .map_err(|e| AppError::Internal(format!("auth: {e}")))?;

@@ -131,6 +131,21 @@ impl AppConfig {
 /// `TestServer` fixture. Any new route must be added here, not in
 /// `main.rs`.
 pub fn build_router(state: AppState, config: AppConfig) -> Router {
+    build_router_with_session_guard(
+        state,
+        config,
+        crate::auth::session_timeout::SessionGuard::from_env(),
+    )
+}
+
+/// Variant of [`build_router`] that lets callers pass an explicit
+/// [`SessionGuard`]. Used by tests that need to override the
+/// idle / absolute timeouts without touching env vars.
+pub fn build_router_with_session_guard(
+    state: AppState,
+    config: AppConfig,
+    session_guard: crate::auth::session_timeout::SessionGuard,
+) -> Router {
     let session_store = PostgresStore::new(state.pool.clone());
     // `SessionManagerLayer` migrations are run in `run()` and in
     // `TestServer::new()`. We don't re-run them here so the same
@@ -591,6 +606,14 @@ pub fn build_router(state: AppState, config: AppConfig) -> Router {
     public
         .merge(protected)
         .with_state(state)
+        // Session-timeout middleware: enforced before the
+        // request hits any handler. We install it on the whole
+        // router so the `expired=1` flash also fires on
+        // protected routes (which is the more important case).
+        .layer(axum::middleware::from_fn_with_state(
+            session_guard,
+            crate::auth::session_timeout::enforce_timeout,
+        ))
         .layer(auth_layer)
         .layer(tower_http::trace::TraceLayer::new_for_http())
 }
