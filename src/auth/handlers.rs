@@ -1,4 +1,13 @@
 use crate::templates::{auth::Login2faPage, render_response};
+use crate::{
+    auth::{
+        create_user, password,
+        rate_limit::{self, Decision},
+        totp, Backend, Credentials,
+    },
+    error::{AppError, AppResult},
+    AppState,
+};
 use askama::Template;
 use axum::{
     extract::ConnectInfo,
@@ -12,16 +21,6 @@ use std::net::SocketAddr;
 use time::OffsetDateTime;
 use tower_sessions::Session;
 use uuid::Uuid;
-
-use crate::{
-    auth::{
-        create_user,
-        rate_limit::{self, Decision},
-        totp, Backend, Credentials,
-    },
-    error::{AppError, AppResult},
-    AppState,
-};
 
 /// Session key for the user_id that's pending 2FA verification.
 const SESSION_KEY_2FA_PENDING: &str = "2fa_pending_user_id";
@@ -315,9 +314,16 @@ pub async fn register_submit(
             error: "Passwords do not match".into(),
         }));
     }
-    if form.password.len() < 8 {
+    if let Err(e) = password::validate_strength(&form.password) {
+        // Scrub the password before logging the form body.
+        tracing::warn!(
+            endpoint = "register",
+            error = %e,
+            password = password::mask(&form.password),
+            "registration rejected"
+        );
         return Ok(render_response(RegisterPage {
-            error: "Password must be at least 8 characters".into(),
+            error: e.message().into(),
         }));
     }
     create_user(&state.pool, &form.email, &form.username, &form.password)

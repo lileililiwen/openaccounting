@@ -148,11 +148,12 @@ pub async fn change_password(
         return Err(AppError::Unauthorized);
     }
 
-    // 3. Validate the new password (≥ 8 chars).
-    if new.len() < 8 {
-        return Err(AppError::Validation(
-            "New password must be at least 8 characters.".into(),
-        ));
+    // 3. Validate the new password against the strength policy
+    //    (length ≥ 12 + common-list check). The error message is
+    //    safe to surface to the user; the password itself is never
+    //    echoed.
+    if let Err(e) = password::validate_strength(new) {
+        return Err(AppError::Validation(e.message().into()));
     }
 
     // 4. Hash and store.
@@ -248,7 +249,7 @@ mod tests {
             .await
             .expect_err("must fail");
         match err {
-            AppError::Validation(m) => assert!(m.contains("at least 8"), "msg: {m}"),
+            AppError::Validation(m) => assert!(m.contains("at least 12"), "msg: {m}"),
             other => panic!("expected Validation, got: {other:?}"),
         }
         cleanup(&pool, user.id).await;
