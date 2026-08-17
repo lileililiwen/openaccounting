@@ -55,6 +55,12 @@ pub struct Config {
     pub app_host: String,
     pub app_port: u16,
     pub app_secret: String,
+    /// Previous APP_SECRET for cookie-signing key rotation.
+    /// When set, sessions signed with this secret are still
+    /// accepted; on the next response they are re-signed with
+    /// the current `app_secret`. Documented in the
+    /// `signed-cookies` spec.
+    pub app_secret_previous: Option<String>,
     pub database_url: String,
     pub documents_dir: String,
     pub app_env: AppEnv,
@@ -73,6 +79,9 @@ impl Config {
         if app_secret.len() < 32 {
             anyhow::bail!("APP_SECRET must be at least 32 characters");
         }
+        let app_secret_previous = env::var("APP_SECRET_PREVIOUS")
+            .ok()
+            .filter(|s| !s.is_empty() && s.len() >= 32);
         let database_url =
             env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL must be set"))?;
         let documents_dir = env::var("DOCUMENTS_DIR").unwrap_or_else(|_| "./data/documents".into());
@@ -82,6 +91,7 @@ impl Config {
             app_host,
             app_port,
             app_secret,
+            app_secret_previous,
             database_url,
             documents_dir,
             app_env,

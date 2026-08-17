@@ -1,3 +1,4 @@
+pub mod cookie_signer;
 pub mod handlers;
 pub mod password;
 pub mod rate_limit;

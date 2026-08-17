@@ -84,18 +84,17 @@ pub struct AppState {
 ///
 /// `app_secret` MUST be at least 32 bytes; the binary rejects
 /// shorter secrets at startup. The test fixture passes a fixed
-/// 64-byte secret. Today the router does not sign cookies (the
-/// `signed` feature on `tower-sessions` is not enabled), so the
-/// secret is reserved for future use; the length invariant is
-/// still enforced so the public surface is stable.
+/// 64-byte secret. `app_secret` is used (a) to derive the HMAC
+/// key for signed session cookies (`signed-cookies` spec), and
+/// (b) to derive the TOTP encryption key.
 ///
 /// `secure_cookie` controls the `Secure` attribute on the session
 /// cookie. The production binary refuses to start with
 /// `secure_cookie = false` unless `--allow-insecure-cookies` is
 /// passed (see [`crate::config::AppEnv`] and `run()`).
 pub struct AppConfig {
-    #[allow(dead_code)]
     pub app_secret: String,
+    pub app_secret_previous: Option<String>,
     pub secure_cookie: bool,
 }
 
@@ -113,6 +112,7 @@ impl AppConfig {
         // (`run`) flips this based on `APP_ENV`.
         Ok(Self {
             app_secret,
+            app_secret_previous: None,
             secure_cookie: false,
         })
     }
@@ -120,6 +120,13 @@ impl AppConfig {
     /// Builder-style setter for `secure_cookie`.
     pub fn with_secure_cookie(mut self, secure: bool) -> Self {
         self.secure_cookie = secure;
+        self
+    }
+
+    /// Builder-style setter for the previous APP_SECRET used
+    /// during cookie-signing key rotation.
+    pub fn with_previous_app_secret(mut self, prev: impl Into<String>) -> Self {
+        self.app_secret_previous = Some(prev.into());
         self
     }
 }
@@ -131,17 +138,47 @@ impl AppConfig {
 /// `TestServer` fixture. Any new route must be added here, not in
 /// `main.rs`.
 pub fn build_router(state: AppState, config: AppConfig) -> Router {
-    build_router_with_session_guard(
-        state,
-        config,
-        crate::auth::session_timeout::SessionGuard::from_env(),
-    )
+    let session_guard = crate::auth::session_timeout::SessionGuard::from_env();
+    let signer = std::sync::Arc::new(crate::auth::cookie_signer::CookieSigner::derive_from(
+        &config.app_secret,
+        config.app_secret_previous.as_deref(),
+    ));
+    build_router_with_signer(state, config, session_guard, signer)
+}
+
+/// Build the router with an explicit cookie signer (used by
+/// the integration tests to exercise multi-key rotation).
+pub fn build_router_with_signer(
+    state: AppState,
+    config: AppConfig,
+    session_guard: crate::auth::session_timeout::SessionGuard,
+    signer: std::sync::Arc<crate::auth::cookie_signer::CookieSigner>,
+) -> Router {
+    let inner = build_router_inner(state, config, session_guard);
+    // The signed-cookie middleware sits OUTSIDE everything else
+    // so it can rewrite the `Set-Cookie` header after the
+    // inner stack has produced a fresh session id.
+    inner.layer(axum::middleware::from_fn_with_state(
+        signer,
+        crate::auth::cookie_signer::enforce_signed_cookie,
+    ))
 }
 
 /// Variant of [`build_router`] that lets callers pass an explicit
 /// [`SessionGuard`]. Used by tests that need to override the
 /// idle / absolute timeouts without touching env vars.
 pub fn build_router_with_session_guard(
+    state: AppState,
+    config: AppConfig,
+    session_guard: crate::auth::session_timeout::SessionGuard,
+) -> Router {
+    build_router_inner(state, config, session_guard)
+}
+
+/// Inner router builder shared by [`build_router`] (with the
+/// default cookie signer derived from APP_SECRET) and the test
+/// variants that take an explicit signer or session guard.
+fn build_router_inner(
     state: AppState,
     config: AppConfig,
     session_guard: crate::auth::session_timeout::SessionGuard,
@@ -680,7 +717,13 @@ pub async fn run() -> anyhow::Result<()> {
         false
     };
 
-    let app_config = AppConfig::new(cfg.app_secret)?.with_secure_cookie(secure_cookie);
+    let mut app_config = AppConfig::new(cfg.app_secret.clone())?.with_secure_cookie(secure_cookie);
+    if let Some(prev) = cfg.app_secret_previous.as_ref() {
+        tracing::info!(
+            "APP_SECRET_PREVIOUS is set; cookies signed with the previous key will be re-signed with the current key on the next request"
+        );
+        app_config = app_config.with_previous_app_secret(prev.clone());
+    }
     let app = build_router(state, app_config);
 
     let addr =

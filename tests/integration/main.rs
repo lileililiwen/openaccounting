@@ -25,5 +25,6 @@ mod pwa;
 mod reconciliation_rules;
 mod secure_cookie;
 mod session_timeout;
+mod signed_cookies;
 mod smoke;
 mod totp;

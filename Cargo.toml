@@ -114,6 +114,7 @@ qrcodegen = "1.8"
 hkdf = "0.12"
 rand = "0.8"
 sha2 = "0.10"
+hmac = "0.13.0"
 
 [dev-dependencies]
 # reqwest is already a non-optional dep; re-declare for dev to get the
