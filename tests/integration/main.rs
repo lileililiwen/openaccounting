@@ -23,5 +23,6 @@ mod password_strength;
 mod policies;
 mod pwa;
 mod reconciliation_rules;
+mod secure_cookie;
 mod smoke;
 mod totp;

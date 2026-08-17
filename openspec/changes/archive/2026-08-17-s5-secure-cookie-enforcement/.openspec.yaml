@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Prevent session-cookie leakage over plain HTTP in production.

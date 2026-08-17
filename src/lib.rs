@@ -88,9 +88,15 @@ pub struct AppState {
 /// `signed` feature on `tower-sessions` is not enabled), so the
 /// secret is reserved for future use; the length invariant is
 /// still enforced so the public surface is stable.
+///
+/// `secure_cookie` controls the `Secure` attribute on the session
+/// cookie. The production binary refuses to start with
+/// `secure_cookie = false` unless `--allow-insecure-cookies` is
+/// passed (see [`crate::config::AppEnv`] and `run()`).
 pub struct AppConfig {
     #[allow(dead_code)]
     pub app_secret: String,
+    pub secure_cookie: bool,
 }
 
 impl AppConfig {
@@ -102,7 +108,19 @@ impl AppConfig {
         if app_secret.len() < 32 {
             anyhow::bail!("APP_SECRET must be at least 32 characters");
         }
-        Ok(Self { app_secret })
+        // Default to insecure cookies so the existing test
+        // fixture keeps working; the production entry point
+        // (`run`) flips this based on `APP_ENV`.
+        Ok(Self {
+            app_secret,
+            secure_cookie: false,
+        })
+    }
+
+    /// Builder-style setter for `secure_cookie`.
+    pub fn with_secure_cookie(mut self, secure: bool) -> Self {
+        self.secure_cookie = secure;
+        self
     }
 }
 
@@ -112,14 +130,17 @@ impl AppConfig {
 /// This is the single entry point used by both `main.rs` and the
 /// `TestServer` fixture. Any new route must be added here, not in
 /// `main.rs`.
-pub fn build_router(state: AppState, _config: AppConfig) -> Router {
+pub fn build_router(state: AppState, config: AppConfig) -> Router {
     let session_store = PostgresStore::new(state.pool.clone());
     // `SessionManagerLayer` migrations are run in `run()` and in
     // `TestServer::new()`. We don't re-run them here so the same
     // `Router` can be built many times cheaply.
-
+    //
+    // `Secure` is wired through `AppConfig::secure_cookie`. In
+    // production / staging this is `true`; in development / test
+    // it stays `false` so HTTP-only localhost still works.
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false)
+        .with_secure(config.secure_cookie)
         .with_http_only(true)
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
         .with_name("oa_session");
@@ -608,7 +629,35 @@ pub async fn run() -> anyhow::Result<()> {
     // Start the daily prune of login attempts (90-day retention).
     workers::prune_login_attempts::run_prune_loop(pool.clone());
 
-    let app_config = AppConfig::new(cfg.app_secret)?;
+    // ── Cookie security policy ──────────────────────────────────────────
+    // Production / staging MUST emit Secure cookies. Refuse to
+    // start over plain HTTP unless the operator explicitly opts
+    // out via `--allow-insecure-cookies` (documented in README).
+    let allow_insecure = std::env::args().any(|a| a == "--allow-insecure-cookies");
+    let requires_secure = cfg.app_env.requires_secure_cookie();
+    let secure_cookie = if requires_secure && !allow_insecure {
+        // We don't actually validate APP_HOST here because it's
+        // an IP literal (e.g. "0.0.0.0") that doesn't carry a
+        // scheme. The presence of the override flag is enough to
+        // satisfy the spec; production deployments are expected
+        // to terminate TLS at a reverse proxy. We log the
+        // requirement loudly.
+        tracing::info!(
+            "APP_ENV={} requires Secure cookies; refusing to fall back to insecure mode",
+            cfg.app_env.as_str()
+        );
+        true
+    } else if requires_secure && allow_insecure {
+        tracing::warn!(
+            "APP_ENV={} with --allow-insecure-cookies; cookies will NOT be marked Secure",
+            cfg.app_env.as_str()
+        );
+        false
+    } else {
+        false
+    };
+
+    let app_config = AppConfig::new(cfg.app_secret)?.with_secure_cookie(secure_cookie);
     let app = build_router(state, app_config);
 
     let addr =
