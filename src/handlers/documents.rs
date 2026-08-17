@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     audit,
-    auth::Backend,
+    auth::{Backend, User},
     domain::Document,
     error::{AppError, AppResult},
     handlers::{document_ocr, ledgers},
@@ -280,9 +280,12 @@ pub async fn download(
     Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // Download accepts any ledger role (owner / editor / viewer)
+    // OR an admin user. Cross-ledger access returns 404 to
+    // avoid revealing the document's existence.
+    let _ = ensure_doc_access(&state, user, ledger_id).await?;
     let doc = sqlx::query_as::<_, Document>(
-        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at
+        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
            JOIN transactions t ON t.id = d.transaction_id
            WHERE d.id = $1 AND t.ledger_id = $2"#,
@@ -319,10 +322,11 @@ pub async fn delete(
     Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // Delete requires editor / owner / admin.
+    let _ = ensure_doc_mutation_access(&state, user, ledger_id).await?;
 
     let doc = sqlx::query_as::<_, Document>(
-        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at
+        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
            JOIN transactions t ON t.id = d.transaction_id
            WHERE d.id = $1 AND t.ledger_id = $2"#,
@@ -353,4 +357,37 @@ pub async fn delete(
     .await;
 
     Ok(Redirect::to(&format!("/ledgers/{}/documents", ledger_id)).into_response())
+}
+
+/// Ensure the requesting user has READ access to the document's
+/// ledger: owner, editor, viewer, or admin. Cross-ledger or
+/// unknown users get `AppError::NotFound` (404) — never 403, so
+/// the existence of documents outside the user's scope is not
+/// disclosed.
+pub async fn ensure_doc_access(state: &AppState, user: &User, ledger_id: Uuid) -> AppResult<Uuid> {
+    if user.role == "Admin" {
+        return Ok(user.id);
+    }
+    let (_, role) = ledgers::ensure_access(state, user.id, ledger_id).await?;
+    tracing::debug!(role = %role, "ensure_doc_access OK");
+    Ok(user.id)
+}
+
+/// Ensure the requesting user has WRITE access to the document's
+/// ledger: owner, editor, or admin. Viewers are rejected with
+/// `AppError::NotFound` (404, not 403 — same rationale).
+pub async fn ensure_doc_mutation_access(
+    state: &AppState,
+    user: &User,
+    ledger_id: Uuid,
+) -> AppResult<Uuid> {
+    if user.role == "Admin" {
+        return Ok(user.id);
+    }
+    let (_, role) = ledgers::ensure_access(state, user.id, ledger_id).await?;
+    if role == "viewer" {
+        // Don't reveal that the ledger exists.
+        return Err(AppError::NotFound);
+    }
+    Ok(user.id)
 }

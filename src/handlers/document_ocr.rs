@@ -20,7 +20,7 @@ use crate::{
     audit,
     auth::Backend,
     error::{AppError, AppResult},
-    handlers::ledgers,
+    handlers::{documents, ledgers},
     ocr::OcrEngine,
     templates::{
         document_ocr::{DocumentOcrPage, OcrResultView},
@@ -37,7 +37,7 @@ pub async fn show(
     Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_access(&state, user.id, ledger_id).await?.0;
 
     // Verify doc belongs to this ledger.
     let (filename,): (String,) = sqlx::query_as(
@@ -101,7 +101,8 @@ pub async fn run(
     Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // OCR run is a mutation — require editor+.
+    let _ = documents::ensure_doc_mutation_access(&state, user, ledger_id).await?;
 
     // Verify doc belongs to this ledger and get stored filename + mime.
     let row = sqlx::query(
@@ -204,7 +205,8 @@ pub async fn apply(
     Form(form): Form<ApplyForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    // Apply is a mutation — require editor+.
+    let _ = documents::ensure_doc_mutation_access(&state, user, ledger_id).await?;
 
     // Load the OCR result.
     let ocr_row = sqlx::query(

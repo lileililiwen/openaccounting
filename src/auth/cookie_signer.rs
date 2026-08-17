@@ -152,7 +152,7 @@ pub async fn enforce_signed_cookie(
     let (session_id, mac) = parsed;
 
     let matched = signer.verify(&session_id, &mac);
-    let Some(idx) = matched else {
+    let Some(_idx) = matched else {
         // Tampered or signed by an unknown key. Reject.
         let clear = format!("{}=; Path=/; Max-Age=0", COOKIE_NAME);
         return (

@@ -13,6 +13,7 @@ mod bank_statement_imports;
 mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
+mod document_authorization;
 mod document_ocr;
 mod expense_reimbursement;
 mod import_alipay;

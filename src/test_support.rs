@@ -155,7 +155,7 @@ pub struct TestServer {
     base_url: String,
     client: reqwest::Client,
     db: TestDb,
-    _sandbox: Arc<TempDir>,
+    sandbox: Arc<TempDir>,
     _handle: JoinHandle<()>,
 }
 
@@ -221,7 +221,7 @@ impl TestServer {
             base_url,
             client,
             db,
-            _sandbox: sandbox,
+            sandbox,
             _handle: handle,
         }
     }
@@ -241,6 +241,13 @@ impl TestServer {
     /// The per-test database handle.
     pub fn db(&self) -> &TestDb {
         &self.db
+    }
+
+    /// Path to the per-test sandbox directory. Used by tests
+    /// that need to inspect / write files alongside the
+    /// `FilesystemStore`.
+    pub fn sandbox_path(&self) -> std::path::PathBuf {
+        self.sandbox.path().to_path_buf()
     }
 
     /// Convenience: register a user, log them in, return the
