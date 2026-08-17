@@ -192,6 +192,7 @@ impl TestServer {
         let state = AppState {
             pool: db.pool(),
             storage,
+            totp_cipher: crate::auth::totp::TotpCipher::from_app_secret(secret),
         };
         let config = AppConfig::new(secret.to_string()).expect("valid app config");
         let app = build_router(state, config);

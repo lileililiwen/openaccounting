@@ -56,7 +56,7 @@ sqlx = { version = "0.8.3", features = [
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.140"
 chrono = { version = "0.4.40", features = ["serde"] }
-uuid = { version = "1.15.1", features = ["serde", "v4"] }
+uuid = { version = "1.15.1", features = ["serde", "v4", "v5"] }
 rust_decimal = { version = "1.36.0", features = ["serde-with-str"] }
 rust_decimal_macros = "1.37.1"
 
@@ -109,6 +109,11 @@ tesseract-plumbing = { version = "0.11", optional = true }
 # absent from the production binary.
 postgres = { version = "0.19", optional = true, default-features = false }
 tempfile = { version = "3", optional = true }
+totp-rs = { version = "6.0.0", features = ["gen_secret", "otpauth"] }
+qrcodegen = "1.8"
+hkdf = "0.12"
+rand = "0.8"
+sha2 = "0.10"
 
 [dev-dependencies]
 # reqwest is already a non-optional dep; re-declare for dev to get the

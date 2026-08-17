@@ -1,4 +1,4 @@
-use crate::templates::render_response;
+use crate::templates::{auth::Login2faPage, render_response};
 use askama::Template;
 use axum::{
     extract::ConnectInfo,
@@ -10,20 +10,32 @@ use axum_login::AuthSession;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use time::OffsetDateTime;
+use tower_sessions::Session;
+use uuid::Uuid;
 
 use crate::{
     auth::{
         create_user,
         rate_limit::{self, Decision},
-        Backend, Credentials,
+        totp, Backend, Credentials,
     },
     error::{AppError, AppResult},
     AppState,
 };
 
+/// Session key for the user_id that's pending 2FA verification.
+const SESSION_KEY_2FA_PENDING: &str = "2fa_pending_user_id";
+/// Session key for the `next` URL to redirect to after a
+/// successful 2FA.
+const SESSION_KEY_2FA_NEXT: &str = "2fa_next";
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/login", axum::routing::get(login_page).post(login_submit))
+        .route(
+            "/login/2fa",
+            axum::routing::get(login_2fa_page).post(login_2fa_submit),
+        )
         .route(
             "/register",
             axum::routing::get(register_page).post(register_submit),
@@ -96,6 +108,7 @@ fn login_error_page(next: &str, status: StatusCode) -> Response {
 
 pub async fn login_submit(
     mut auth: AuthSession<Backend>,
+    session: Session,
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     axum::Form(form): axum::Form<LoginForm>,
@@ -145,15 +158,137 @@ pub async fn login_submit(
         }
     };
 
-    // Successful auth: audit row + reset per-account failure counter.
+    // Password verified. Now: if the user has 2FA enrolled,
+    // stash the user_id in the session and require a TOTP
+    // code at /login/2fa before we materialise the session.
+    // Otherwise the user is logged in directly.
+    if totp::is_enrolled(&state.pool, user.id)
+        .await
+        .map_err(|e| AppError::Internal(format!("totp: {e:?}")))?
+    {
+        session
+            .insert(SESSION_KEY_2FA_PENDING, user.id)
+            .await
+            .map_err(|e| AppError::Internal(format!("session: {e}")))?;
+        session
+            .insert(SESSION_KEY_2FA_NEXT, next.clone())
+            .await
+            .map_err(|e| AppError::Internal(format!("session: {e}")))?;
+        return Ok(axum::response::Redirect::to("/login/2fa").into_response());
+    }
+
+    // No 2FA: complete the session now.
     rate_limit::record_success(&state.pool, &ip, &email_norm, now)
         .await
         .map_err(AppError::Db)?;
-
     auth.login(&user)
         .await
         .map_err(|e| AppError::Internal(format!("auth: {e}")))?;
     let next = form.next.unwrap_or_else(|| "/".into());
+    Ok(axum::response::Redirect::to(&next).into_response())
+}
+
+// ─── /login/2fa (GET + POST) ────────────────────────────────────────────
+
+pub async fn login_2fa_page(
+    session: Session,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> AppResult<Response> {
+    let pending: Option<Uuid> = session
+        .get(SESSION_KEY_2FA_PENDING)
+        .await
+        .map_err(|e| AppError::Internal(format!("session: {e}")))?;
+    if pending.is_none() {
+        return Ok(axum::response::Redirect::to("/login").into_response());
+    }
+    let next = params.get("next").cloned().unwrap_or_default();
+    Ok(render_response(Login2faPage::new(next)))
+}
+
+#[derive(Deserialize)]
+pub struct TwoFactorForm {
+    pub code: String,
+    pub next: Option<String>,
+}
+
+pub async fn login_2fa_submit(
+    mut auth: AuthSession<Backend>,
+    session: Session,
+    State(state): State<AppState>,
+    axum::Form(form): axum::Form<TwoFactorForm>,
+) -> AppResult<Response> {
+    let pending: Option<Uuid> = session
+        .get(SESSION_KEY_2FA_PENDING)
+        .await
+        .map_err(|e| AppError::Internal(format!("session: {e}")))?;
+    let Some(user_id) = pending else {
+        return Ok(axum::response::Redirect::to("/login").into_response());
+    };
+
+    // Try TOTP code first; if it fails, try a recovery code.
+    let Some((sealed, counter)) = totp::fetch_state(&state.pool, user_id)
+        .await
+        .map_err(|e| AppError::Internal(format!("totp: {e:?}")))?
+    else {
+        // 2FA enrollment vanished between request boundaries —
+        // back to login.
+        session.remove::<Uuid>(SESSION_KEY_2FA_PENDING).await.ok();
+        return Ok(axum::response::Redirect::to("/login").into_response());
+    };
+
+    let secret = state
+        .totp_cipher
+        .open(&sealed)
+        .map_err(|e| AppError::Internal(format!("cipher: {e:?}")))?;
+
+    let now = OffsetDateTime::now_utc();
+    let code_trim = form.code.trim().to_uppercase();
+    let matched: Option<(i64, bool)> = match totp::verify_code(&secret, &form.code, counter, now) {
+        Ok(step) => Some((step as i64, true)),
+        Err(_) => match totp::consume_recovery_code(&state.pool, user_id, &code_trim).await {
+            Ok(_) => Some((counter, false)),
+            Err(_) => None,
+        },
+    };
+
+    let Some((matched_step, is_totp)) = matched else {
+        let next = form.next.clone().unwrap_or_default();
+        return Ok(render_response(
+            Login2faPage::new(next).with_error("Invalid code"),
+        ));
+    };
+
+    // Advance the counter atomically (only for TOTP codes; recovery
+    // codes don't touch the counter). This locks out replays of
+    // the same TOTP code.
+    if is_totp {
+        totp::advance_counter(&state.pool, user_id, counter, matched_step)
+            .await
+            .map_err(|e| AppError::Internal(format!("counter: {e:?}")))?;
+    }
+
+    // Fetch the full User record so we can materialise the session.
+    let user = sqlx::query_as::<_, crate::auth::User>(
+        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at
+           FROM users WHERE id = $1"#,
+    )
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(AppError::Db)?;
+
+    // Clean the pending-2FA session data.
+    session.remove::<Uuid>(SESSION_KEY_2FA_PENDING).await.ok();
+    let next = session
+        .remove::<String>(SESSION_KEY_2FA_NEXT)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| form.next.clone().unwrap_or_else(|| "/".into()));
+
+    auth.login(&user)
+        .await
+        .map_err(|e| AppError::Internal(format!("auth: {e}")))?;
     Ok(axum::response::Redirect::to(&next).into_response())
 }
 

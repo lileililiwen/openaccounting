@@ -23,3 +23,4 @@ mod policies;
 mod pwa;
 mod reconciliation_rules;
 mod smoke;
+mod totp;

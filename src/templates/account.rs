@@ -5,6 +5,77 @@ use uuid::Uuid;
 use crate::auth::User;
 
 #[derive(Template)]
+#[template(path = "account/security.html")]
+pub struct SecurityPage {
+    pub enrolled: bool,
+    pub enrolled_at: String,
+    pub unused_count: i64,
+    pub qr_svg: String,
+    pub secret_b32: String,
+    pub recovery_codes: Vec<String>,
+    pub flash: String,
+    pub error: String,
+    // Fields used by the shared `partials/_nav.html` include —
+    // Askama does not auto-inherit, so every template that
+    // includes the nav must expose these even if unused.
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+}
+
+impl SecurityPage {
+    pub fn not_enrolled(qr_svg: String, secret_b32: String, user: &User) -> Self {
+        Self {
+            enrolled: false,
+            enrolled_at: String::new(),
+            unused_count: 0,
+            qr_svg,
+            secret_b32,
+            recovery_codes: Vec::new(),
+            flash: String::new(),
+            error: String::new(),
+            username: user.username.clone(),
+            user_role: user.role.clone(),
+            ledger_id: Uuid::nil(),
+            ledger_name: String::new(),
+        }
+    }
+
+    pub fn enrolled(
+        enrolled_at: String,
+        unused_count: i64,
+        recovery_codes: Vec<String>,
+        user: &User,
+    ) -> Self {
+        Self {
+            enrolled: true,
+            enrolled_at,
+            unused_count,
+            qr_svg: String::new(),
+            secret_b32: String::new(),
+            recovery_codes,
+            flash: String::new(),
+            error: String::new(),
+            username: user.username.clone(),
+            user_role: user.role.clone(),
+            ledger_id: Uuid::nil(),
+            ledger_name: String::new(),
+        }
+    }
+
+    pub fn with_flash(mut self, flash: impl Into<String>) -> Self {
+        self.flash = flash.into();
+        self
+    }
+
+    pub fn with_error(mut self, error: impl Into<String>) -> Self {
+        self.error = error.into();
+        self
+    }
+}
+
+#[derive(Template)]
 #[template(path = "account.html")]
 pub struct AccountPage {
     pub username: String,

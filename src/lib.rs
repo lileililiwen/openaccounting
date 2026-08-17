@@ -74,6 +74,10 @@ async fn serve_sw(path: std::path::PathBuf) -> Response {
 pub struct AppState {
     pub pool: sqlx::PgPool,
     pub storage: FilesystemStore,
+    /// Pre-derived TOTP cipher. Built once at startup from
+    /// `APP_SECRET` via HKDF-SHA256(info="totp-secret-v1") so
+    /// per-request handlers don't re-derive the key.
+    pub totp_cipher: crate::auth::totp::TotpCipher,
 }
 
 /// Configuration that controls the router's session / cookie layer.
@@ -156,6 +160,10 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
         .route(
             "/login",
             get(auth::handlers::login_page).post(auth::handlers::login_submit),
+        )
+        .route(
+            "/login/2fa",
+            get(auth::handlers::login_2fa_page).post(auth::handlers::login_2fa_submit),
         )
         .route(
             "/register",
@@ -434,6 +442,22 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             get(handlers::payments::register),
         )
         .route(
+            "/account/security",
+            get(handlers::account_security::security_page),
+        )
+        .route(
+            "/account/security/enroll",
+            post(handlers::account_security::enroll_submit),
+        )
+        .route(
+            "/account/security/disable",
+            post(handlers::account_security::disable_submit),
+        )
+        .route(
+            "/account/security/regen-codes",
+            post(handlers::account_security::regen_codes_submit),
+        )
+        .route(
             "/ledgers/{id}/templates/new",
             get(handlers::templates::new_page).post(handlers::templates::create),
         )
@@ -571,6 +595,7 @@ pub async fn run() -> anyhow::Result<()> {
     let state = AppState {
         pool: pool.clone(),
         storage,
+        totp_cipher: crate::auth::totp::TotpCipher::from_app_secret(&cfg.app_secret),
     };
 
     // Start the background bank-feed sync worker.

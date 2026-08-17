@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Allow users to enroll a TOTP authenticator app; require the second factor
+  on login.

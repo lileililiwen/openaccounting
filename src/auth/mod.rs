@@ -1,6 +1,7 @@
 pub mod handlers;
 pub mod password;
 pub mod rate_limit;
+pub mod totp;
 
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use password::hash_password;

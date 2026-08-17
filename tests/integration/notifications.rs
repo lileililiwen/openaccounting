@@ -114,6 +114,9 @@ async fn http_dispatcher_with_noop_does_not_call_external() {
         storage: openaccounting::storage::FilesystemStore::new("/tmp/oa-test-noop-dispatch")
             .await
             .expect("fs"),
+        totp_cipher: openaccounting::auth::totp::TotpCipher::from_app_secret(
+            "test-secret-do-not-use-in-production-please-replace-with-64-random-chars",
+        ),
     };
 
     // Dispatch should complete without panicking or calling external APIs.
@@ -175,6 +178,9 @@ async fn http_dispatcher_pushes_to_registered_devices() {
         storage: openaccounting::storage::FilesystemStore::new("/tmp/oa-test-dispatch-fanout")
             .await
             .expect("fs"),
+        totp_cipher: openaccounting::auth::totp::TotpCipher::from_app_secret(
+            "test-secret-do-not-use-in-production-please-replace-with-64-random-chars",
+        ),
     };
 
     // Dispatch to both devices. Must not fail.
