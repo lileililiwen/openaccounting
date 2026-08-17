@@ -525,10 +525,7 @@ pub fn build_router(state: AppState, _config: AppConfig) -> Router {
             "/ledgers/{id}/approval-policies/{policy_id}/delete",
             post(handlers::approval_policies::delete),
         )
-        .route(
-            "/devices/register",
-            post(handlers::notifications::register),
-        )
+        .route("/devices/register", post(handlers::notifications::register))
         .route(
             "/devices/unregister",
             post(handlers::notifications::unregister),
@@ -583,6 +580,9 @@ pub async fn run() -> anyhow::Result<()> {
         .unwrap_or(6);
     tokio::spawn(workers::sync::run_sync_loop(state.clone(), sync_interval));
 
+    // Start the daily prune of login attempts (90-day retention).
+    workers::prune_login_attempts::run_prune_loop(pool.clone());
+
     let app_config = AppConfig::new(cfg.app_secret)?;
     let app = build_router(state, app_config);
 
@@ -590,6 +590,10 @@ pub async fn run() -> anyhow::Result<()> {
         std::net::SocketAddr::from((cfg.app_host.parse::<std::net::IpAddr>()?, cfg.app_port));
     tracing::info!("OpenAccounting listening on http://{}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }

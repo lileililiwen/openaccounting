@@ -3,8 +3,8 @@
 //! Tests follow the spec from:
 //! `openspec/changes/2026-08-14-bank-feeds/tasks.md` — section 1.
 
-use base64::Engine as _;
 use crate::common::*;
+use base64::Engine as _;
 use uuid::Uuid;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,7 +77,11 @@ async fn http_link_plaid_stores_encrypted_token() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
     let cookie = server
-        .bootstrap_user("alice_bf", "alice_bf@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "alice_bf",
+            "alice_bf@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let ledger_id = make_ledger(&server).await;
 
@@ -127,7 +131,11 @@ async fn http_unlink_preserves_transactions() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
     let cookie = server
-        .bootstrap_user("bob_bf", "bob_bf@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "bob_bf",
+            "bob_bf@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let ledger_id = make_ledger(&server).await;
 
@@ -196,12 +204,11 @@ async fn http_unlink_preserves_transactions() {
     assert_eq!(link_status, "disconnected");
 
     // The historical transaction must still exist.
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE id = $1")
-            .bind(txn_id)
-            .fetch_one(&pool)
-            .await
-            .expect("count txns");
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE id = $1")
+        .bind(txn_id)
+        .fetch_one(&pool)
+        .await
+        .expect("count txns");
     assert_eq!(count.0, 1, "transaction must survive unlink");
 }
 
@@ -254,6 +261,9 @@ async fn http_manual_provider_does_not_call_external_api() {
         .fetch_transactions("any-token", None)
         .await
         .expect("manual provider should not fail");
-    assert!(txns.is_empty(), "manual provider must return empty txn list");
+    assert!(
+        txns.is_empty(),
+        "manual provider must return empty txn list"
+    );
     assert!(cursor.is_none(), "manual provider cursor must be None");
 }

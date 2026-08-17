@@ -38,7 +38,11 @@ async fn http_devices_register_stores_token() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
     let cookie = server
-        .bootstrap_user("alice_mob", "alice_mob@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "alice_mob",
+            "alice_mob@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let _ledger_id = make_ledger(&server).await;
 
@@ -55,12 +59,11 @@ async fn http_devices_register_stores_token() {
     let status = resp.status();
     assert_eq!(status, 201, "register should 201; got {status}");
 
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM device_tokens WHERE token = $1")
-            .bind("test-device-token-ios")
-            .fetch_one(&pool)
-            .await
-            .expect("count");
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM device_tokens WHERE token = $1")
+        .bind("test-device-token-ios")
+        .fetch_one(&pool)
+        .await
+        .expect("count");
     assert_eq!(count.0, 1, "token must be stored");
 }
 
@@ -75,7 +78,11 @@ async fn http_dispatcher_with_noop_does_not_call_external() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
     let cookie = server
-        .bootstrap_user("bob_mob", "bob_mob@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "bob_mob",
+            "bob_mob@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let _ledger_id = make_ledger(&server).await;
 
@@ -135,7 +142,11 @@ async fn http_dispatcher_pushes_to_registered_devices() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
     let cookie = server
-        .bootstrap_user("carol_mob", "carol_mob@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "carol_mob",
+            "carol_mob@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let _ledger_id = make_ledger(&server).await;
 

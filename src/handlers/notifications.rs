@@ -98,18 +98,19 @@ pub struct PushRequest {
 /// Called internally (e.g. from approval routing, OCR completion).
 /// Always succeeds — failures are logged but do not surface to the caller.
 pub async fn dispatch(state: &AppState, req: PushRequest) {
-    let devices: Vec<DeviceToken> =
-        match sqlx::query_as("SELECT id, user_id, token, platform FROM device_tokens WHERE user_id = $1")
-            .bind(req.user_id)
-            .fetch_all(&state.pool)
-            .await
-        {
-            Ok(d) => d,
-            Err(e) => {
-                tracing::warn!("dispatch: failed to load devices: {e}");
-                return;
-            }
-        };
+    let devices: Vec<DeviceToken> = match sqlx::query_as(
+        "SELECT id, user_id, token, platform FROM device_tokens WHERE user_id = $1",
+    )
+    .bind(req.user_id)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::warn!("dispatch: failed to load devices: {e}");
+            return;
+        }
+    };
 
     if devices.is_empty() {
         return;
