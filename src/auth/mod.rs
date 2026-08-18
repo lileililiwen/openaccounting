@@ -1,3 +1,4 @@
+pub mod api_token;
 pub mod cookie_signer;
 pub mod csrf;
 pub mod handlers;

@@ -12,6 +12,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod api;
 pub mod audit;
 pub mod auth;
 pub mod bank_feeds;
@@ -31,6 +32,7 @@ pub mod ocr;
 pub mod reports;
 pub mod storage;
 pub mod templates;
+pub mod upload;
 pub mod workers;
 
 #[cfg(any(test, feature = "test-support"))]
@@ -46,6 +48,7 @@ use axum::{
 use axum_login::{login_required, tower_sessions::SessionManagerLayer, AuthManagerLayerBuilder};
 use sqlx::postgres::PgPoolOptions;
 use std::time::Duration;
+use tower_http::limit::RequestBodyLimitLayer;
 use tower_sessions_sqlx_store::PostgresStore;
 
 use auth::Backend;
@@ -104,6 +107,9 @@ pub struct AppConfig {
     /// (`o4-metrics-endpoint`). Defaults to true; set
     /// `METRICS_ENABLED=false` to disable for dev/test runs.
     pub metrics_enabled: bool,
+    /// Per-request upload body cap, in bytes
+    /// (`s10-upload-validation`). The default is 25 MiB.
+    pub upload_max_bytes: usize,
 }
 
 impl AppConfig {
@@ -123,6 +129,7 @@ impl AppConfig {
             app_secret_previous: None,
             secure_cookie: false,
             metrics_enabled: true,
+            upload_max_bytes: upload::DEFAULT_MAX_BYTES,
         })
     }
 
@@ -135,6 +142,12 @@ impl AppConfig {
     /// Builder-style setter for `metrics_enabled`.
     pub fn with_metrics_enabled(mut self, enabled: bool) -> Self {
         self.metrics_enabled = enabled;
+        self
+    }
+
+    /// Builder-style setter for `upload_max_bytes`.
+    pub fn with_upload_max_bytes(mut self, bytes: usize) -> Self {
+        self.upload_max_bytes = bytes;
         self
     }
 
@@ -324,6 +337,7 @@ fn build_router_inner(
             "/ledgers/{id}/transactions/bulk",
             post(handlers::transactions_bulk::bulk_action),
         )
+        .merge(handlers::transactions_edit::router())
         .route(
             "/ledgers/{id}/searches",
             get(handlers::saved_searches::list_searches).post(handlers::saved_searches::create),
@@ -526,6 +540,10 @@ fn build_router_inner(
             post(handlers::fixed_assets::dispose),
         )
         .route("/admin/backups", get(handlers::backups::list))
+        .route(
+            "/admin/backups/schedule",
+            get(handlers::admin_backups_schedule::schedule),
+        )
         .route(
             "/admin/backups/create",
             post(handlers::backups::create_manual),
@@ -730,6 +748,10 @@ fn build_router_inner(
             post(handlers::account_locale::set_locale),
         )
         .merge(handlers::admin::admin_routes())
+        // Public REST API (`a1-rest-api`). Bearer-token auth
+        // is applied inside the API router itself, so this merge
+        // does not get the cookie-based login layer.
+        .merge(crate::api::router(state.clone()))
         // CSRF middleware wraps the protected router so it never
         // touches `/login`, `/register`, the plaid webhook or any
         // other public route (`s1-csrf-protection`).
@@ -738,7 +760,12 @@ fn build_router_inner(
             Backend,
             login_url = "/login",
             redirect_field = "next"
-        ));
+        ))
+        // Cap request body size before the handler reads any
+        // bytes. `s10-upload-validation`: over-cap requests
+        // receive HTTP 413 immediately. The cap is
+        // `config.upload_max_bytes` (default 25 MiB).
+        .route_layer(RequestBodyLimitLayer::new(config.upload_max_bytes));
 
     public
         .merge(protected)
@@ -805,6 +832,12 @@ pub async fn run() -> anyhow::Result<()> {
     // Start the daily audit-chain anchor writer.
     workers::audit_anchor::run_anchor_loop(pool.clone());
 
+    // Start the scheduled-backup worker
+    // (`o2-scheduled-backups`). The schedule is parsed from
+    // `BACKUP_CRON` / `BACKUP_KEEP` / `BACKUP_DIR`; the worker
+    // logs and disables itself if the expression is invalid.
+    workers::backup::spawn_backup_worker(state.clone(), workers::backup::BackupConfig::from_env());
+
     // ── Cookie security policy ──────────────────────────────────────────
     // Production / staging MUST emit Secure cookies. Refuse to
     // start over plain HTTP unless the operator explicitly opts
@@ -841,6 +874,7 @@ pub async fn run() -> anyhow::Result<()> {
         app_config = app_config.with_previous_app_secret(prev.clone());
     }
     app_config = app_config.with_metrics_enabled(cfg.metrics_enabled);
+    app_config = app_config.with_upload_max_bytes(cfg.upload_max_bytes);
     let app = build_router(state, app_config);
 
     let addr =

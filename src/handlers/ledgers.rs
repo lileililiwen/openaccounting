@@ -220,7 +220,8 @@ pub async fn show(
 }
 
 /// Middleware-style helper used by other handlers: ensures the current user
-/// owns the given ledger.
+/// owns the given ledger. Returns `NotFound` (404) for non-owners so the
+/// ledger's existence is hidden.
 pub async fn ensure_owner(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> AppResult<Ledger> {
     let ledger = sqlx::query_as::<_, Ledger>(
         "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
@@ -267,15 +268,37 @@ pub async fn ensure_access(
     }
 }
 
-/// Ensures the user can edit (owner or editor).
-pub async fn ensure_editor(
+/// Ensures the user can write to the ledger (owner OR editor).
+/// Viewers receive `Forbidden` (403). Use for every write handler:
+/// transactions, accounts, invoices, budgets, contacts, documents,
+/// payments, taxes, templates, rules, reimbursements, fixed assets,
+/// inventory — anything that mutates ledger data.
+///
+/// (`s9-editor-role-enforcement`.)
+pub async fn ensure_writer(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> AppResult<Ledger> {
+    let (ledger, role) = ensure_access(state, user_id, ledger_id).await?;
+    if role == "viewer" {
+        return Err(AppError::Forbidden);
+    }
+    Ok(ledger)
+}
+
+/// Ensures the user is the OWNER of the ledger. Editors and viewers
+/// receive `Forbidden` (403). Use for sharing, role changes, member
+/// removal, and (when added) ledger deletion / basis switch. The
+/// spec mandates 403 here so editors can be told their action is
+/// forbidden, distinct from the silent 404 that `ensure_owner`
+/// returns for non-owners.
+///
+/// (`s9-editor-role-enforcement`.)
+pub async fn ensure_owner_strict(
     state: &AppState,
     user_id: Uuid,
     ledger_id: Uuid,
-) -> AppResult<(Ledger, String)> {
+) -> AppResult<Ledger> {
     let (ledger, role) = ensure_access(state, user_id, ledger_id).await?;
-    if role == "viewer" {
-        return Err(AppError::Unauthorized);
+    if role != "owner" {
+        return Err(AppError::Forbidden);
     }
-    Ok((ledger, role))
+    Ok(ledger)
 }

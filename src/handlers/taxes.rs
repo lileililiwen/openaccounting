@@ -31,7 +31,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let rates = sqlx::query_as::<_, TaxRateRow>(
         r#"SELECT id, name, rate, kind, account_id, is_active
@@ -60,7 +60,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let accounts = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"SELECT id, code, name FROM accounts
@@ -94,7 +94,7 @@ pub async fn create(
     Form(form): Form<NewTaxForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let name = form.name.trim();
     if name.is_empty() {
@@ -154,7 +154,7 @@ pub async fn toggle(
     Path((ledger_id, rate_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     sqlx::query("UPDATE tax_rates SET is_active = NOT is_active WHERE id = $1")
         .bind(rate_id)
@@ -171,7 +171,7 @@ pub async fn report(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let from_str = params.get("from").cloned().unwrap_or_default();
     let to_str = params.get("to").cloned().unwrap_or_default();
@@ -219,7 +219,7 @@ pub async fn export_csv(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let from_date = params
         .get("from")

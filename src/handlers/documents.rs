@@ -17,7 +17,7 @@ use crate::{
     error::{AppError, AppResult},
     handlers::{document_ocr, ledgers},
     templates::documents::{DocumentList, DocumentWithTxn},
-    AppState,
+    upload, AppState,
 };
 
 #[derive(sqlx::FromRow)]
@@ -45,13 +45,19 @@ impl From<DocWithTxn> for DocumentWithTxn {
         }
     }
 }
-const MAX_BYTES: usize = 25 * 1024 * 1024; // 25 MiB per file
+const MAX_BYTES: usize = upload::DEFAULT_MAX_BYTES; // defense in depth; layer already caps body
 
 /// Sanitize a value for use in HTTP header values.
 /// Strips control characters and double-quotes to prevent header injection.
 fn sanitize_header_value(s: &str) -> String {
     s.chars().filter(|c| !c.is_control() && *c != '"').collect()
 }
+
+/// MIME types accepted by the document upload handler. Anything
+/// outside this list is rejected with 400. CSV is allowed on
+/// declaration (sniff is unreliable); office / archive formats
+/// are auto-corrected by `upload::validate` based on the file
+/// extension (see `upload::EXTENSION_WINS`).
 const ALLOWED_MIME: &[&str] = &[
     "image/png",
     "image/jpeg",
@@ -62,6 +68,14 @@ const ALLOWED_MIME: &[&str] = &[
     "application/pdf",
     "text/plain",
     "text/csv",
+    // Office / archive: extension-wins in `upload::EXTENSION_WINS`.
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.presentation",
+    "application/zip",
 ];
 
 pub async fn list(
@@ -71,7 +85,7 @@ pub async fn list(
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let category = q.get("category").cloned().unwrap_or_default();
     let search = q.get("q").cloned().unwrap_or_default();
@@ -131,7 +145,7 @@ pub async fn upload(
 ) -> AppResult<Response> {
     let skip_ocr = query.get("ocr").map(|v| v == "false").unwrap_or(false);
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     // Confirm transaction belongs to this ledger.
     let owner: Option<Uuid> =
         sqlx::query_scalar("SELECT ledger_id FROM transactions WHERE id = $1")
@@ -176,14 +190,14 @@ pub async fn upload(
             continue;
         }
         let filename = field.file_name().unwrap_or("upload").to_string();
-        let mime = field
+        let declared = field
             .content_type()
             .map(|m| m.to_string())
             .unwrap_or_else(|| "application/octet-stream".to_string());
-        if !ALLOWED_MIME.contains(&mime.as_str()) {
+        if !ALLOWED_MIME.contains(&declared.as_str()) {
             return Err(AppError::Validation(format!(
                 "Unsupported file type: {}",
-                mime
+                declared
             )));
         }
 
@@ -205,6 +219,20 @@ pub async fn upload(
             }
             buf.extend_from_slice(&chunk);
         }
+
+        // `s10-upload-validation`: sniff vs declared MIME,
+        // accept on declaration for CSV / office-extension
+        // overrides, reject otherwise.
+        let mime = upload::validate(&declared, Some(&filename), &buf)
+            .map_err(|e| AppError::Validation(e.message()))?
+            .to_string();
+        if !ALLOWED_MIME.contains(&mime.as_str()) {
+            return Err(AppError::Validation(format!(
+                "Unsupported file type: {}",
+                mime
+            )));
+        }
+
         state.storage.write(&path, &buf).await?;
 
         let stored = path
@@ -227,6 +255,10 @@ pub async fn upload(
         .bind(&category)
         .fetch_one(&state.pool)
         .await?;
+
+        // Quota warning (observability only — never fails the
+        // upload). `s10-upload-validation`.
+        upload::maybe_warn_quota(&state.pool, user.id, total as i64).await;
 
         // Audit log
         let doc_id: Uuid = doc_result.get(0);

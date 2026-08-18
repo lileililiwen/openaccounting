@@ -33,7 +33,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let budgets = sqlx::query_as::<_, BudgetRow>(
         r#"SELECT b.id, b.account_id, a.name AS account_name, b.period, b.amount,
@@ -64,7 +64,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let accounts = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"SELECT id, code, name FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE
@@ -97,7 +97,7 @@ pub async fn create(
     Form(form): Form<NewBudgetForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let account_id = Uuid::parse_str(&form.account_id)
         .map_err(|_| AppError::Validation("Invalid account".into()))?;
@@ -161,7 +161,7 @@ pub async fn delete(
     Path((ledger_id, budget_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     sqlx::query("DELETE FROM budgets WHERE id = $1")
         .bind(budget_id)
@@ -178,7 +178,7 @@ pub async fn report(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let from_str = params.get("from").cloned().unwrap_or_default();
     let to_str = params.get("to").cloned().unwrap_or_default();
@@ -345,7 +345,7 @@ pub async fn alerts(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let _ = check_alerts(&state, user.id).await;
 

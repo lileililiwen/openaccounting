@@ -40,7 +40,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let items = sqlx::query_as::<_, InventoryItem>(
         r#"SELECT id, name, COALESCE(sku, '') AS sku, COALESCE(description, '') AS description,
@@ -68,7 +68,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let accounts = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"SELECT id, code, name FROM accounts
@@ -100,7 +100,7 @@ pub async fn create(
     Form(form): Form<NewItemForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let name = form.name.trim();
     if name.is_empty() {
@@ -151,7 +151,7 @@ pub async fn purchase(
     axum::extract::Form(form): axum::extract::Form<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let quantity: i32 = form
         .get("quantity")
@@ -278,7 +278,7 @@ pub async fn adjust(
     Form(form): Form<AdjustmentForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let adjustment_date = NaiveDate::parse_from_str(&form.adjustment_date, "%Y-%m-%d")
         .map_err(|_| AppError::Validation("Invalid date".into()))?;
@@ -397,7 +397,7 @@ pub async fn valuation(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let items = sqlx::query_as::<_, InventoryItem>(
         r#"SELECT id, name, COALESCE(sku, '') AS sku, COALESCE(description, '') AS description,

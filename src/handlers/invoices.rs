@@ -26,7 +26,7 @@ pub async fn list(
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let kind_filter = q.get("kind").map(|s| s.as_str()).unwrap_or("all");
 
@@ -69,7 +69,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let contacts = sqlx::query_as::<_, Contact>(
         r#"SELECT id, ledger_id, name, email, phone, kind, created_at, updated_at
@@ -107,7 +107,7 @@ pub async fn create(
     Form(form): Form<NewInvoiceForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let contacts = sqlx::query_as::<_, Contact>(
         r#"SELECT id, ledger_id, name, email, phone, kind, created_at, updated_at

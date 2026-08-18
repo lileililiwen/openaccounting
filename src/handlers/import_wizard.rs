@@ -431,10 +431,7 @@ pub async fn handle_commit(
 // ─── helpers ────────────────────────────────────────────────────────────
 
 fn parse_headers(csv: &str) -> Vec<String> {
-    csv.lines()
-        .next()
-        .map(parse_csv_line)
-        .unwrap_or_default()
+    csv.lines().next().map(parse_csv_line).unwrap_or_default()
 }
 
 fn parse_csv_line(line: &str) -> Vec<String> {

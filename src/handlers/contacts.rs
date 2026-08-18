@@ -23,7 +23,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let contacts = sqlx::query_as::<_, Contact>(
         r#"SELECT id, ledger_id, name, email, phone, kind, created_at, updated_at
            FROM contacts WHERE ledger_id = $1 ORDER BY name"#,
@@ -48,7 +48,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     Ok(render_response(ContactNew {
         user_id: user.id,
         username: user.username.clone(),
@@ -74,7 +74,7 @@ pub async fn create(
     Form(form): Form<NewContactForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let name = form.name.trim();
     if name.is_empty() {

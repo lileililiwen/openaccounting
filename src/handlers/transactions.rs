@@ -27,7 +27,7 @@ pub async fn list(
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     // If the URL has no filter params and the user has a
     // default saved search, apply its query (`u2`).
@@ -150,7 +150,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let accounts = sqlx::query_as::<_, Account>(
         r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE
@@ -188,11 +188,11 @@ pub struct NewTxnForm {
 }
 
 #[derive(Clone, Debug, Default)]
-struct ParsedLine {
-    account_id: String,
-    direction: String,
-    amount: String,
-    memo: String,
+pub struct ParsedLine {
+    pub account_id: String,
+    pub direction: String,
+    pub amount: String,
+    pub memo: String,
 }
 
 fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLine> {
@@ -226,6 +226,12 @@ fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLin
     by_index.into_values().collect()
 }
 
+/// Public re-export so the edit handler can parse the same
+/// `lines[N][field]=…` form body.
+pub fn parse_lines_for_edit(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLine> {
+    parse_lines(raw)
+}
+
 pub async fn create(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -233,7 +239,7 @@ pub async fn create(
     RawForm(body): RawForm,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let accounts = sqlx::query_as::<_, Account>(
         r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE ORDER BY type, code, name"#,
@@ -358,81 +364,70 @@ pub async fn create(
         ))));
     }
 
-    let mut tx = state.pool.begin().await?;
-
-    // Check if the period is closed
-    let is_closed: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM closed_periods WHERE ledger_id = $1 AND period_year = $2)",
+    // Route the actual write through `PostingService`
+    // (`a3-posting-service`). The service handles the
+    // closed-period check, balance validation, atomic
+    // insertion, ledger FOR UPDATE lock, and audit log.
+    let created = match crate::domain::posting_service::PostingService::create(
+        &state.pool,
+        crate::domain::posting_service::NewTransaction {
+            ledger_id,
+            txn_date: date,
+            description: description.to_string(),
+            payee: form
+                .payee
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string),
+            reference: form
+                .reference
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string),
+            kind: Some("standard".to_string()),
+            created_by: user.id,
+            lines: inputs.clone(),
+            reverses_id: None,
+        },
     )
-    .bind(ledger_id)
-    .bind(date.year())
-    .fetch_one(&mut *tx)
-    .await?;
-    if is_closed {
-        return Err(AppError::Validation(format!(
-            "Period {} is closed. Cannot post transactions to closed periods.",
-            date.year()
-        )));
-    }
-
-    let txn = sqlx::query_as::<_, Transaction>(
-        r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, currency, kind, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, created_at, updated_at"#,
-    )
-    .bind(ledger_id)
-    .bind(date)
-    .bind(description)
-    .bind(form.payee.as_deref().map(str::trim).filter(|s| !s.is_empty()))
-    .bind(form.reference.as_deref().map(str::trim).filter(|s| !s.is_empty()))
-    .bind(&ledger.base_currency)
-    .bind("standard")
-    .bind(user.id)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    for l in &inputs {
-        let dir = if l.signed_amount > Decimal::ZERO {
-            Direction::Debit
-        } else {
-            Direction::Credit
-        };
-        let amt = l.signed_amount.abs();
-        sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, amount, direction, memo)
-               VALUES ($1, $2, $3, $4, $5)"#,
-        )
-        .bind(txn.id)
-        .bind(l.account_id)
-        .bind(amt)
-        .bind(dir.as_str())
-        .bind(l.memo.as_deref())
-        .execute(&mut *tx)
-        .await?;
-    }
-    tx.commit().await?;
+    .await
+    {
+        Ok(c) => c,
+        Err(crate::domain::posting_service::PostingServiceError::Unbalanced {
+            debits,
+            credits,
+        }) => {
+            return Ok(render_response(make_error(format!(
+                "Postings do not balance (debits={debits}, credits={credits})"
+            ))));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::PeriodClosed { year, .. }) => {
+            return Err(AppError::Validation(format!(
+                "Period {year} is closed. Cannot post transactions to closed periods."
+            )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::LedgerNotFound) => {
+            return Err(AppError::NotFound);
+        }
+        Err(crate::domain::posting_service::PostingServiceError::UnknownAccount(id)) => {
+            return Err(AppError::Validation(format!("unknown account {id}")));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
+            return Err(AppError::Validation(format!(
+                "account {id} belongs to a different ledger"
+            )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::Db(e)) => {
+            return Err(AppError::Db(e));
+        }
+    };
 
     // Domain metric (`o4-metrics-endpoint`).
     crate::observability::metrics::postings_created(inputs.len() as u64);
 
-    // Audit log
-    let _ = audit::log(
-        &state.pool,
-        Some(ledger_id),
-        user.id,
-        "create",
-        "transaction",
-        Some(txn.id),
-        None,
-        Some(serde_json::json!({
-            "description": description,
-            "date": date,
-            "kind": "standard"
-        })),
-    )
-    .await;
-
-    Ok(Redirect::to(&format!("/ledgers/{}/transactions/{}", ledger_id, txn.id)).into_response())
+    Ok(Redirect::to(&format!("/ledgers/{}/transactions/{}", ledger_id, created.id)).into_response())
 }
 
 pub async fn show(
@@ -441,7 +436,7 @@ pub async fn show(
     Path((ledger_id, txn_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let txn = sqlx::query_as::<_, Transaction>(
         r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, created_at, updated_at
            FROM transactions WHERE id = $1 AND ledger_id = $2"#,

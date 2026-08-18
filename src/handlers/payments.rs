@@ -34,7 +34,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let unapplied = sqlx::query_as::<_, PaymentRow>(
         r#"SELECT p.id, p.amount, p.payment_date, p.payment_method, COALESCE(p.reference, '') AS reference,
@@ -69,7 +69,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let contacts = sqlx::query_as::<_, (Uuid, String)>(
         r#"SELECT id, name FROM contacts WHERE ledger_id = $1 ORDER BY name"#,
@@ -113,7 +113,7 @@ pub async fn create(
     Form(form): Form<NewPaymentForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let amount: Decimal = form
         .amount
@@ -352,7 +352,7 @@ pub async fn register(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let payments = sqlx::query_as::<_, PaymentRow>(
         r#"SELECT p.id, p.amount, p.payment_date, p.payment_method, COALESCE(p.reference, '') AS reference,
@@ -388,7 +388,7 @@ pub async fn apply(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let invoice_id = params
         .get("invoice_id")

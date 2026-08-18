@@ -25,7 +25,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let rows: Vec<RuleRow> = sqlx::query_as(
         r#"SELECT id, name, kind, priority, is_active
            FROM reconciliation_rules
@@ -52,7 +52,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     Ok(render_response(RuleNew {
         user_id: user.id,
         username: user.username.clone(),
@@ -85,7 +85,7 @@ pub async fn create(
     Form(form): Form<NewRuleForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let kind = RuleKind::parse(&form.kind)
         .ok_or_else(|| AppError::Validation(format!("unknown kind '{}'", form.kind)))?;
     if form.name.trim().is_empty() {
@@ -137,7 +137,7 @@ pub async fn toggle(
     Path((ledger_id, rule_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     sqlx::query(
         r#"UPDATE reconciliation_rules
            SET is_active = NOT is_active
@@ -167,7 +167,7 @@ pub async fn delete(
     Path((ledger_id, rule_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     sqlx::query(
         r#"DELETE FROM reconciliation_rules
            WHERE id = $1 AND ledger_id = $2"#,

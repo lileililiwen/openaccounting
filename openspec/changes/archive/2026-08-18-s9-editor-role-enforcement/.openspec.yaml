@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Allow editors to create/edit transactions, accounts, etc., while viewers
+  remain read-only.

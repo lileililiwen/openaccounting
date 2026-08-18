@@ -35,7 +35,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let assets = sqlx::query_as::<_, FixedAssetRow>(
         r#"SELECT id, name, COALESCE(description, '') AS description, account_id, purchase_date,
@@ -63,7 +63,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let accounts = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"SELECT id, code, name FROM accounts
@@ -99,7 +99,7 @@ pub async fn create(
     Form(form): Form<NewAssetForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let name = form.name.trim();
     if name.is_empty() {
@@ -173,7 +173,7 @@ pub async fn show(
     Path((ledger_id, asset_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let asset = sqlx::query_as::<_, FixedAssetRow>(
         r#"SELECT id, name, COALESCE(description, '') AS description, account_id, purchase_date,
@@ -203,7 +203,7 @@ pub async fn calculate_depreciation(
     Path((ledger_id, asset_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let asset: (Decimal, Decimal, i32, String, Decimal, String) = sqlx::query_as(
         r#"SELECT purchase_cost, salvage_value, useful_life_years, depreciation_method, accumulated_depreciation, status
@@ -270,7 +270,7 @@ pub async fn dispose(
     axum::extract::Form(form): axum::extract::Form<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let disposed_date = form.get("disposed_date").cloned().unwrap_or_default();
     let disposed_date = chrono::NaiveDate::parse_from_str(&disposed_date, "%Y-%m-%d")

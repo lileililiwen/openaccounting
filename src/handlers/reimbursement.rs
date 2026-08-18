@@ -31,7 +31,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let rows: Vec<ClaimListRow> = sqlx::query_as(
         r#"SELECT id, short_id, title, employee_name, status, currency,
                   COALESCE((SELECT SUM(amount) FROM reimbursement_lines
@@ -60,7 +60,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     Ok(render_response(ClaimNew {
         user_id: user.id,
         username: user.username.clone(),
@@ -86,7 +86,7 @@ pub async fn create(
     Form(form): Form<NewClaimForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     if form.title.trim().is_empty() {
         return Err(AppError::Validation("title is required".into()));
     }
@@ -245,7 +245,7 @@ pub async fn add_line(
     Form(form): Form<NewLineForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
     if claim.status != ClaimStatus::Draft {
         return Err(AppError::Validation(format!(
@@ -314,7 +314,7 @@ pub async fn submit(
     Path((ledger_id, claim_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
     if !claim.status.can_transition_to(ClaimStatus::Submitted) {
         return Err(AppError::Validation(format!(
@@ -359,7 +359,7 @@ pub async fn reject(
     Form(form): Form<RejectForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
     if !claim.status.can_transition_to(ClaimStatus::Rejected) {
         return Err(AppError::Validation(format!(
@@ -698,7 +698,7 @@ pub async fn pay(
     Form(form): Form<PayForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let claim = load_claim(&state, claim_id, ledger_id).await?;
     if !claim.status.can_transition_to(ClaimStatus::Paid) {
         return Err(AppError::Validation(format!(

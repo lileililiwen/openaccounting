@@ -36,7 +36,7 @@ pub async fn list(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let rows = sqlx::query_as::<_, TemplateRow>(
         r#"SELECT t.id, t.description, COALESCE(t.payee, '') AS payee, t.frequency,
@@ -67,7 +67,7 @@ pub async fn new_page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let accounts = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"SELECT id, code, name FROM accounts WHERE ledger_id = $1 AND is_archived = FALSE
@@ -100,7 +100,7 @@ pub async fn create(
     Form(form): Form<NewTemplateForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let description = form.description.trim();
     if description.is_empty() {
@@ -186,7 +186,7 @@ pub async fn show(
     Path((ledger_id, template_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let template = sqlx::query_as::<_, TemplateRow>(
         r#"SELECT id, description, COALESCE(payee, '') AS payee, frequency,
@@ -229,7 +229,7 @@ pub async fn toggle(
     Path((ledger_id, template_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     sqlx::query("UPDATE transaction_templates SET is_active = NOT is_active, updated_at = now() WHERE id = $1")
         .bind(template_id)
@@ -257,7 +257,7 @@ pub async fn delete(
     Path((ledger_id, template_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     sqlx::query("DELETE FROM transaction_templates WHERE id = $1")
         .bind(template_id)
@@ -285,7 +285,7 @@ pub async fn run(
     Path((ledger_id, template_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
 
     let template = sqlx::query_as::<
         _,

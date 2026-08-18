@@ -27,7 +27,7 @@ pub async fn page(
     Path(ledger_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_owner_strict(&state, user.id, ledger_id).await?;
 
     let members = sqlx::query_as::<_, (Uuid, String, String, chrono::DateTime<chrono::Utc>)>(
         r#"SELECT lm.user_id, u.username, lm.role, lm.created_at
@@ -69,7 +69,7 @@ pub async fn invite(
     Form(form): Form<InviteMemberForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_owner_strict(&state, user.id, ledger_id).await?;
 
     let email = form.email.trim().to_lowercase();
     if email.is_empty() {
@@ -236,7 +236,7 @@ pub async fn remove_member(
     Path((ledger_id, member_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let _ledger = ledgers::ensure_owner_strict(&state, user.id, ledger_id).await?;
 
     sqlx::query("DELETE FROM ledger_members WHERE ledger_id = $1 AND user_id = $2")
         .bind(ledger_id)

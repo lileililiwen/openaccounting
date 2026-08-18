@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod api;
 mod approval_routing;
 mod audit_chain;
 mod bank_feeds;
@@ -36,13 +37,18 @@ mod ocr_feedback;
 mod password_strength;
 mod policies;
 mod printable_views;
+mod posting_service;
 mod pta_round_trip;
 mod pwa;
 mod reconciliation_rules;
+mod role_enforcement;
 mod saved_searches;
+mod scheduled_backup;
 mod secure_cookie;
 mod session_timeout;
 mod signed_cookies;
 mod smoke;
 mod totp;
 mod transactions_bulk;
+mod transactions_edit;
+mod upload_validation;
