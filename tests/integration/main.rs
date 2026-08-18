@@ -13,6 +13,7 @@ mod bank_feeds;
 mod bank_statement_imports;
 mod cash_basis;
 mod cash_flow_forecast;
+mod csrf;
 mod csv_import_completion;
 mod csv_import_wizard;
 mod dark_mode;

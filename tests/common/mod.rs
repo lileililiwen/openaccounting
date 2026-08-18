@@ -9,4 +9,4 @@
 // Both are part of the public test surface; future integration
 // test files will use them. The re-export itself is the point.
 #![allow(unused_imports)]
-pub use openaccounting::test_support::{TestDb, TestServer};
+pub use openaccounting::test_support::{extract_csrf_token, TestDb, TestServer};

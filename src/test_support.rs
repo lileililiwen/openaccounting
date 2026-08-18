@@ -236,9 +236,24 @@ impl TestServer {
             .await;
         });
 
+        let mut headers = reqwest::header::HeaderMap::new();
+        // CSRF bypass header: tests that don't care about CSRF
+        // (i.e., every test except the dedicated
+        // `tests/integration/csrf.rs` ones) tag every request
+        // with `X-OA-CSRF-Bypass: 1` so the production CSRF
+        // middleware skips verification. The CSRF tests build a
+        // fresh reqwest client without this header so they
+        // exercise the real verification path
+        // (`s1-csrf-protection`).
+        headers.insert(
+            "X-OA-CSRF-Bypass",
+            reqwest::header::HeaderValue::from_static("1"),
+        );
+
         let client = reqwest::Client::builder()
             .cookie_store(true)
             .redirect(reqwest::redirect::Policy::none())
+            .default_headers(headers)
             .build()
             .expect("build reqwest client");
 
@@ -322,19 +337,21 @@ impl TestServer {
         // the response cookies (the client jar already has
         // it) or the raw header — reqwest with cookie_store
         // keeps them internally.
-        resp.headers()
+        let cookie = resp
+            .headers()
             .get_all(reqwest::header::SET_COOKIE)
             .iter()
             .filter_map(|v| v.to_str().ok())
             .find_map(|s| {
-                let cookie = s.split(';').next().unwrap_or("");
-                if cookie.starts_with("oa_session=") {
-                    Some(cookie.to_string())
+                let part = s.split(';').next().unwrap_or("");
+                if part.starts_with("oa_session=") {
+                    Some(part.to_string())
                 } else {
                     None
                 }
             })
-            .expect("oa_session cookie set on login response")
+            .expect("oa_session cookie set on login response");
+        cookie
     }
 }
 
@@ -365,6 +382,34 @@ fn swap_database(url: &str, new_db: &str) -> String {
         None => panic!("DATABASE_URL is missing database name: {url}"),
     };
     format!("{scheme_and_auth}://{host}/{new_db}{query}")
+}
+
+/// Pull the session-bound CSRF token out of an HTML response
+/// (`s1-csrf-protection`). Looks for either the `<meta>` tag or
+/// the hidden input we inject via `csrf::post_process_html`. Exposed
+/// so the dedicated CSRF tests can verify both shapes.
+pub fn extract_csrf_token(html: &str) -> Option<String> {
+    // Meta tag: <meta name="csrf-token" content="...">
+    if let Some(idx) = html.find(r#"name="csrf-token""#) {
+        let after = &html[idx..];
+        if let Some(c_start) = after.find("content=\"") {
+            let value_start = idx + c_start + "content=\"".len();
+            if let Some(end) = html[value_start..].find('"') {
+                return Some(html[value_start..value_start + end].to_string());
+            }
+        }
+    }
+    // Hidden input fallback: <input ... name="csrf_token" value="...">
+    if let Some(idx) = html.find("name=\"csrf_token\"") {
+        let after = &html[idx..];
+        if let Some(v_start) = after.find("value=\"") {
+            let value_start = idx + v_start + "value=\"".len();
+            if let Some(end) = html[value_start..].find('"') {
+                return Some(html[value_start..value_start + end].to_string());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

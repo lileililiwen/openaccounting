@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Block cross-site forged form submissions against all POST endpoints while
+  preserving zero-JS-required HTML flow.

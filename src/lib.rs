@@ -730,6 +730,10 @@ fn build_router_inner(
             post(handlers::account_locale::set_locale),
         )
         .merge(handlers::admin::admin_routes())
+        // CSRF middleware wraps the protected router so it never
+        // touches `/login`, `/register`, the plaid webhook or any
+        // other public route (`s1-csrf-protection`).
+        .route_layer(axum::middleware::from_fn(crate::auth::csrf::middleware))
         .route_layer(login_required!(
             Backend,
             login_url = "/login",
@@ -747,10 +751,10 @@ fn build_router_inner(
             session_guard,
             crate::auth::session_timeout::enforce_timeout,
         ))
-        .layer(auth_layer)
         .layer(axum::middleware::from_fn(
             crate::observability::metrics::http_metrics,
         ))
+        .layer(auth_layer)
         .layer(tower_http::trace::TraceLayer::new_for_http())
 }
 
