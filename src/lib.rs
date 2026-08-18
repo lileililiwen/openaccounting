@@ -646,6 +646,7 @@ fn build_router_inner(
             "/account/export-all.json",
             get(handlers::export::export_all_json),
         )
+        .route("/account/theme", post(handlers::account_theme::set_theme))
         .merge(handlers::admin::admin_routes())
         .route_layer(login_required!(
             Backend,

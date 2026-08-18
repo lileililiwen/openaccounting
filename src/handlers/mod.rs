@@ -1,5 +1,6 @@
 pub mod account;
 pub mod account_security;
+pub mod account_theme;
 pub mod accounts;
 pub mod admin;
 pub mod aging;

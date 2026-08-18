@@ -25,12 +25,48 @@
       {% endif %}
     </div>
     <div class="ml-auto flex items-center gap-2 text-sm">
-      <a href="/account" class="hidden sm:inline text-slate-500 hover:text-slate-800">@{{ username }}</a>
+      <a href="/account" class="hidden sm:inline text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">@{{ username }}</a>
+      <form method="post" action="/account/theme" class="inline" id="theme-toggle-form">
+        <input type="hidden" name="next" value="/account" />
+        <input type="hidden" name="theme" id="theme-input" value="" />
+        <button type="submit"
+                class="rounded border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                aria-label="Toggle theme"
+                title="Toggle dark mode">
+          <span aria-hidden="true">&#9696;</span>
+        </button>
+      </form>
       <form method="post" action="/logout" class="inline">
-        <button class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50">Log out</button>
+        <button class="rounded border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Log out</button>
       </form>
     </div>
   </div>
+  {% raw %}
+  <script>
+    // On click: read the current effective theme from localStorage,
+    // pick the next one, POST it to the server, and apply the
+    // new class immediately so the page flips without a reload.
+    (function() {
+      var form = document.getElementById('theme-toggle-form');
+      if (!form) return;
+      var input = document.getElementById('theme-input');
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var cur;
+        try { cur = localStorage.getItem('oa-theme'); } catch (_) { cur = null; }
+        var sys = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var effective = cur === 'light' ? 'light'
+                      : cur === 'dark'  ? 'dark'
+                      : (sys ? 'dark' : 'light');
+        var next = effective === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem('oa-theme', next); } catch (_) {}
+        input.value = next;
+        document.documentElement.classList.toggle('dark', next === 'dark');
+        form.submit();
+      });
+    })();
+  </script>
+  {% endraw %}
   <!-- Mobile sub-nav -->
   {% if !ledger_name.is_empty() %}
   <div class="md:hidden border-t border-slate-200 px-2 py-1 overflow-x-auto whitespace-nowrap text-sm">

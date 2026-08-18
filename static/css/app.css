@@ -6,4 +6,15 @@
 
 /* Compact scrollbar for tables on small screens */
 .scrollbar-thin::-webkit-scrollbar { height: 6px; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+/* Dark variant of the HTMX indicator. */
+.dark .htmx-request .htmx-indicator {
+  filter: invert(1);
+}

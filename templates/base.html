@@ -8,6 +8,7 @@
 <script src="/static/htmx.min.js"></script>
 <script>
   tailwind.config = {
+    darkMode: 'class',
     theme: {
       extend: {
         fontFamily: { sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
@@ -25,10 +26,28 @@
   /* PWA safe-area padding for display=standalone on phones. */
   body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 </style>
+<script>
+  // Apply the dark class as early as possible to avoid a
+  // flash-of-light-theme. Reads the preference from
+  // localStorage (set by the toggle); falls back to the OS
+  // `prefers-color-scheme` media query.
+  (function() {
+    try {
+      var stored = localStorage.getItem('oa-theme');
+      var cls = 'dark';
+      if (stored === 'light') cls = '';
+      else if (stored === 'dark') cls = 'dark';
+      else if (stored === 'system' || stored === null) {
+        cls = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : '';
+      }
+      document.documentElement.classList.toggle('dark', cls === 'dark');
+    } catch (_) { /* localStorage blocked — keep default */ }
+  })();
+</script>
 {% include "partials/_pwa.html" %}
 {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-slate-50 text-slate-800 antialiased flex flex-col">
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 antialiased flex flex-col">
 {% block body %}{% endblock %}
 </body>
 </html>
