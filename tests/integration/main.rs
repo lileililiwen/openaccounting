@@ -52,4 +52,5 @@ mod totp;
 mod transactions_bulk;
 mod transactions_edit;
 mod transactions_split;
+mod transaction_number;
 mod upload_validation;

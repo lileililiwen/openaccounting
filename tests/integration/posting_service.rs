@@ -127,6 +127,7 @@ async fn posting_service_balanced_writes_succeed() {
         payee: None,
         reference: None,
         kind: None,
+        number: None,
         created_by: uid,
         reverses_id: None,
         lines: vec![
@@ -169,6 +170,7 @@ async fn posting_service_unbalanced_rejected_no_rows() {
         payee: None,
         reference: None,
         kind: None,
+        number: None,
         created_by: uid,
         reverses_id: None,
         lines: vec![
@@ -230,6 +232,7 @@ async fn posting_service_closed_period_rejected() {
         payee: None,
         reference: None,
         kind: None,
+        number: None,
         created_by: uid,
         reverses_id: None,
         lines: vec![
@@ -267,6 +270,7 @@ async fn posting_service_unknown_account_rejected() {
         payee: None,
         reference: None,
         kind: None,
+        number: None,
         created_by: uid,
         reverses_id: None,
         lines: vec![

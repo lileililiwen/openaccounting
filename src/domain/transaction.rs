@@ -19,6 +19,8 @@ pub struct Transaction {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Human-citable reference (`a5-transaction-numbering`).
+    pub number: Option<String>,
 }
 
 /// A transaction line as the user sees it on the form. At least two legs are

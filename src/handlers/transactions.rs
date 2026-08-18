@@ -276,6 +276,7 @@ pub async fn create(
             description: form.description.clone(),
             payee: form.payee.clone().unwrap_or_default(),
             reference: form.reference.clone().unwrap_or_default(),
+            number: form.extra.get("number").cloned().unwrap_or_default(),
             lines: parse_lines(&form.extra)
                 .into_iter()
                 .map(|l| TransactionFormLine {
@@ -314,6 +315,9 @@ pub async fn create(
         )));
     }
 
+    // Optional user-supplied transaction number. The service
+    // resolves to an auto-generated `YYYY-NNNNNN` when this
+    // is absent.
     let mut inputs: Vec<TxnLineInput> = Vec::new();
     for l in &parsed {
         let account_id = match Uuid::parse_str(&l.account_id) {
@@ -390,6 +394,11 @@ pub async fn create(
             created_by: user.id,
             lines: inputs.clone(),
             reverses_id: None,
+            number: form
+                .extra
+                .get("number")
+                .cloned()
+                .filter(|s| !s.is_empty()),
         },
     )
     .await
@@ -414,9 +423,14 @@ pub async fn create(
         Err(crate::domain::posting_service::PostingServiceError::UnknownAccount(id)) => {
             return Err(AppError::Validation(format!("unknown account {id}")));
         }
-        Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
+Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
             return Err(AppError::Validation(format!(
-                "account {id} belongs to a different ledger"
+                "account belongs to a different ledger"
+            )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::DuplicateNumber { year, number }) => {
+            return Err(AppError::Conflict(format!(
+                "Transaction number already used in {year}: {number}"
             )));
         }
         Err(crate::domain::posting_service::PostingServiceError::Db(e)) => {
@@ -438,7 +452,7 @@ pub async fn show(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
     let txn = sqlx::query_as::<_, Transaction>(
-        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, created_at, updated_at
+        r#"SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, number, created_at, updated_at
            FROM transactions WHERE id = $1 AND ledger_id = $2"#,
     )
     .bind(txn_id)

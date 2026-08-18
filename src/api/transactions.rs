@@ -32,6 +32,7 @@ pub struct TransactionDto {
     pub reference: Option<String>,
     pub currency: String,
     pub kind: String,
+    pub number: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -89,7 +90,7 @@ async fn list(
         ));
     }
     let rows: Vec<TransactionDto> = sqlx::query_as::<_, TransactionDto>(
-        "SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, created_at, updated_at
+        "SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, number, created_at, updated_at
          FROM transactions WHERE ledger_id = $1
          ORDER BY txn_date DESC, created_at DESC
          LIMIT 100",
@@ -114,7 +115,7 @@ async fn get_one(
         ));
     }
     let row: Option<TransactionDto> = sqlx::query_as::<_, TransactionDto>(
-        "SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, created_at, updated_at
+        "SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, number, created_at, updated_at
          FROM transactions WHERE id = $1 AND ledger_id = $2",
     )
     .bind(id)

@@ -63,6 +63,8 @@ pub struct TransactionForm {
     pub description: String,
     pub payee: String,
     pub reference: String,
+    /// Optional human-citable number (`a5-transaction-numbering`).
+    pub number: String,
     pub lines: Vec<TransactionFormLine>,
 }
 
@@ -73,6 +75,7 @@ impl TransactionForm {
             description: String::new(),
             payee: String::new(),
             reference: String::new(),
+            number: String::new(),
             lines: vec![TransactionFormLine::default(); 2],
         }
     }

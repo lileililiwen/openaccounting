@@ -39,6 +39,10 @@ pub struct NewTransaction {
     pub lines: Vec<TxnLineInput>,
     /// Optional `reverses_id` link (used by reversal entries).
     pub reverses_id: Option<Uuid>,
+    /// Optional human-citable number (`a5-transaction-numbering`).
+    /// When `None`, the service generates
+    /// `{YYYY}-{NNNNNN}` based on a per-ledger-per-year counter.
+    pub number: Option<String>,
 }
 
 /// Result of a successful write. The transaction row + postings
@@ -47,6 +51,10 @@ pub struct NewTransaction {
 pub struct CreatedTransaction {
     pub id: Uuid,
     pub kind: String,
+    /// The final `number` column value (user-supplied or
+    /// auto-generated). `None` if the caller didn't ask for
+    /// one and the year-rollover counter is somehow empty.
+    pub number: Option<String>,
 }
 
 /// Failure modes the service surfaces to the caller. The
@@ -67,6 +75,11 @@ pub enum PostingServiceError {
     UnknownAccount(Uuid),
     #[error("Account belongs to a different ledger: {0}")]
     WrongLedger(Uuid),
+    #[error("Transaction number already used in {year}: {number}")]
+    DuplicateNumber {
+        year: i32,
+        number: String,
+    },
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -179,14 +192,56 @@ impl PostingService {
             }
         }
 
+        // Resolve the transaction number. If the caller supplied
+        // one, validate uniqueness via the UNIQUE index and use
+        // it. Otherwise count existing rows for this ledger/year
+        // and use `{year}-{NNNNNN}`. The service holds the ledger
+        // FOR UPDATE lock, so the count is stable within the tx.
+        let year = new.txn_date.format("%Y").to_string().parse::<i32>().unwrap_or(0);
+        let resolved_number: Option<String> = match new.number.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(user_num) => {
+                // Validate uniqueness (the UNIQUE index will
+                // catch duplicates, but a pre-check gives a nicer
+                // error message).
+                let dup: Option<(Uuid,)> = sqlx::query_as(
+                    "SELECT id FROM transactions
+                     WHERE ledger_id = $1 AND number_year = $2 AND number = $3",
+                )
+                .bind(new.ledger_id)
+                .bind(year)
+                .bind(user_num)
+                .fetch_optional(&mut *tx)
+                .await?;
+                if dup.is_some() {
+                    return Err(PostingServiceError::DuplicateNumber {
+                        year,
+                        number: user_num.into(),
+                    });
+                }
+                Some(user_num.to_string())
+            }
+            None => {
+                let count: (i64,) = sqlx::query_as(
+                    "SELECT COUNT(*)::BIGINT FROM transactions
+                     WHERE ledger_id = $1 AND number_year = $2",
+                )
+                .bind(new.ledger_id)
+                .bind(year)
+                .fetch_one(&mut *tx)
+                .await?;
+                let n = count.0 + 1;
+                Some(format!("{year}-{:06}", n))
+            }
+        };
+
         // Insert the transaction row.
         let kind = new.kind.clone().unwrap_or_else(|| "standard".to_string());
         let txn_id: Uuid = sqlx::query_scalar(
             "INSERT INTO transactions
-                (ledger_id, txn_date, description, payee, reference, currency, kind, created_by, reverses_id)
+                (ledger_id, txn_date, description, payee, reference, currency, kind, created_by, reverses_id, number)
              VALUES ($1, $2, $3, $4, $5,
                      (SELECT base_currency FROM ledgers WHERE id = $1),
-                     $6, $7, $8)
+                     $6, $7, $8, $9)
              RETURNING id",
         )
         .bind(new.ledger_id)
@@ -197,6 +252,7 @@ impl PostingService {
         .bind(&kind)
         .bind(new.created_by)
         .bind(new.reverses_id)
+        .bind(resolved_number.as_deref())
         .fetch_one(&mut *tx)
         .await?;
 
@@ -242,7 +298,11 @@ impl PostingService {
         )
         .await;
 
-        Ok(CreatedTransaction { id: txn_id, kind })
+        Ok(CreatedTransaction {
+            id: txn_id,
+            kind,
+            number: resolved_number,
+        })
     }
 }
 
