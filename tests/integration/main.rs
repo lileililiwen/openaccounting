@@ -27,6 +27,7 @@ mod import_wechat;
 mod keyboard_shortcuts;
 mod localization;
 mod login_throttle;
+mod metrics;
 mod notification_preferences;
 mod notifications;
 mod ocr_feedback;

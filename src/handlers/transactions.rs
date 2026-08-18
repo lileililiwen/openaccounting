@@ -378,7 +378,7 @@ pub async fn create(
     let txn = sqlx::query_as::<_, Transaction>(
         r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, currency, kind, created_by)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, created_by, created_at, updated_at"#,
+           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, contact_id, invoice_id, template_id, created_by, created_at, updated_at"#,
     )
     .bind(ledger_id)
     .bind(date)
@@ -411,6 +411,9 @@ pub async fn create(
         .await?;
     }
     tx.commit().await?;
+
+    // Domain metric (`o4-metrics-endpoint`).
+    crate::observability::metrics::postings_created(inputs.len() as u64);
 
     // Audit log
     let _ = audit::log(

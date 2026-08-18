@@ -174,6 +174,25 @@ impl TestServer {
     /// secret. The secret MUST be at least 32 characters; this
     /// matches the production invariant.
     pub async fn new_with_secret(secret: &str) -> Self {
+        Self::new_with_config(secret, |c| c).await
+    }
+
+    /// Boot a server with `METRICS_ENABLED=false` semantics: the
+    /// `/metrics` route is NOT registered (`o4-metrics-endpoint`).
+    pub async fn new_metrics_disabled() -> Self {
+        Self::new_with_config(
+            "test-secret-do-not-use-in-production-please-replace-with-64-random-chars",
+            |c| c.with_metrics_enabled(false),
+        )
+        .await
+    }
+
+    /// Boot a real axum server, allowing the caller to tweak
+    /// [`AppConfig`] before the router is built.
+    async fn new_with_config<F>(secret: &str, f: F) -> Self
+    where
+        F: FnOnce(AppConfig) -> AppConfig,
+    {
         if secret.len() < 32 {
             panic!("TestServer secret must be at least 32 characters");
         }
@@ -194,7 +213,7 @@ impl TestServer {
             storage,
             totp_cipher: crate::auth::totp::TotpCipher::from_app_secret(secret),
         };
-        let config = AppConfig::new(secret.to_string()).expect("valid app config");
+        let config = f(AppConfig::new(secret.to_string()).expect("valid app config"));
         let app = build_router(state, config);
 
         let listener = TcpListener::bind("127.0.0.1:0")

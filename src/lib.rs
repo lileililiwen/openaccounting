@@ -25,6 +25,7 @@ pub mod handlers;
 pub mod i18n;
 pub mod import;
 pub mod notifications;
+pub mod observability;
 pub mod ocr;
 pub mod reports;
 pub mod storage;
@@ -98,6 +99,10 @@ pub struct AppConfig {
     pub app_secret: String,
     pub app_secret_previous: Option<String>,
     pub secure_cookie: bool,
+    /// Whether `GET /metrics` is registered
+    /// (`o4-metrics-endpoint`). Defaults to true; set
+    /// `METRICS_ENABLED=false` to disable for dev/test runs.
+    pub metrics_enabled: bool,
 }
 
 impl AppConfig {
@@ -116,12 +121,19 @@ impl AppConfig {
             app_secret,
             app_secret_previous: None,
             secure_cookie: false,
+            metrics_enabled: true,
         })
     }
 
     /// Builder-style setter for `secure_cookie`.
     pub fn with_secure_cookie(mut self, secure: bool) -> Self {
         self.secure_cookie = secure;
+        self
+    }
+
+    /// Builder-style setter for `metrics_enabled`.
+    pub fn with_metrics_enabled(mut self, enabled: bool) -> Self {
+        self.metrics_enabled = enabled;
         self
     }
 
@@ -140,6 +152,11 @@ impl AppConfig {
 /// `TestServer` fixture. Any new route must be added here, not in
 /// `main.rs`.
 pub fn build_router(state: AppState, config: AppConfig) -> Router {
+    // Install the global Prometheus recorder once per process
+    // (idempotent). Integration tests spin up many routers in
+    // one binary; the first install wins and every router shares
+    // the same recorder.
+    crate::observability::metrics::install();
     let session_guard = crate::auth::session_timeout::SessionGuard::from_env();
     let signer = std::sync::Arc::new(crate::auth::cookie_signer::CookieSigner::derive_from(
         &config.app_secret,
@@ -263,6 +280,14 @@ fn build_router_inner(
     // `static_dir` is moved into the message above; mark it
     // as moved to silence the unused warning.
     let _ = static_dir;
+
+    // Prometheus scrape endpoint (`o4-metrics-endpoint`). Gated:
+    // with METRICS_ENABLED=false the route is NOT registered.
+    let public = if config.metrics_enabled {
+        public.route("/metrics", get(crate::observability::metrics::metrics_page))
+    } else {
+        public
+    };
 
     let protected = Router::new()
         .route("/ledgers", get(handlers::ledgers::list))
@@ -722,12 +747,19 @@ fn build_router_inner(
             crate::auth::session_timeout::enforce_timeout,
         ))
         .layer(auth_layer)
+        .layer(axum::middleware::from_fn(
+            crate::observability::metrics::http_metrics,
+        ))
         .layer(tower_http::trace::TraceLayer::new_for_http())
 }
 
 /// Process startup: load config, connect, migrate, serve HTTP.
 pub async fn run() -> anyhow::Result<()> {
     let cfg = config::Config::from_env()?;
+
+    // Install the Prometheus recorder (idempotent) so domain
+    // counters work even before the first HTTP request.
+    crate::observability::metrics::install();
 
     let pool = PgPoolOptions::new()
         .max_connections(16)
@@ -794,6 +826,7 @@ pub async fn run() -> anyhow::Result<()> {
         );
         app_config = app_config.with_previous_app_secret(prev.clone());
     }
+    app_config = app_config.with_metrics_enabled(cfg.metrics_enabled);
     let app = build_router(state, app_config);
 
     let addr =

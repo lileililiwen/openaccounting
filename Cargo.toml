@@ -115,6 +115,8 @@ hkdf = "0.12"
 rand = "0.8"
 sha2 = "0.10"
 hmac = "0.13.0"
+metrics = "0.24.6"
+metrics-exporter-prometheus = "0.18.3"
 
 [dev-dependencies]
 # reqwest is already a non-optional dep; re-declare for dev to get the

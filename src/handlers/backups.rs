@@ -113,6 +113,9 @@ async fn create_backup(state: &AppState, user_id: Uuid, kind: &str) -> AppResult
 
     prune_old_backups(&backup_dir).await;
 
+    // Domain metric (`o4-metrics-endpoint`).
+    crate::observability::metrics::backup_completed();
+
     Ok(filename)
 }
 

@@ -78,6 +78,10 @@ pub async fn record_attempt(
     .bind(now)
     .execute(pool)
     .await?;
+    // Domain metric (`o4-metrics-endpoint`): failed-login counter.
+    if !success {
+        crate::observability::metrics::failed_login();
+    }
     Ok(())
 }
 

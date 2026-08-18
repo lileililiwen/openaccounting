@@ -64,6 +64,10 @@ pub struct Config {
     pub database_url: String,
     pub documents_dir: String,
     pub app_env: AppEnv,
+    /// Whether the Prometheus `/metrics` endpoint is registered
+    /// (`o4-metrics-endpoint`). Parsed from `METRICS_ENABLED`
+    /// (default: true).
+    pub metrics_enabled: bool,
 }
 
 impl Config {
@@ -86,6 +90,9 @@ impl Config {
             env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL must be set"))?;
         let documents_dir = env::var("DOCUMENTS_DIR").unwrap_or_else(|_| "./data/documents".into());
         let app_env = AppEnv::from_env()?;
+        let metrics_enabled = env::var("METRICS_ENABLED")
+            .map(|v| !v.eq_ignore_ascii_case("false") && v != "0")
+            .unwrap_or(true);
 
         Ok(Self {
             app_host,
@@ -95,6 +102,7 @@ impl Config {
             database_url,
             documents_dir,
             app_env,
+            metrics_enabled,
         })
     }
 }

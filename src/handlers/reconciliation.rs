@@ -285,6 +285,9 @@ pub async fn complete(
     )
     .await;
 
+    // Domain metric (`o4-metrics-endpoint`).
+    crate::observability::metrics::reconciliation_completed();
+
     Ok(Redirect::to(&format!(
         "/ledgers/{}/reconcile/{}/history",
         ledger_id, account_id

@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Make the service observable in production.
