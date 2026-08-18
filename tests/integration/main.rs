@@ -14,6 +14,7 @@ mod cash_basis;
 mod cash_flow_forecast;
 mod csv_import_completion;
 mod dark_mode;
+mod dashboard_layout;
 mod document_authorization;
 mod document_ocr;
 mod empty_states;

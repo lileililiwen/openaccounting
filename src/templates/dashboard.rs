@@ -35,4 +35,13 @@ pub struct DashboardPage {
     pub ap_upcoming: String,
     pub ap_count: i64,
     pub ap_overdue_count: i64,
+    /// Ordered list of widget IDs the user wants rendered
+    /// (`u5-dashboard-widgets`). The template iterates over
+    /// this and emits one `<section>` per ID in the right order.
+    pub layout: Vec<String>,
+    /// Per-budget row for the `budget_burn` widget.
+    pub budget_burn: Vec<crate::handlers::dashboard_layout::BudgetBurnRow>,
+    /// Top-10 account balances for the `account_balances`
+    /// widget.
+    pub account_balances: Vec<crate::handlers::dashboard_layout::AccountBalanceRow>,
 }

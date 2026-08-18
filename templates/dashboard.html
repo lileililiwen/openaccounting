@@ -14,15 +14,27 @@
     </div>
   </header>
 
-  <!-- Quick Actions -->
-  <section class="flex flex-wrap gap-2">
-    <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New Transaction</a>
-    <a href="/ledgers/{{ ledger_id }}/transactions" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Upload Document</a>
-    <a href="/ledgers/{{ ledger_id }}/reports" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">View Reports</a>
+  <!-- Layout controls (`u5-dashboard-widgets`) -->
+  <section class="rounded-xl bg-white border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+    <form method="post" action="/ledgers/{{ ledger_id }}/dashboard/layout" class="flex flex-wrap items-center gap-2">
+      <label class="text-slate-600">Widget order:</label>
+      {% for w in layout %}
+        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{{ w }}</span>
+      {% endfor %}
+      <span class="text-slate-400 text-xs">· edit the comma-separated order below and Save</span>
+      <input type="text" name="widgets" value="{% for w in layout %}{{ w }}{% if !loop.last %},{% endif %}{% endfor %}" class="rounded border border-slate-300 px-2 py-1 font-mono text-xs w-96" />
+      <button class="rounded bg-slate-800 text-white px-3 py-1 text-sm">Save</button>
+    </form>
+    <div class="flex items-center gap-2">
+      <form method="post" action="/ledgers/{{ ledger_id }}/dashboard/reset">
+        <button class="rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50">Reset to default</button>
+      </form>
+    </div>
   </section>
 
-  <!-- KPI grid: 1 col mobile, 2 col sm, 3 col md, 6 col xl -->
-  <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+  {% for widget in layout %}
+    {% if widget == "kpis" %}
+  <section data-widget-id="kpis" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Total Assets</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ total_assets }}</div>
@@ -63,10 +75,8 @@
       {% endif %}
     </div>
   </section>
-
-  <!-- New KPI widgets -->
-  <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <!-- Cash Runway -->
+    {% else if widget == "cash_runway" %}
+  <section data-widget-id="cash_runway" class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Cash Runway</div>
       <div class="mt-1 text-2xl font-bold tabular text-{{ cash_runway_color }}-600">
@@ -74,8 +84,6 @@
       </div>
       <p class="mt-1 text-xs text-slate-500">Based on last 90 days of expenses</p>
     </div>
-
-    <!-- AR Summary -->
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="flex items-center justify-between">
         <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Receivable</div>
@@ -89,8 +97,6 @@
         {% endif %}
       </div>
     </div>
-
-    <!-- AP Summary -->
     <div class="rounded-xl bg-white border border-slate-200 p-4">
       <div class="flex items-center justify-between">
         <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Payable</div>
@@ -106,9 +112,8 @@
       </div>
     </div>
   </section>
-
-  <!-- Charts row -->
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    {% else if widget == "charts" %}
+  <section data-widget-id="charts" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
     <div class="rounded-xl bg-white border border-slate-200 p-4 lg:col-span-2">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-semibold text-slate-700">Income vs. Expense · last 6 months</h2>
@@ -121,52 +126,97 @@
       <div class="flex justify-center">{{ expense_breakdown_svg|safe }}</div>
     </div>
   </section>
-
-  <!-- Top Expense Categories + Recent transactions -->
-  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-    <div class="rounded-xl bg-white border border-slate-200">
-      <header class="px-4 py-3 border-b border-slate-200">
-        <h2 class="text-sm font-semibold text-slate-700">Top expense categories · this month</h2>
-      </header>
-      {% if top_expenses.is_empty() %}
-        <div class="p-8 text-center text-slate-500 text-sm">No expenses this month.</div>
-      {% else %}
-        <ul class="px-4 py-3 space-y-2">
-          {% for (name, amount) in top_expenses %}
-            <li class="flex items-center justify-between text-sm">
-              <span class="text-slate-700">{{ name }}</span>
-              <span class="tabular font-medium">{{ amount }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    </div>
-
-    <div class="rounded-xl bg-white border border-slate-200">
-      <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-700">Recent transactions</h2>
-        <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">View all →</a>
-      </header>
-      {% if recent_transactions.is_empty() %}
-        <div class="p-8 text-center text-slate-500 text-sm">
-          No transactions yet.
-        </div>
-      {% else %}
-        <ul class="divide-y divide-slate-100">
-          {% for t in recent_transactions %}
-            <li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
-              <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-800 truncate">{{ t.description }}</div>
-                <div class="text-xs text-slate-500 truncate">
-                  {{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}
-                </div>
-              </a>
-              <div class="text-sm font-semibold tabular">{{ t.currency }} {{ t.total }}</div>
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    </div>
+    {% else if widget == "top_expenses" %}
+  <section data-widget-id="top_expenses" class="rounded-xl bg-white border border-slate-200">
+    <header class="px-4 py-3 border-b border-slate-200">
+      <h2 class="text-sm font-semibold text-slate-700">Top expense categories · this month</h2>
+    </header>
+    {% if top_expenses.is_empty() %}
+      <div class="p-8 text-center text-slate-500 text-sm">No expenses this month.</div>
+    {% else %}
+      <ul class="px-4 py-3 space-y-2">
+        {% for entry in top_expenses %}
+          <li class="flex items-center justify-between text-sm">
+            <span class="text-slate-700">{{ entry.0 }}</span>
+            <span class="tabular font-medium">{{ entry.1 }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
   </section>
+    {% else if widget == "recent_txns" %}
+  <section data-widget-id="recent_txns" class="rounded-xl bg-white border border-slate-200">
+    <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-700">Recent transactions</h2>
+      <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">View all →</a>
+    </header>
+    {% if recent_transactions.is_empty() %}
+      <div class="p-8 text-center text-slate-500 text-sm">No transactions yet.</div>
+    {% else %}
+      <ul class="divide-y divide-slate-100">
+        {% for t in recent_transactions %}
+          <li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+            <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-slate-800 truncate">{{ t.description }}</div>
+              <div class="text-xs text-slate-500 truncate">{{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}</div>
+            </a>
+            <div class="text-sm font-semibold tabular">{{ t.currency }} {{ t.total }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+    {% else if widget == "budget_burn" %}
+  <section data-widget-id="budget_burn" class="rounded-xl bg-white border border-slate-200">
+    <header class="px-4 py-3 border-b border-slate-200">
+      <h2 class="text-sm font-semibold text-slate-700">Budget vs. actual</h2>
+    </header>
+    {% if budget_burn.is_empty() %}
+      <div class="p-8 text-center text-slate-500 text-sm">No budgets set.</div>
+    {% else %}
+      <ul class="divide-y divide-slate-100">
+        {% for b in budget_burn %}
+          <li class="px-4 py-3 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-700">{{ b.account_name }} <span class="text-xs text-slate-400">({{ b.period }})</span></span>
+              <span class="tabular">{{ b.spent }} / {{ b.amount }}</span>
+            </div>
+            <div class="mt-1 h-1.5 bg-slate-100 rounded overflow-hidden">
+              <div class="h-full {% if b.pct > 100.0 %}bg-rose-500{% else %}bg-emerald-500{% endif %}" style="width: {% if b.pct > 100.0 %}100{% else %}{{ b.pct }}{% endif %}%"></div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+    {% else if widget == "account_balances" %}
+  <section data-widget-id="account_balances" class="rounded-xl bg-white border border-slate-200">
+    <header class="px-4 py-3 border-b border-slate-200">
+      <h2 class="text-sm font-semibold text-slate-700">Top account balances</h2>
+    </header>
+    {% if account_balances.is_empty() %}
+      <div class="p-8 text-center text-slate-500 text-sm">No accounts.</div>
+    {% else %}
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Account</th>
+            <th class="text-left px-4 py-2">Type</th>
+            <th class="text-right px-4 py-2">Balance</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for a in account_balances %}
+            <tr>
+              <td class="px-4 py-2 text-slate-700">{{ a.name }}</td>
+              <td class="px-4 py-2 text-xs text-slate-500">{{ a.account_type }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ a.balance }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+    {% endif %}
+  {% endfor %}
 </main>
 {% endblock %}

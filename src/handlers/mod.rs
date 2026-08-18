@@ -13,6 +13,7 @@ pub mod budgets;
 pub mod closing;
 pub mod contacts;
 pub mod dashboard;
+pub mod dashboard_layout;
 pub mod document_ocr;
 pub mod document_ocr_feedback;
 pub mod documents;

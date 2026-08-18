@@ -267,6 +267,14 @@ fn build_router_inner(
         )
         .route("/ledgers/{id}", get(handlers::ledgers::show))
         .route("/ledgers/{id}/dashboard", get(handlers::dashboard::show))
+        .route(
+            "/ledgers/{id}/dashboard/layout",
+            post(handlers::dashboard_layout::set_layout),
+        )
+        .route(
+            "/ledgers/{id}/dashboard/reset",
+            post(handlers::dashboard_layout::reset_layout),
+        )
         .route("/account", get(handlers::account::show))
         .route(
             "/account/password",

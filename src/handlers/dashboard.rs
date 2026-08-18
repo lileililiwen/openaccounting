@@ -13,7 +13,7 @@ use crate::{
     auth::Backend,
     charts::{render_donut, render_line, DonutSegment, LineSeries},
     error::{AppError, AppResult},
-    handlers::ledgers,
+    handlers::{dashboard_layout, ledgers},
     reports::{build_balance_sheet, build_income_statement, ReportBasis},
     templates::{dashboard::DashboardPage, transactions::TransactionRow},
     AppState,
@@ -224,6 +224,22 @@ pub async fn show(
     .fetch_one(&state.pool)
     .await?;
 
+    // User-configurable widget layout (`u5-dashboard-widgets`).
+    let layout = dashboard_layout::load(&state.pool, user.id, ledger_id)
+        .await
+        .unwrap_or_else(|_| {
+            dashboard_layout::DEFAULT_LAYOUT
+                .iter()
+                .map(|s| s.to_string())
+                .collect()
+        });
+    let budget_burn = dashboard_layout::budget_burn_rows(&state.pool, ledger_id)
+        .await
+        .unwrap_or_default();
+    let account_balances = dashboard_layout::account_balances_rows(&state.pool, ledger_id)
+        .await
+        .unwrap_or_default();
+
     Ok(render_response(DashboardPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -258,6 +274,9 @@ pub async fn show(
         ap_upcoming: format_money(ap_upcoming, &ledger.base_currency),
         ap_count,
         ap_overdue_count,
+        layout,
+        budget_burn,
+        account_balances,
     }))
 }
 
