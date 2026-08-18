@@ -1,0 +1,32 @@
+{# Keyboard shortcuts help overlay (`u1-keyboard-shortcuts`).
+   Hidden by default; the JS toggles the `hidden` class on
+   `?` and closes it on `Esc` or backdrop click. Uses `<dl>`
+   instead of `<table>` so that an integration test counting
+   `<tr>` elements elsewhere on the page is not affected. #}
+<div id="shortcuts-help"
+     class="hidden fixed inset-0 z-40 flex items-center justify-center"
+     aria-hidden="true">
+  <div id="shortcuts-help-backdrop"
+       class="absolute inset-0 bg-slate-900/60"></div>
+  <div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Keyboard shortcuts</h2>
+      <button type="button"
+              onclick="document.getElementById('shortcuts-help').classList.add('hidden')"
+              class="text-slate-400 hover:text-slate-700"
+              aria-label="Close">
+        ✕
+      </button>
+    </div>
+    <dl class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">g</kbd> <kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">l</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Ledgers</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">g</kbd> <kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">t</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Transactions</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">g</kbd> <kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">a</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Accounts</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">g</kbd> <kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">r</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Reports</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">c</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Create (on the transactions list)</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">?</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">This help overlay</dd></div>
+      <div class="py-1.5 flex items-center gap-2"><dt><kbd class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 font-mono text-xs">Esc</kbd></dt><dd class="ml-2 text-slate-600 dark:text-slate-300">Close overlay</dd></div>
+    </dl>
+    <p class="mt-4 text-xs text-slate-400">Shortcuts are suppressed while typing in inputs.</p>
+  </div>
+</div>

@@ -23,6 +23,7 @@ mod expense_reimbursement;
 mod export;
 mod import_alipay;
 mod import_wechat;
+mod keyboard_shortcuts;
 mod localization;
 mod login_throttle;
 mod notification_preferences;
