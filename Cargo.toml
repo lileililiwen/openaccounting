@@ -18,7 +18,7 @@ path = "src/main.rs"
 # in production builds. The integration test in `tests/integration`
 # enables this feature via `required-features` below.
 default = []
-test-support = ["dep:postgres", "dep:tempfile"]
+test-support = ["dep:postgres"]
 
 [profile.release]
 opt-level = "z"
@@ -38,7 +38,7 @@ lto = "thin"
 axum = { version = "0.8.1", features = ["multipart"] }
 tokio = { version = "1.43.0", features = ["full"] }
 tower = "0.5.2"
-tower-http = { version = "0.6.2", features = ["trace", "fs"] }
+tower-http = { version = "0.6.2", features = ["trace", "fs", "limit"] }
 hyper = "1.6.0"
 http = "1.3.1"
 
@@ -110,7 +110,9 @@ tesseract-plumbing = { version = "0.11", optional = true }
 # The `test-support` feature above flips these on. They are
 # absent from the production binary.
 postgres = { version = "0.19", optional = true, default-features = false }
-tempfile = { version = "3", optional = true }
+# Tempfile is used both by the scheduled-backup worker
+# (`o2-scheduled-backups`) and by the test-support module.
+tempfile = "3"
 totp-rs = { version = "6.0.0", features = ["gen_secret", "otpauth"] }
 qrcodegen = "1.8"
 hkdf = "0.12"
@@ -119,6 +121,8 @@ sha2 = "0.10"
 hmac = "0.13.0"
 metrics = "0.24.6"
 metrics-exporter-prometheus = "0.18.3"
+infer = "0.16"
+cron = "0.12"
 
 [dev-dependencies]
 # reqwest is already a non-optional dep; re-declare for dev to get the

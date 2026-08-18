@@ -193,6 +193,13 @@ impl TestServer {
         .await
     }
 
+    /// Boot a server with a custom per-request upload body cap
+    /// (`s10-upload-validation`). Defaults otherwise match
+    /// [`TestServer::new`].
+    pub async fn new_with_upload_max(secret: &str, upload_max_bytes: usize) -> Self {
+        Self::new_with_config(secret, |c| c.with_upload_max_bytes(upload_max_bytes)).await
+    }
+
     /// Boot a real axum server, allowing the caller to tweak
     /// [`AppConfig`] before the router is built.
     async fn new_with_config<F>(secret: &str, f: F) -> Self

@@ -1,4 +1,5 @@
 use crate::templates::render_response;
+use axum::body::Bytes;
 use axum::extract::{Multipart, Path, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
@@ -14,7 +15,7 @@ use crate::{
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::reconciliation::{ReconHistory, ReconPage, ReconStatementLine, ReconTxn},
-    AppState,
+    upload, AppState,
 };
 
 #[derive(Deserialize)]
@@ -102,23 +103,39 @@ pub async fn upload_csv(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
-    let mut csv_data: Option<String> = None;
+    let mut csv_data: Option<(String, String, Bytes)> = None; // (declared_mime, filename, body)
     while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
         if field.name() == Some("file") {
-            csv_data = Some(
-                field
-                    .text()
-                    .await
-                    .map_err(|e| AppError::Internal(e.to_string()))?,
-            );
+            let declared = field
+                .content_type()
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "text/csv".to_string());
+            let filename = field.file_name().unwrap_or("statement.csv").to_string();
+            let bytes = field
+                .bytes()
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+            csv_data = Some((declared, filename, bytes));
         }
     }
 
-    let csv = csv_data.ok_or(AppError::Validation("No file uploaded".into()))?;
+    let (declared, filename, bytes) =
+        csv_data.ok_or(AppError::Validation("No file uploaded".into()))?;
+
+    // `s10-upload-validation`: bank-statement CSVs are sniffed
+    // with the same policy as document uploads — CSV is
+    // accepted on declaration, anything else is rejected if
+    // sniff disagrees.
+    let _mime = upload::validate(&declared, Some(&filename), &bytes)
+        .map_err(|e| AppError::Validation(e.message()))?;
+
+    let csv = std::str::from_utf8(&bytes)
+        .map_err(|_| AppError::Validation("Invalid UTF-8 in CSV file".into()))?
+        .to_string();
 
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)

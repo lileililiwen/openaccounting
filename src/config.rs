@@ -68,6 +68,13 @@ pub struct Config {
     /// (`o4-metrics-endpoint`). Parsed from `METRICS_ENABLED`
     /// (default: true).
     pub metrics_enabled: bool,
+    /// Maximum upload body size in bytes
+    /// (`s10-upload-validation`). Parsed from
+    /// `UPLOAD_MAX_BYTES`; defaults to 25 MiB. Enforced at the
+    /// router layer via `tower_http::limit::DefaultBodyLimit` so
+    /// over-cap requests are rejected with HTTP 413 before the
+    /// handler reads any body bytes.
+    pub upload_max_bytes: usize,
 }
 
 impl Config {
@@ -93,6 +100,13 @@ impl Config {
         let metrics_enabled = env::var("METRICS_ENABLED")
             .map(|v| !v.eq_ignore_ascii_case("false") && v != "0")
             .unwrap_or(true);
+        let upload_max_bytes = env::var("UPLOAD_MAX_BYTES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(crate::upload::DEFAULT_MAX_BYTES);
+        if upload_max_bytes == 0 {
+            anyhow::bail!("UPLOAD_MAX_BYTES must be > 0");
+        }
 
         Ok(Self {
             app_host,
@@ -103,6 +117,7 @@ impl Config {
             documents_dir,
             app_env,
             metrics_enabled,
+            upload_max_bytes,
         })
     }
 }
