@@ -34,6 +34,7 @@ pub mod reconciliation;
 pub mod reimbursement;
 pub mod reports;
 pub mod rules;
+pub mod saved_searches;
 pub mod sharing;
 pub mod taxes;
 pub mod templates;

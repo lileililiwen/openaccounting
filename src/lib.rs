@@ -294,6 +294,18 @@ fn build_router_inner(
             post(handlers::transactions_bulk::bulk_action),
         )
         .route(
+            "/ledgers/{id}/searches",
+            get(handlers::saved_searches::list_searches).post(handlers::saved_searches::create),
+        )
+        .route(
+            "/ledgers/{id}/searches/{sid}/delete",
+            post(handlers::saved_searches::delete),
+        )
+        .route(
+            "/ledgers/{id}/searches/{sid}/default",
+            post(handlers::saved_searches::make_default),
+        )
+        .route(
             "/ledgers/{id}/transactions/new",
             get(handlers::transactions::new_page).post(handlers::transactions::create),
         )

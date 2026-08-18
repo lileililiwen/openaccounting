@@ -11,7 +11,7 @@
     <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New transaction</a>
   </header>
 
-  <form method="get" action="/ledgers/{{ ledger_id }}/transactions" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
+<form method="get" action="/ledgers/{{ ledger_id }}/transactions" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
     <label class="text-sm">
       <span class="block text-xs text-slate-500">From</span>
       <input type="date" name="from" value="{{ filter.from }}" class="rounded border border-slate-300 px-2 py-1 text-sm" />
@@ -24,9 +24,11 @@
       <span class="block text-xs text-slate-500">Search description / payee</span>
       <input name="q" value="{{ filter.q }}" class="w-full rounded border border-slate-300 px-2 py-1 text-sm" />
     </label>
-    <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Filter</button>
+    <button class="rounded bg-slate-800 text-white px-3 py-1.5">Filter</button>
     <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 px-2 py-1.5">Reset</a>
   </form>
+
+  {% include "transactions/_searches.html" %}
 
 {% if transactions.is_empty() %}
     {% include "partials/_empty_transactions.html" %}

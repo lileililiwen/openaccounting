@@ -15,6 +15,11 @@ pub struct TransactionList {
     pub ledger_name: String,
     pub transactions: Vec<TransactionRow>,
     pub filter: TransactionFilter,
+    /// The original raw query string (e.g.
+    /// `from=2026-01-01&q=coffee`). Empty when the user landed
+    /// on the bare URL. Used by the saved-searches partial to
+    /// know what to persist.
+    pub current_query: String,
 }
 
 #[derive(Clone, Debug, sqlx::FromRow)]

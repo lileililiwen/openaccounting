@@ -33,6 +33,7 @@ mod policies;
 mod printable_views;
 mod pwa;
 mod reconciliation_rules;
+mod saved_searches;
 mod secure_cookie;
 mod session_timeout;
 mod signed_cookies;

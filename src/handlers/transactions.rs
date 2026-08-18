@@ -29,6 +29,22 @@ pub async fn list(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
+    // If the URL has no filter params and the user has a
+    // default saved search, apply its query (`u2`).
+    // If the URL has no filter params and the user has a
+    // default saved search, apply its query (`u2`).
+    let q = if q.is_empty() {
+        if let Some(default_query) =
+            crate::handlers::saved_searches::default_query(&state.pool, user.id).await?
+        {
+            url_to_query(&default_query)
+        } else {
+            q
+        }
+    } else {
+        q
+    };
+
     let filter = TransactionFilter {
         from: q.get("from").map(|s| s.to_string()).unwrap_or_default(),
         to: q.get("to").map(|s| s.to_string()).unwrap_or_default(),
@@ -76,6 +92,10 @@ pub async fn list(
     .fetch_all(&state.pool)
     .await?;
 
+    // Surface the currently-applied query string so the saved-
+    // searches picker can store / re-apply it.
+    let current_query = hashmap_to_query_string(&q);
+
     Ok(render_response(TransactionList {
         user_id: user.id,
         username: user.username.clone(),
@@ -84,7 +104,44 @@ pub async fn list(
         ledger_name: ledger.name,
         transactions: rows,
         filter,
+        current_query,
     }))
+}
+
+/// Render a `HashMap<String, String>` as the `key=value&…`
+/// fragment used by the transactions list endpoint.
+fn hashmap_to_query_string(q: &std::collections::HashMap<String, String>) -> String {
+    let mut parts: Vec<String> = q
+        .iter()
+        .map(|(k, v)| format!("{}={}", url_encode(k), url_encode(v)))
+        .collect();
+    parts.sort();
+    parts.join("&")
+}
+
+fn url_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~') {
+            out.push(c);
+        } else {
+            for b in c.to_string().as_bytes() {
+                out.push_str(&format!("%{b:02X}"));
+            }
+        }
+    }
+    out
+}
+
+/// Parse a raw query string into a `HashMap<String, String>`.
+fn url_to_query(s: &str) -> std::collections::HashMap<String, String> {
+    let mut out = std::collections::HashMap::new();
+    for pair in s.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            out.insert(k.to_string(), v.to_string());
+        }
+    }
+    out
 }
 
 pub async fn new_page(

@@ -1,0 +1,29 @@
+{# Saved Searches picker (`u2-saved-searches`).
+   Renders the saved-searches chip list plus a save form for
+   the current filter set. #}
+<section class="rounded-xl bg-white border border-slate-200 p-3 space-y-3 text-sm"
+         hx-get="/ledgers/{{ ledger_id }}/searches"
+         hx-trigger="load, saved-changed from:body"
+         hx-swap="innerHTML"
+         id="saved-searches-root">
+  <div class="flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-700">Saved searches</h2>
+    <span class="text-xs text-slate-400">u2-saved-searches</span>
+  </div>
+  <form method="post" action="/ledgers/{{ ledger_id }}/searches" class="flex flex-wrap items-center gap-2">
+    <input type="hidden" name="next" value="/ledgers/{{ ledger_id }}/transactions" />
+    <input type="hidden" name="query" value="{{ current_query }}" />
+    <input name="name" placeholder="name (e.g. Unpaid)" class="rounded border border-slate-300 px-2 py-1 text-sm" />
+    <select name="color" class="rounded border border-slate-300 px-2 py-1 text-sm">
+      <option value="">no color</option>
+      <option value="slate">slate</option>
+      <option value="red">red</option>
+      <option value="amber">amber</option>
+      <option value="emerald">emerald</option>
+      <option value="sky">sky</option>
+      <option value="violet">violet</option>
+      <option value="pink">pink</option>
+    </select>
+    <button class="rounded bg-slate-800 text-white px-3 py-1 text-sm">Save current view</button>
+  </form>
+</section>
