@@ -231,6 +231,11 @@ fn build_router_inner(
             "/ledgers/{id}/webhooks/plaid",
             post(handlers::bank_feeds::webhook_plaid),
         )
+        // Liveness + readiness probes (`o5-health-endpoint`).
+        // No I/O for /healthz; /readyz pings Postgres + the
+        // documents directory, each with a 1 s timeout.
+        .route("/healthz", get(handlers::health::healthz))
+        .route("/readyz", get(handlers::health::readyz))
         .route("/", get(handlers::dashboard::redirect_to_first_ledger))
         .route(
             "/login",

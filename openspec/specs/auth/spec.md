@@ -97,8 +97,8 @@ All routes under `/ledgers/*`, `/transactions/*`, `/accounts/*`,
 `axum-login`'s `login_required!(Backend)` layer. Unauthenticated
 requests MUST be redirected to `/login?next=<original-url>`.
 
-Public routes are: `/`, `/login`, `/register`, `/static/*`, and
-`/healthz` (the latter is reserved for a future change).
+Public routes are: `/`, `/login`, `/register`, `/static/*`,
+`/healthz`, and `/readyz` (both live since `o5-health-endpoint`).
 
 #### Scenario: Anonymous request to a protected route
 

@@ -20,6 +20,7 @@ pub mod documents;
 pub mod entities;
 pub mod export;
 pub mod fixed_assets;
+pub mod health;
 pub mod import;
 pub mod import_alipay;
 pub mod import_wechat;

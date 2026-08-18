@@ -21,6 +21,7 @@ mod document_ocr;
 mod empty_states;
 mod expense_reimbursement;
 mod export;
+mod health;
 mod import_alipay;
 mod import_wechat;
 mod keyboard_shortcuts;
