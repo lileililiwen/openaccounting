@@ -6,6 +6,7 @@ pub mod invoice;
 pub mod ledger;
 pub mod policies;
 pub mod posting;
+pub mod posting_service;
 pub mod reconciliation_rules;
 pub mod reimbursement;
 pub mod transaction;
