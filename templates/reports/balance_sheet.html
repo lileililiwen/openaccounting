@@ -3,12 +3,17 @@
 {% block body %}
 {% include "partials/_nav.html" %}
 <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <div class="print-only-header">
+    <h1>Balance Sheet — {{ ledger_name }}</h1>
+    <div class="meta">As of {{ as_of }} · Printed {{ printed_at }}</div>
+  </div>
+  {% include "partials/_print_button.html" %}
   <header class="flex flex-wrap items-end justify-between gap-2">
     <div>
       <h1 class="text-2xl font-semibold">Balance Sheet</h1>
       <p class="text-slate-500 text-sm">As of <span class="tabular">{{ as_of }}</span></p>
     </div>
-    <form method="get" class="flex items-end gap-2 text-sm">
+    <form method="get" class="no-print flex items-end gap-2 text-sm">
       <label>
         <span class="block text-xs text-slate-500">As of</span>
         <input type="date" name="as_of" value="{{ as_of }}" class="rounded border border-slate-300 px-2 py-1" />
@@ -62,7 +67,7 @@
         {% endfor %}
         <li class="py-2 flex items-center justify-between text-slate-500"><span>Net income (current year)</span><span class="tabular">{{ net_income }}</span></li>
       </ul>
-      <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-semibold text-sm">
+      <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-semibold text-sm print-page-break-before">
         <span>Total liab. + equity</span><span class="tabular">{{ total_liab_equity }}</span>
       </div>
     </section>

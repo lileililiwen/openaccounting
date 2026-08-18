@@ -1,0 +1,10 @@
+{# Print button partial (`u10-printable-views`).
+   A small button that calls `window.print()`. Hidden in
+   `@media print` via the `.no-print` class. #}
+<div class="print-button-row no-print flex justify-end mb-2">
+  <button type="button"
+          onclick="window.print()"
+          class="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">
+    Print
+  </button>
+</div>

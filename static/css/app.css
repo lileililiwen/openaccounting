@@ -18,3 +18,81 @@
 .dark .htmx-request .htmx-indicator {
   filter: invert(1);
 }
+
+/* ─── Print styles (`u10-printable-views`) ────────────────────────────── */
+
+@media print {
+  /* Hidden chrome: nav, footer, primary CTAs. */
+  nav,
+  footer,
+  .no-print,
+  .print-button-row,
+  form[action="/logout"],
+  form[action="/account/theme"],
+  form[action="/account/notifications"] {
+    display: none !important;
+  }
+
+  /* Page-wide reset for print. */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: "Georgia", "Times New Roman", serif !important;
+    font-size: 11pt;
+  }
+
+  .dark html, .dark body,
+  html.dark, body.dark,
+  html[class~="dark"], body[class~="dark"] {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Page geometry. */
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+  }
+
+  /* Tables fill the page. */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10pt;
+  }
+  th, td {
+    border: 1px solid #000 !important;
+    padding: 4pt 6pt !important;
+  }
+  thead { display: table-header-group; }
+  tr, td, th { page-break-inside: avoid; }
+
+  /* Force totals / footer rows onto a fresh page when needed. */
+  .print-page-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Print-only header strip with ledger name + report + date. */
+  .print-only-header {
+    display: block !important;
+    margin-bottom: 12pt;
+    border-bottom: 2px solid #000;
+    padding-bottom: 6pt;
+  }
+  .print-only-header h1 {
+    font-size: 14pt;
+    margin: 0;
+  }
+  .print-only-header .meta {
+    font-size: 9pt;
+    color: #333;
+  }
+}
+
+/* Hide the print-only header on screen. */
+.print-only-header {
+  display: none;
+}

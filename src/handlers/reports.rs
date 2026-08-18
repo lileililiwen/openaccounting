@@ -136,6 +136,7 @@ pub async fn balance_sheet(
         total_assets: bs.total_assets,
         total_liab_equity: bs.total_liab_equity,
         balanced,
+        printed_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
     }))
 }
 

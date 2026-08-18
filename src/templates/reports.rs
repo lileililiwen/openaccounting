@@ -51,6 +51,8 @@ pub struct BalanceSheetPage {
     pub total_assets: Decimal,
     pub total_liab_equity: Decimal,
     pub balanced: bool,
+    /// Pre-formatted UTC string used by the print header.
+    pub printed_at: String,
 }
 
 #[derive(Template)]

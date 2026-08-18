@@ -27,6 +27,7 @@ mod notifications;
 mod ocr_feedback;
 mod password_strength;
 mod policies;
+mod printable_views;
 mod pwa;
 mod reconciliation_rules;
 mod secure_cookie;
