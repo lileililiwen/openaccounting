@@ -97,6 +97,12 @@ impl TestDb {
             .await
             .expect("run migrations on test DB");
 
+        // 2b. Backfill the audit hash-chain (idempotent) so the
+        //     chain is valid from the first test.
+        crate::audit::chain::ensure_backfilled(&pool)
+            .await
+            .expect("backfill audit chain");
+
         // 3. The session store has its own table; install it now so
         //    the axum server can use it.
         let session_store = tower_sessions_sqlx_store::PostgresStore::new(pool.clone());

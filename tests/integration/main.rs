@@ -8,6 +8,7 @@
 mod common;
 
 mod approval_routing;
+mod audit_chain;
 mod bank_feeds;
 mod bank_statement_imports;
 mod cash_basis;

@@ -4,6 +4,24 @@ use uuid::Uuid;
 use crate::auth::User;
 
 #[derive(Template)]
+#[template(path = "admin/audit_verify.html")]
+pub struct AuditVerifyPage {
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub intact: bool,
+    pub entries_count: i64,
+    pub tail_hash: String,
+    pub breakpoints: Vec<BreakPointRow>,
+}
+
+pub struct BreakPointRow {
+    pub id: Uuid,
+    pub reason: String,
+}
+
+#[derive(Template)]
 #[template(path = "admin/dashboard.html")]
 pub struct AdminDashboardPage {
     pub username: String,

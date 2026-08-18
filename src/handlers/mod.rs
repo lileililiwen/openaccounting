@@ -4,6 +4,7 @@ pub mod account_security;
 pub mod account_theme;
 pub mod accounts;
 pub mod admin;
+pub mod admin_audit_verify;
 pub mod aging;
 pub mod approval_policies;
 pub mod audit;

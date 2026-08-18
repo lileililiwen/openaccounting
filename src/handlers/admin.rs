@@ -38,6 +38,10 @@ pub fn admin_routes() -> Router<AppState> {
             "/admin/ocr-corpus.json",
             axum::routing::get(crate::handlers::document_ocr_feedback::export_corpus),
         )
+        .route(
+            "/admin/audit/verify",
+            axum::routing::get(crate::handlers::admin_audit_verify::verify_chain),
+        )
         .route_layer(middleware::from_fn(require_admin))
 }
 

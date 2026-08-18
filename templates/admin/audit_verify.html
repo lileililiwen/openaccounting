@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Admin — Audit Chain — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Audit chain</h1>
+      <p class="text-slate-500 text-sm">
+        SHA-256 hash-linked audit log. Any tampered row breaks the chain.
+      </p>
+    </div>
+    <a href="/admin"
+       class="rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-700">
+      Admin home
+    </a>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-5 space-y-4">
+    {% if intact %}
+      <p class="rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm px-3 py-2">
+        Chain intact — {{ entries_count }} entries verified.
+      </p>
+    {% else %}
+      <p class="rounded-lg bg-rose-50 text-rose-800 border border-rose-200 text-sm px-3 py-2">
+        Chain BROKEN — {{ breakpoints.len() }} invalid link(s) found.
+      </p>
+    {% endif %}
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div>
+        <dt class="text-slate-500">Entries</dt>
+        <dd class="font-mono font-medium">{{ entries_count }}</dd>
+      </div>
+      <div>
+        <dt class="text-slate-500">Tail hash</dt>
+        <dd class="font-mono break-all text-xs">{{ tail_hash }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  {% if !breakpoints.is_empty() %}
+  <section class="rounded-xl bg-white border border-slate-200 p-5">
+    <h2 class="text-sm font-semibold mb-3">Break points</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+            <th class="py-2 pr-4">Audit row</th>
+            <th class="py-2">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in breakpoints %}
+          <tr class="border-b border-slate-100 last:border-0">
+            <td class="py-2 pr-4 font-mono text-xs">{{ b.id }}</td>
+            <td class="py-2 text-slate-700">{{ b.reason }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

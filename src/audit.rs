@@ -3,6 +3,8 @@ use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub mod chain;
+
 #[derive(Clone, Debug, sqlx::FromRow)]
 pub struct AuditEntry {
     pub id: Uuid,
@@ -26,20 +28,20 @@ pub async fn log(
     old_value: Option<Value>,
     new_value: Option<Value>,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        r#"INSERT INTO audit_entries (ledger_id, actor_id, action, entity_type, entity_id, old_value, new_value)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+    // The chain hash includes `created_at`, so the application sets it
+    // explicitly rather than relying on the DB default.
+    chain::log_hashed(
+        pool,
+        ledger_id,
+        actor_id,
+        action,
+        entity_type,
+        entity_id,
+        old_value,
+        new_value,
+        Utc::now(),
     )
-    .bind(ledger_id)
-    .bind(actor_id)
-    .bind(action)
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(old_value)
-    .bind(new_value)
-    .execute(pool)
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn list(

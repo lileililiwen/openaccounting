@@ -768,6 +768,12 @@ pub async fn run() -> anyhow::Result<()> {
         .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
+    // Backfill the audit hash-chain for any pre-`d1` rows
+    // (idempotent) so verification passes from day one.
+    crate::audit::chain::ensure_backfilled(&pool)
+        .await
+        .map_err(|e| anyhow::anyhow!("audit chain backfill failed: {e}"))?;
+
     let storage = FilesystemStore::new(&cfg.documents_dir).await?;
 
     // Session store has its own schema; install it before the
@@ -790,6 +796,9 @@ pub async fn run() -> anyhow::Result<()> {
 
     // Start the daily prune of login attempts (90-day retention).
     workers::prune_login_attempts::run_prune_loop(pool.clone());
+
+    // Start the daily audit-chain anchor writer.
+    workers::audit_anchor::run_anchor_loop(pool.clone());
 
     // ── Cookie security policy ──────────────────────────────────────────
     // Production / staging MUST emit Secure cookies. Refuse to
