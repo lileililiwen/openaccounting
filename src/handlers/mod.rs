@@ -23,6 +23,7 @@ pub mod fixed_assets;
 pub mod import;
 pub mod import_alipay;
 pub mod import_wechat;
+pub mod import_wizard;
 pub mod inventory;
 pub mod invoices;
 pub mod ledgers;

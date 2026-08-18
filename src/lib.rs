@@ -391,6 +391,23 @@ fn build_router_inner(
             "/ledgers/{id}/import/confirm",
             post(handlers::import::confirm),
         )
+        // CSV import column-mapping wizard (`u4-csv-import-wizard`).
+        .route(
+            "/ledgers/{id}/import/wizard",
+            get(handlers::import_wizard::show_upload),
+        )
+        .route(
+            "/ledgers/{id}/import/wizard/map",
+            post(handlers::import_wizard::handle_upload),
+        )
+        .route(
+            "/ledgers/{id}/import/wizard/preview",
+            post(handlers::import_wizard::handle_preview),
+        )
+        .route(
+            "/ledgers/{id}/import/wizard/commit",
+            post(handlers::import_wizard::handle_commit),
+        )
         .route(
             "/ledgers/{id}/import/wechat",
             get(handlers::import_wechat::upload_page).post(handlers::import_wechat::preview),

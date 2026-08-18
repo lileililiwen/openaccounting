@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Import CSV — Preview — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Preview</h1>
+    <p class="text-slate-500 text-sm">
+      {{ rows.len() }} rows parsed. Commit to insert every row in
+      one transaction (atomic — no partial imports).
+    </p>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="text-left px-4 py-2">Date</th>
+          <th class="text-left px-4 py-2">Description</th>
+          <th class="text-left px-4 py-2">Payee</th>
+          <th class="text-left px-4 py-2">Reference</th>
+          <th class="text-right px-4 py-2">Amount</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in rows %}
+          <tr>
+            <td class="px-4 py-2 tabular">{{ row.date }}</td>
+            <td class="px-4 py-2 text-slate-700">{{ row.description }}</td>
+            <td class="px-4 py-2 text-slate-500">{{ row.payee }}</td>
+            <td class="px-4 py-2 text-slate-500">{{ row.reference }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ row.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/import/wizard/commit" class="flex justify-end gap-2">
+    <input type="hidden" name="csv_content" value="{{ csv_content }}" />
+    <input type="hidden" name="date" value="{{ map.date }}" />
+    <input type="hidden" name="description" value="{{ map.description }}" />
+    {% if map.debit >= 0 %}<input type="hidden" name="debit" value="{{ map.debit }}" />{% endif %}
+    {% if map.credit >= 0 %}<input type="hidden" name="credit" value="{{ map.credit }}" />{% endif %}
+    {% if map.account >= 0 %}<input type="hidden" name="account" value="{{ map.account }}" />{% endif %}
+    {% if map.payee >= 0 %}<input type="hidden" name="payee" value="{{ map.payee }}" />{% endif %}
+    {% if map.reference >= 0 %}<input type="hidden" name="reference" value="{{ map.reference }}" />{% endif %}
+    {% if map.amount_in >= 0 %}<input type="hidden" name="amount_in" value="{{ map.amount_in }}" />{% endif %}
+    <a href="/ledgers/{{ ledger_id }}/import/wizard" class="rounded border border-slate-300 px-3 py-2 text-sm">Back</a>
+    <button class="rounded bg-slate-900 text-white px-4 py-2 text-sm">Commit</button>
+  </form>
+</main>
+{% endblock %}

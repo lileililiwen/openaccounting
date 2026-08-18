@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Import CSV — Map columns — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Map CSV columns</h1>
+    <p class="text-slate-500 text-sm">
+      We auto-detected the columns below from your CSV. The
+      detected mapping is shown read-only; if any column is
+      wrong, edit the CSV and re-upload. Save the mapping
+      under a name below to skip this step on future uploads
+      matching the same filename pattern.
+    </p>
+    {% if saved_mapping_name != "" %}
+      <p class="text-emerald-700 text-sm mt-1">
+        Using saved mapping <strong>{{ saved_mapping_name }}</strong>.
+      </p>
+    {% endif %}
+  </header>
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/import/wizard/preview" class="space-y-4">
+    <input type="hidden" name="csv_content" value="{{ csv_content }}" />
+    <input type="hidden" name="date" value="{{ map.date }}" />
+    <input type="hidden" name="description" value="{{ map.description }}" />
+    <input type="hidden" name="debit" value="{{ map.debit }}" />
+    <input type="hidden" name="credit" value="{{ map.credit }}" />
+    <input type="hidden" name="account" value="{{ map.account }}" />
+    <input type="hidden" name="payee" value="{{ map.payee }}" />
+    <input type="hidden" name="reference" value="{{ map.reference }}" />
+    <input type="hidden" name="amount_in" value="{{ map.amount_in }}" />
+
+    <section class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-700">Detected mapping</h2>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-3 py-1">Field</th>
+            <th class="text-left px-3 py-1">CSV column</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr><td class="px-3 py-1">Date</td><td class="px-3 py-1 tabular">{{ map.date }}</td></tr>
+          <tr><td class="px-3 py-1">Description</td><td class="px-3 py-1 tabular">{{ map.description }}</td></tr>
+          <tr><td class="px-3 py-1">Debit</td><td class="px-3 py-1 tabular">{{ map.debit }}</td></tr>
+          <tr><td class="px-3 py-1">Credit</td><td class="px-3 py-1 tabular">{{ map.credit }}</td></tr>
+          <tr><td class="px-3 py-1">Account</td><td class="px-3 py-1 tabular">{{ map.account }}</td></tr>
+          <tr><td class="px-3 py-1">Payee</td><td class="px-3 py-1 tabular">{{ map.payee }}</td></tr>
+          <tr><td class="px-3 py-1">Reference</td><td class="px-3 py-1 tabular">{{ map.reference }}</td></tr>
+          <tr><td class="px-3 py-1">Amount (single)</td><td class="px-3 py-1 tabular">{{ map.amount_in }}</td></tr>
+        </tbody>
+      </table>
+      <p class="text-xs text-slate-400">A field of -1 means "not mapped".</p>
+    </section>
+
+    <section class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-700">Save this mapping for next time</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <label>
+          <span class="block text-xs text-slate-500">Name</span>
+          <input name="save_name" placeholder="bank1" class="rounded border border-slate-300 px-2 py-1 w-full" />
+        </label>
+        <label>
+          <span class="block text-xs text-slate-500">Filename glob (LIKE)</span>
+          <input name="filename_glob" value="bank1_%.csv" class="rounded border border-slate-300 px-2 py-1 w-full" />
+        </label>
+      </div>
+    </section>
+
+    <details class="rounded-xl bg-white border border-slate-200 p-4">
+      <summary class="text-sm font-semibold text-slate-700 cursor-pointer">Preview first 5 rows</summary>
+      <div class="overflow-x-auto mt-2">
+        <table class="w-full text-xs">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>{% for h in headers %}<th class="px-2 py-1 text-left">{{ h }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for row in rows_preview %}
+              <tr>{% for cell in row %}<td class="px-2 py-1">{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <div class="flex justify-end gap-2">
+      <a href="/ledgers/{{ ledger_id }}/import/wizard" class="rounded border border-slate-300 px-3 py-2 text-sm">Back</a>
+      <button class="rounded bg-slate-900 text-white px-4 py-2 text-sm">Save & preview</button>
+    </div>
+  </form>
+</main>
+{% endblock %}
