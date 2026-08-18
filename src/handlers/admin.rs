@@ -151,7 +151,7 @@ mod tests {
             r#"INSERT INTO users (email, username, hashed_password, display_name, role)
                VALUES ($1, $2, $3, $1, $4)
                ON CONFLICT (email) DO UPDATE SET role = $4
-               RETURNING id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme"#,
+               RETURNING id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale"#,
         )
         .bind(&email)
         .bind(&username)

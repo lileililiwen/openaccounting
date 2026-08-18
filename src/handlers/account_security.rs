@@ -67,7 +67,7 @@ async fn verify_password_or_unauthorized(
     candidate: &str,
 ) -> AppResult<()> {
     let user: User = sqlx::query_as(
-        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
            FROM users WHERE id = $1"#,
     )
     .bind(user_id)

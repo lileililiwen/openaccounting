@@ -22,6 +22,7 @@ pub mod domain;
 pub mod error;
 pub mod export;
 pub mod handlers;
+pub mod i18n;
 pub mod import;
 pub mod notifications;
 pub mod ocr;
@@ -651,6 +652,10 @@ fn build_router_inner(
             "/account/notifications",
             get(handlers::notification_preferences::show)
                 .post(handlers::notification_preferences::toggle),
+        )
+        .route(
+            "/account/locale",
+            post(handlers::account_locale::set_locale),
         )
         .merge(handlers::admin::admin_routes())
         .route_layer(login_required!(

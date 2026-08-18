@@ -275,7 +275,7 @@ pub async fn login_2fa_submit(
 
     // Fetch the full User record so we can materialise the session.
     let user = sqlx::query_as::<_, crate::auth::User>(
-        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
            FROM users WHERE id = $1"#,
     )
     .bind(user_id)

@@ -28,6 +28,9 @@ pub struct User {
     /// Default is "system" so legacy users keep the OS-driven
     /// behaviour until they opt in.
     pub theme: String,
+    /// Locale preference: "en" | "zh-CN" | "es" | "fr" | "de" | "ja".
+    /// Default is "en". Honours `Accept-Language` when unset.
+    pub locale: String,
 }
 
 impl AuthUser for User {
@@ -64,7 +67,7 @@ impl AuthnBackend for Backend {
         creds: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error> {
         let row = sqlx::query_as::<_, User>(
-            r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+            r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
                FROM users WHERE LOWER(email) = LOWER($1)"#,
         )
         .bind(&creds.email)
@@ -88,7 +91,7 @@ impl AuthnBackend for Backend {
 
     async fn get_user(&self, id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
         let user = sqlx::query_as::<_, User>(
-            r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+            r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
                FROM users WHERE id = $1"#,
         )
         .bind(id)
@@ -111,7 +114,7 @@ pub async fn create_user(
     let user = sqlx::query_as::<_, User>(
         r#"INSERT INTO users (email, username, hashed_password, display_name)
            VALUES ($1, $2, $3, $2)
-           RETURNING id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme"#,
+           RETURNING id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale"#,
     )
     .bind(email)
     .bind(username)
@@ -139,7 +142,7 @@ pub async fn change_password(
 ) -> Result<(), AppError> {
     // 1. Load the user.
     let user = sqlx::query_as::<_, User>(
-        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+        r#"SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
            FROM users WHERE id = $1"#,
     )
     .bind(user_id)
@@ -234,7 +237,7 @@ mod tests {
         assert!(matches!(err, AppError::Unauthorized), "got: {err:?}");
         // Verify stored hash did NOT change.
         let refreshed = sqlx::query_as::<_, User>(
-            "SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+            "SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
              FROM users WHERE id = $1",
         )
         .bind(user.id)
@@ -271,7 +274,7 @@ mod tests {
             .await
             .expect("must succeed");
         let refreshed = sqlx::query_as::<_, User>(
-            "SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme
+            "SELECT id, email, username, display_name, role, hashed_password, is_active, created_at, updated_at, theme, locale
              FROM users WHERE id = $1",
         )
         .bind(user.id)
