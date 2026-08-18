@@ -19,7 +19,8 @@ use uuid::Uuid;
 use crate::{
     auth::Backend,
     error::{AppError, AppResult},
-    notifications::{from_env, DeviceToken},
+    notifications::preferences::{Channel, Event},
+    notifications::{self, from_env, DeviceToken},
     AppState,
 };
 
@@ -97,7 +98,30 @@ pub struct PushRequest {
 ///
 /// Called internally (e.g. from approval routing, OCR completion).
 /// Always succeeds — failures are logged but do not surface to the caller.
-pub async fn dispatch(state: &AppState, req: PushRequest) {
+///
+/// Honours the user's `notification_preferences` row for the
+/// `(push, <event>)` pair; if the user opted out of push for the
+/// event, the dispatch short-circuits before contacting the
+/// notifier. The suppressed count is logged so the audit-trail
+/// requirement (`notifications_suppressed_total{event=...}`) is
+/// observable in `tracing` / stdout logs.
+pub async fn dispatch(state: &AppState, req: PushRequest, event: Event) {
+    // Check the preference before doing any I/O so we don't
+    // even load the device list for opted-out users.
+    let allowed =
+        notifications::preferences::is_enabled(&state.pool, req.user_id, Channel::Push, event)
+            .await
+            .unwrap_or(true); // fail-open on DB errors so we don't lose alerts
+    if !allowed {
+        tracing::info!(
+            user_id = %req.user_id,
+            event = event.as_str(),
+            "notifications_suppressed_total{{event={}}}=1",
+            event.as_str()
+        );
+        return;
+    }
+
     let devices: Vec<DeviceToken> = match sqlx::query_as(
         "SELECT id, user_id, token, platform FROM device_tokens WHERE user_id = $1",
     )

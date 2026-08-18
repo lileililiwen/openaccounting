@@ -11,6 +11,7 @@ use uuid::Uuid;
 pub mod apns;
 pub mod fcm;
 pub mod noop;
+pub mod preferences;
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

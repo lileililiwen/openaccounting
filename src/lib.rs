@@ -647,6 +647,11 @@ fn build_router_inner(
             get(handlers::export::export_all_json),
         )
         .route("/account/theme", post(handlers::account_theme::set_theme))
+        .route(
+            "/account/notifications",
+            get(handlers::notification_preferences::show)
+                .post(handlers::notification_preferences::toggle),
+        )
         .merge(handlers::admin::admin_routes())
         .route_layer(login_required!(
             Backend,

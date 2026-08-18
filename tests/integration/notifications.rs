@@ -128,6 +128,7 @@ async fn http_dispatcher_with_noop_does_not_call_external() {
             body: "Test body".into(),
             data: serde_json::json!({}),
         },
+        openaccounting::notifications::preferences::Event::WeeklySummary,
     )
     .await;
 
@@ -192,6 +193,7 @@ async fn http_dispatcher_pushes_to_registered_devices() {
             body: "Hello both devices".into(),
             data: serde_json::json!({"url": "/ledgers"}),
         },
+        openaccounting::notifications::preferences::Event::WeeklySummary,
     )
     .await;
 

@@ -24,6 +24,7 @@ pub mod import_wechat;
 pub mod inventory;
 pub mod invoices;
 pub mod ledgers;
+pub mod notification_preferences;
 pub mod notifications;
 pub mod payments;
 pub mod reconciliation;

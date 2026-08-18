@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Notification preferences — {{ username }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Notification preferences</h1>
+    <p class="text-slate-500 text-sm">
+      Choose how each event reaches you. Defaults: in-app <strong>on</strong>,
+      push <strong>off</strong>, email only for the weekly summary.
+    </p>
+  </header>
+
+  <table class="w-full text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+    <thead class="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500">
+      <tr>
+        <th class="text-left px-4 py-2">Event</th>
+        <th class="text-center px-4 py-2">In-app</th>
+        <th class="text-center px-4 py-2">Email</th>
+        <th class="text-center px-4 py-2">Push</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for row in rows %}
+        <tr>
+          <td class="px-4 py-2 text-slate-800 dark:text-slate-100">{{ row.event_label }}</td>
+          <td class="px-4 py-2 text-center">
+            <form method="post" action="/account/notifications" class="inline">
+              <input type="hidden" name="channel" value="in_app" />
+              <input type="hidden" name="event" value="{{ row.event_id }}" />
+              <input type="hidden" name="enabled" value="{% if row.in_app %}off{% else %}on{% endif %}" />
+              <input type="checkbox" {% if row.in_app %}checked{% endif %} onchange="this.form.submit()" />
+            </form>
+          </td>
+          <td class="px-4 py-2 text-center">
+            <form method="post" action="/account/notifications" class="inline">
+              <input type="hidden" name="channel" value="email" />
+              <input type="hidden" name="event" value="{{ row.event_id }}" />
+              <input type="hidden" name="enabled" value="{% if row.email %}off{% else %}on{% endif %}" />
+              <input type="checkbox" {% if row.email %}checked{% endif %} onchange="this.form.submit()" />
+            </form>
+          </td>
+          <td class="px-4 py-2 text-center">
+            <form method="post" action="/account/notifications" class="inline">
+              <input type="hidden" name="channel" value="push" />
+              <input type="hidden" name="event" value="{{ row.event_id }}" />
+              <input type="hidden" name="enabled" value="{% if row.push %}off{% else %}on{% endif %}" />
+              <input type="checkbox" {% if row.push %}checked{% endif %} onchange="this.form.submit()" />
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+{% endblock %}
