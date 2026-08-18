@@ -20,6 +20,7 @@ pub mod config;
 pub mod db;
 pub mod domain;
 pub mod error;
+pub mod export;
 pub mod handlers;
 pub mod import;
 pub mod notifications;
@@ -633,6 +634,18 @@ fn build_router_inner(
             post(handlers::sharing::decline),
         )
         .route("/logout", post(auth::handlers::logout))
+        .route(
+            "/ledgers/{id}/export.json",
+            get(handlers::export::export_json),
+        )
+        .route(
+            "/ledgers/{id}/export.beancount",
+            get(handlers::export::export_beancount),
+        )
+        .route(
+            "/account/export-all.json",
+            get(handlers::export::export_all_json),
+        )
         .merge(handlers::admin::admin_routes())
         .route_layer(login_required!(
             Backend,

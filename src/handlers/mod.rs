@@ -15,6 +15,7 @@ pub mod document_ocr;
 pub mod document_ocr_feedback;
 pub mod documents;
 pub mod entities;
+pub mod export;
 pub mod fixed_assets;
 pub mod import;
 pub mod import_alipay;

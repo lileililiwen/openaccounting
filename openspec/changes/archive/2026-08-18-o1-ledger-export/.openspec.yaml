@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Make ledgers portable, version-controllable, and audit-friendly.
