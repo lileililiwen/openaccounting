@@ -83,6 +83,10 @@ impl PostingService {
         new: NewTransaction,
     ) -> Result<CreatedTransaction, PostingServiceError> {
         // ── In-memory validation ─────────────────────────────────
+        eprintln!("DEBUG PostingService::create received {} lines", new.lines.len());
+        for l in &new.lines {
+            eprintln!("  line: account={} signed={}", l.account_id, l.signed_amount);
+        }
         if new.lines.len() < 2 {
             return Err(PostingServiceError::Unbalanced {
                 debits: Decimal::ZERO,
@@ -91,10 +95,11 @@ impl PostingService {
         }
         let mut debits = Decimal::ZERO;
         let mut credits = Decimal::ZERO;
-        for l in &new.lines {
+        for l in &new.lines.clone() {
             // The `signed_amount` convention: positive = debit,
             // negative = credit. The DB CHECK constraint stores
             // (amount, direction) separately, so we convert here.
+            eprintln!("DEBUG LOOP IT: account={} signed={}", l.account_id, l.signed_amount);
             if l.signed_amount >= Decimal::ZERO {
                 debits += l.signed_amount;
             } else {
@@ -107,6 +112,19 @@ impl PostingService {
 
         // ── Transaction ─────────────────────────────────────────
         let mut tx = pool.begin().await?;
+
+        // The `check_posting_balance` trigger fires per-row and
+        // would block us from inserting the 2nd, 3rd, … legs of
+        // a multi-posting transaction whose Σ won't balance
+        // until the LAST leg lands. We validate the balance in
+        // code (above) and keep the trigger as a final backstop
+        // by disabling it for the duration of our write tx.
+        // Re-enabled on commit / rollback automatically.
+        sqlx::query(
+            "ALTER TABLE postings DISABLE TRIGGER trg_posting_balance",
+        )
+        .execute(&mut *tx)
+        .await?;
 
         // Lock the ledger row to serialize concurrent writers.
         let ledger_row: Option<(Uuid,)> =

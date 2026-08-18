@@ -35,7 +35,16 @@
     <div>
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-semibold text-slate-700">Postings (must balance)</h2>
-        <button type="button" id="add-line" class="text-sm rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">+ Add line</button>
+        <div class="flex items-center gap-2">
+          <span id="split-balance" class="text-xs text-slate-500">—</span>
+          <label class="text-xs text-slate-600 flex items-center gap-1">
+            Split into
+            <input id="split-n" type="number" min="2" max="50" value="3" class="w-12 rounded border border-slate-300 px-1.5 py-1 text-sm tabular text-right" />
+            lines
+          </label>
+          <button type="button" id="split-btn" class="text-sm rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">⚖ Split</button>
+          <button type="button" id="add-line" class="text-sm rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">+ Add line</button>
+        </div>
       </div>
 
       <div class="space-y-2" id="postings">
@@ -61,6 +70,7 @@
     <button class="w-full sm:w-auto rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Save transaction</button>
   </form>
 </main>
+<script src="/static/js/split.js"></script>
 <script>
 (function() {
   var container = document.getElementById('postings');
