@@ -290,6 +290,10 @@ fn build_router_inner(
             get(handlers::transactions::list),
         )
         .route(
+            "/ledgers/{id}/transactions/bulk",
+            post(handlers::transactions_bulk::bulk_action),
+        )
+        .route(
             "/ledgers/{id}/transactions/new",
             get(handlers::transactions::new_page).post(handlers::transactions::create),
         )

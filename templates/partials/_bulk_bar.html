@@ -1,0 +1,73 @@
+{# Bulk action bar (`u3-bulk-actions`).
+   Hidden by default; revealed by a tiny script when any
+   checkbox is ticked. The bar collects the picked ids into
+   a comma-separated hidden field so serde_urlencoded sees
+   a single value. #}
+<div id="bulk-bar"
+     class="fixed inset-x-0 bottom-0 z-30 hidden bg-white border-t border-slate-200 shadow-lg p-3"
+     data-state="hidden">
+  <form id="bulk-form-inner"
+        onsubmit="return submitBulk(event)"
+        class="max-w-5xl mx-auto flex flex-wrap items-center gap-2 text-sm">
+    <input type="hidden" name="txn_ids" id="bulk-txn-ids" />
+    <span id="bulk-count" class="text-slate-600">0 selected</span>
+    <label class="text-slate-500">Action:</label>
+    <select name="action" id="bulk-action" class="rounded border border-slate-300 px-2 py-1">
+      <option value="tag">Add tag</option>
+      <option value="untag">Remove tag</option>
+      <option value="contact">Assign contact</option>
+      <option value="delete">Reverse (non-destructive)</option>
+    </select>
+    <input type="text" name="value" id="bulk-value" placeholder="tag name or contact uuid" class="rounded border border-slate-300 px-2 py-1 flex-1 min-w-[12rem]" />
+    <button class="rounded-lg bg-slate-900 text-white px-4 py-1.5">Apply</button>
+    <button type="button" onclick="clearBulk()" class="rounded-lg border border-slate-300 px-3 py-1.5">Clear</button>
+  </form>
+</div>
+{% raw %}
+<script>
+  (function() {
+    function update() {
+      var checked = document.querySelectorAll('.txn-cb:checked');
+      var bar = document.getElementById('bulk-bar');
+      var count = document.getElementById('bulk-count');
+      if (!bar) return;
+      if (checked.length > 0) {
+        bar.classList.remove('hidden');
+        bar.setAttribute('data-state', 'shown');
+        count.textContent = checked.length + ' selected';
+      } else {
+        bar.classList.add('hidden');
+        bar.setAttribute('data-state', 'hidden');
+      }
+    }
+    function gather() {
+      var ids = [];
+      document.querySelectorAll('.txn-cb:checked').forEach(function(c) {
+        ids.push(c.value);
+      });
+      document.getElementById('bulk-txn-ids').value = ids.join(',');
+      return ids.length > 0;
+    }
+    window.submitBulk = function(e) {
+      if (!gather()) {
+        e.preventDefault();
+        return false;
+      }
+      return true;
+    };
+    window.clearBulk = function() {
+      document.querySelectorAll('.txn-cb:checked').forEach(function(c) {
+        c.checked = false;
+      });
+      var sa = document.getElementById('select-all');
+      if (sa) sa.checked = false;
+      update();
+    };
+    document.addEventListener('change', function(e) {
+      if (e.target && e.target.classList && e.target.classList.contains('txn-cb')) {
+        update();
+      }
+    });
+  })();
+</script>
+{% endraw %}

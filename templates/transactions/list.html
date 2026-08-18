@@ -28,57 +28,67 @@
     <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 px-2 py-1.5">Reset</a>
   </form>
 
-  {% if transactions.is_empty() %}
+{% if transactions.is_empty() %}
     {% include "partials/_empty_transactions.html" %}
   {% else %}
-    <!-- Desktop table -->
-    <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-          <tr>
-            <th class="text-left px-4 py-2">Date</th>
-            <th class="text-left px-4 py-2">Description</th>
-            <th class="text-left px-4 py-2">Payee</th>
-            <th class="text-left px-4 py-2">Tags</th>
-            <th class="text-right px-4 py-2">Amount</th>
-            <th class="text-right px-4 py-2">Files</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for t in transactions %}
-            <tr class="hover:bg-slate-50">
-              <td class="px-4 py-2 tabular text-slate-500">{{ t.date }}</td>
-              <td class="px-4 py-2">
-                <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="font-medium text-slate-800 hover:underline">{{ t.description }}</a>
-                {% if t.kind == "recurring" %}
-                  <span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 inline-block">↻ recurring</span>
-                {% endif %}
-              </td>
-              <td class="px-4 py-2 text-slate-600">{{ t.payee }}</td>
-              <td class="px-4 py-2 text-xs text-slate-500">
-                {% for tag in t.tags %}<span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 mr-1">{{ tag }}</span>{% endfor %}
-              </td>
-              <td class="px-4 py-2 text-right tabular font-medium">{{ t.currency }} {{ t.total }}</td>
-              <td class="px-4 py-2 text-right text-slate-500">{{ t.doc_count }}</td>
+    <form id="bulk-form" method="post" action="/ledgers/{{ ledger_id }}/transactions/bulk">
+      <!-- Desktop table -->
+      <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-2 w-8">
+                <input type="checkbox" id="select-all" onclick="document.querySelectorAll('.txn-cb').forEach(c=>c.checked=this.checked)" />
+              </th>
+              <th class="text-left px-4 py-2">Date</th>
+              <th class="text-left px-4 py-2">Description</th>
+              <th class="text-left px-4 py-2">Payee</th>
+              <th class="text-left px-4 py-2">Tags</th>
+              <th class="text-right px-4 py-2">Amount</th>
+              <th class="text-right px-4 py-2">Files</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <!-- Mobile cards -->
-    <ul class="md:hidden space-y-2">
-      {% for t in transactions %}
-        <li>
-          <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="block rounded-xl bg-white border border-slate-200 p-3">
-            <div class="flex items-center justify-between">
-              <div class="text-sm font-medium text-slate-800">{{ t.description }}</div>
-              <div class="text-sm tabular font-semibold">{{ t.currency }} {{ t.total }}</div>
-            </div>
-            <div class="mt-1 text-xs text-slate-500">{{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}{% if t.doc_count > 0 %} · 📎 {{ t.doc_count }}{% endif %}</div>
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for t in transactions %}
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-2">
+                  <input type="checkbox" class="txn-cb" name="txn_ids" value="{{ t.id }}" form="bulk-form" />
+                </td>
+                <td class="px-4 py-2 tabular text-slate-500">{{ t.date }}</td>
+                <td class="px-4 py-2">
+                  <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="font-medium text-slate-800 hover:underline">{{ t.description }}</a>
+                  {% if t.kind == "recurring" %}
+                    <span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 inline-block">↻ recurring</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2 text-slate-600">{{ t.payee }}</td>
+                <td class="px-4 py-2 text-xs text-slate-500">
+                  {% for tag in t.tags %}<span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 mr-1">{{ tag }}</span>{% endfor %}
+                </td>
+                <td class="px-4 py-2 text-right tabular font-medium">{{ t.currency }} {{ t.total }}</td>
+                <td class="px-4 py-2 text-right text-slate-500">{{ t.doc_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Mobile cards: each row also gets a checkbox -->
+      <ul class="md:hidden space-y-2">
+        {% for t in transactions %}
+          <li class="rounded-xl bg-white border border-slate-200 p-3 flex items-start gap-2">
+            <input type="checkbox" class="txn-cb mt-1" name="txn_ids" value="{{ t.id }}" form="bulk-form" />
+            <a href="/ledgers/{{ ledger_id }}/transactions/{{ t.id }}" class="flex-1">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium text-slate-800">{{ t.description }}</div>
+                <div class="text-sm tabular font-semibold">{{ t.currency }} {{ t.total }}</div>
+              </div>
+              <div class="mt-1 text-xs text-slate-500">{{ t.date }}{% if !t.payee.is_empty() %} · {{ t.payee }}{% endif %}{% if t.doc_count > 0 %} · 📎 {{ t.doc_count }}{% endif %}</div>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </form>
+    {% include "partials/_bulk_bar.html" %}
   {% endif %}
 </main>
 {% endblock %}
