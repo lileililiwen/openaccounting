@@ -2,6 +2,7 @@ pub mod account;
 pub mod approval_routing;
 pub mod contact;
 pub mod document;
+pub mod investment_lot;
 pub mod invoice;
 pub mod ledger;
 pub mod policies;

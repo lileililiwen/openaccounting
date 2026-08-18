@@ -410,6 +410,14 @@ fn build_router_inner(
             get(handlers::reports::cash_flow),
         )
         .route(
+            "/ledgers/{id}/reports/holdings",
+            get(crate::reports::holdings::holdings),
+        )
+        .route(
+            "/ledgers/{id}/reports/realized-gains",
+            get(crate::reports::realized_gains::realized_gains),
+        )
+        .route(
             "/ledgers/{id}/reports/cash-flow-forecast",
             get(handlers::reports::cash_flow_forecast),
         )

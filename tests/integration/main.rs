@@ -53,4 +53,5 @@ mod transactions_bulk;
 mod transactions_edit;
 mod transactions_split;
 mod transaction_number;
+mod investment_lots;
 mod upload_validation;

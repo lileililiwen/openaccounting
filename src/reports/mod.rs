@@ -2,7 +2,9 @@ pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_forecast;
 pub mod general_ledger;
+pub mod holdings;
 pub mod income_statement;
+pub mod realized_gains;
 pub mod trial_balance;
 
 pub use balance_sheet::{build_balance_sheet, BalanceSheetSection};
