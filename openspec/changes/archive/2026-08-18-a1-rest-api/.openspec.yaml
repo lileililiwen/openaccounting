@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Allow third-party scripts, importers, and mobile clients to interact with
+  the system.
