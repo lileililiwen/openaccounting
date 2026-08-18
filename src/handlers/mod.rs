@@ -12,6 +12,7 @@ pub mod closing;
 pub mod contacts;
 pub mod dashboard;
 pub mod document_ocr;
+pub mod document_ocr_feedback;
 pub mod documents;
 pub mod entities;
 pub mod fixed_assets;

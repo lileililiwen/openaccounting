@@ -21,6 +21,7 @@ mod import_alipay;
 mod import_wechat;
 mod login_throttle;
 mod notifications;
+mod ocr_feedback;
 mod password_strength;
 mod policies;
 mod pwa;

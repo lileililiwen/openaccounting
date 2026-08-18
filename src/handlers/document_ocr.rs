@@ -252,7 +252,7 @@ pub async fn apply(
     let description = merchant.unwrap_or_else(|| "Receipt (OCR)".to_string());
 
     // Insert the reimbursement line.
-    let _: (Uuid,) = sqlx::query_as(
+    let (line_id,): (Uuid,) = sqlx::query_as(
         r#"INSERT INTO reimbursement_lines
                (claim_id, txn_date, description, amount, gl_account_id)
            VALUES ($1, $2, $3, $4, $5)
@@ -265,6 +265,37 @@ pub async fn apply(
     .bind(gl_account_id)
     .fetch_one(&state.pool)
     .await?;
+
+    // Record the (OCR engine output → user-edited) pair for the
+    // feedback corpus. Best-effort: failures are logged but do
+    // NOT roll back the apply.
+    let ocr_record =
+        sqlx::query(r#"SELECT confidence FROM document_ocr_results WHERE document_id = $1"#)
+            .bind(doc_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let ocr_confidence = ocr_record.and_then(|r| r.try_get::<f32, _>("confidence").ok());
+    crate::handlers::document_ocr_feedback::record(
+        &state,
+        crate::handlers::document_ocr_feedback::RecordInput {
+            document_id: doc_id,
+            ledger_id,
+            user_id: user.id,
+            claim_id: form.claim_id,
+            reimbursement_line_id: line_id,
+            ocr_amount: Some(amount),
+            ocr_txn_date: Some(txn_date),
+            ocr_merchant: Some(description.clone()),
+            ocr_confidence,
+            final_amount: amount,
+            final_txn_date: txn_date,
+            final_merchant: &description,
+            final_account_id: gl_account_id,
+        },
+    )
+    .await;
 
     let _ = audit::log(
         &state.pool,

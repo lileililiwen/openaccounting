@@ -34,6 +34,10 @@ pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/admin", axum::routing::get(dashboard))
         .route("/admin/users", axum::routing::get(users))
+        .route(
+            "/admin/ocr-corpus.json",
+            axum::routing::get(crate::handlers::document_ocr_feedback::export_corpus),
+        )
         .route_layer(middleware::from_fn(require_admin))
 }
 
