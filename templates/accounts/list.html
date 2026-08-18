@@ -12,7 +12,7 @@
   </header>
 
   {% if groups.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">No accounts yet.</div>
+    {% include "partials/_empty_accounts.html" %}
   {% endif %}
 
   {% for group in groups %}

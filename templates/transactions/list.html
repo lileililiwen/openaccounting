@@ -29,9 +29,7 @@
   </form>
 
   {% if transactions.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
-      No transactions match. <a href="/ledgers/{{ ledger_id }}/transactions/new" class="text-slate-800 underline">Record one</a>.
-    </div>
+    {% include "partials/_empty_transactions.html" %}
   {% else %}
     <!-- Desktop table -->
     <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">

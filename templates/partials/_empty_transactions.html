@@ -1,0 +1,22 @@
+{# Empty-state for transactions list. Expects `ledger_id` in the
+   parent context. Renders an inline SVG illustration (no JS), a
+   short message, and a primary CTA. #}
+<section data-empty-state="transactions"
+         class="rounded-xl bg-white border border-slate-200 p-10 flex flex-col items-center text-center space-y-4">
+  <div class="w-32 h-24 text-slate-400" aria-hidden="true">
+    <svg viewBox="0 0 128 96" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="20" y="12" width="88" height="72" rx="4" fill="#f8fafc"/>
+      <path d="M30 28h68M30 40h52M30 52h60M30 64h40"/>
+      <path d="M86 56l8 8 14-14" stroke="#94a3b8"/>
+      <circle cx="94" cy="60" r="2" fill="#94a3b8"/>
+    </svg>
+  </div>
+  <h2 class="text-lg font-semibold text-slate-800">No transactions yet</h2>
+  <p class="text-slate-500 text-sm max-w-md">
+    Record your first debit and credit to bring this ledger to life.
+  </p>
+  <a href="/ledgers/{{ ledger_id }}/transactions/new"
+     class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
+    Record your first transaction
+  </a>
+</section>

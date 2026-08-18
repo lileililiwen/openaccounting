@@ -15,6 +15,7 @@ mod cash_flow_forecast;
 mod csv_import_completion;
 mod document_authorization;
 mod document_ocr;
+mod empty_states;
 mod expense_reimbursement;
 mod import_alipay;
 mod import_wechat;

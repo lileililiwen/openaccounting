@@ -16,9 +16,7 @@
   {% endif %}
 
   {% if budgets.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
-      No budgets yet. <a href="/ledgers/{{ ledger_id }}/budgets/new" class="text-slate-800 underline">Create your first one</a>.
-    </div>
+    {% include "partials/_empty_budgets.html" %}
   {% else %}
     <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
       <table class="w-full text-sm">

@@ -62,7 +62,9 @@
         {% endfor %}
         {% if invoices.is_empty() %}
           <tr>
-            <td colspan="9" class="px-4 py-10 text-center text-slate-500">No invoices yet.</td>
+            <td colspan="9" class="p-0">
+              {% include "partials/_empty_invoices.html" %}
+            </td>
           </tr>
         {% endif %}
       </tbody>

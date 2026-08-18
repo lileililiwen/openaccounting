@@ -1,0 +1,23 @@
+{# Empty-state for accounts list. Expects `ledger_id` in the
+   parent context. Renders an inline SVG illustration (no JS), a
+   short message, and a primary CTA. #}
+<section data-empty-state="accounts"
+         class="rounded-xl bg-white border border-slate-200 p-10 flex flex-col items-center text-center space-y-4">
+  <div class="w-32 h-24 text-slate-400" aria-hidden="true">
+    <svg viewBox="0 0 128 96" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M64 14v68" stroke-dasharray="2 4"/>
+      <circle cx="64" cy="48" r="28" fill="#f8fafc"/>
+      <path d="M64 48 L64 20 A28 28 0 0 1 88 56 Z" fill="#e2e8f0"/>
+      <path d="M64 48 L88 56 A28 28 0 0 1 50 72 Z" fill="#cbd5e1"/>
+      <path d="M64 48 L50 72 A28 28 0 0 1 40 20 Z" fill="#f1f5f9"/>
+    </svg>
+  </div>
+  <h2 class="text-lg font-semibold text-slate-800">No accounts yet</h2>
+  <p class="text-slate-500 text-sm max-w-md">
+    Build your chart of accounts to start categorising transactions.
+  </p>
+  <a href="/ledgers/{{ ledger_id }}/accounts/new"
+     class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
+    Create your first account
+  </a>
+</section>
