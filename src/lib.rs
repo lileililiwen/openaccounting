@@ -418,6 +418,10 @@ fn build_router_inner(
             get(crate::reports::realized_gains::realized_gains),
         )
         .route(
+            "/ledgers/{id}/reports/inter-entity",
+            get(crate::reports::inter_entity::inter_entity),
+        )
+        .route(
             "/ledgers/{id}/reports/cash-flow-forecast",
             get(handlers::reports::cash_flow_forecast),
         )
@@ -552,6 +556,7 @@ fn build_router_inner(
             "/admin/backups/schedule",
             get(handlers::admin_backups_schedule::schedule),
         )
+        .merge(handlers::transfers::router())
         .route(
             "/admin/backups/create",
             post(handlers::backups::create_manual),

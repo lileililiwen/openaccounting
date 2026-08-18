@@ -4,6 +4,7 @@ pub mod cash_flow_forecast;
 pub mod general_ledger;
 pub mod holdings;
 pub mod income_statement;
+pub mod inter_entity;
 pub mod realized_gains;
 pub mod trial_balance;
 

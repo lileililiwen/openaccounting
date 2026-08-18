@@ -283,7 +283,7 @@ pub async fn edit(
 
 /// Insert a `kind='reversing'` transaction that negates the
 /// postings of `original_id`. Returns the new transaction id.
-async fn insert_reversal(
+pub async fn insert_reversal(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     original_id: Uuid,
     state: &AppState,

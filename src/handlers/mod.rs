@@ -45,3 +45,4 @@ pub mod templates;
 pub mod transactions;
 pub mod transactions_bulk;
 pub mod transactions_edit;
+pub mod transfers;
