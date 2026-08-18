@@ -160,7 +160,11 @@ pub fn render(snapshot: &LedgerSnapshot) -> String {
 /// Map a chart-of-accounts name to a Beancount "Expenses:Food"
 /// style name. We have to invent a type prefix because
 /// Beancount requires a colon-separated root.
-fn beancount_account_name(name: &str) -> String {
+///
+/// `pub(crate)` so the PTA importer (`d3-plaintext-export`) can
+/// reverse the mangling when resolving postings back to
+/// accounts.
+pub(crate) fn beancount_account_name(name: &str) -> String {
     // Names in the chart of accounts already look like
     // "Cash on Hand" / "Accounts Receivable" — Beancount is
     // happy with spaces as long as the account name is wrapped
@@ -176,6 +180,13 @@ fn beancount_account_name(name: &str) -> String {
         })
         .collect();
     cleaned
+}
+
+/// Reverse the export mangling: underscores back to spaces.
+/// Lossy for names that genuinely contain underscores, which is
+/// why the importer also tries the exact name first.
+pub(crate) fn unmangle_account_name(name: &str) -> String {
+    name.replace('_', " ")
 }
 
 fn format_beancount_date(d: NaiveDate) -> String {

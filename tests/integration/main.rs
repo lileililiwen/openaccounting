@@ -35,6 +35,7 @@ mod ocr_feedback;
 mod password_strength;
 mod policies;
 mod printable_views;
+mod pta_round_trip;
 mod pwa;
 mod reconciliation_rules;
 mod saved_searches;

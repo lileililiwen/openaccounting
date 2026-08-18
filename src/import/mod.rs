@@ -4,16 +4,20 @@
 
 pub mod alipay_mobile;
 pub mod alipay_web;
+pub mod beancount;
 pub mod csv;
 pub mod dedup;
 pub mod encoding;
+pub mod hledger;
 pub mod mt940;
 pub mod ofx;
+pub mod pta;
 pub mod qif;
 pub mod sniff;
 pub mod wechat;
 
 pub use mt940::Mt940;
+pub use pta::{ImportReport, PtaFormat, PtaPosting, PtaTxn};
 pub use sniff::Format;
 
 /// The platform a batch of parsed rows came from. Drives the

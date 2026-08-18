@@ -78,7 +78,33 @@ balance sheet; double-entry can, automatically.
 - **Responsive web UI** — mobile-first, fluid layout, tables become cards on small screens.
 - **Multi-currency** — per-ledger base currency, per-transaction currency.
 - **CSV export** — transactions and reports.
+- **Plain-text accounting (PTA)** — Beancount export/import plus a
+  hledger-style CSV, both as `openaccounting export` /
+  `openaccounting import` subcommands for scripted round-trips
+  (see below).
 - **Single binary**, no JS build step, no Node.js required.
+
+## Plain-text CLI
+
+Export a ledger to Beancount (or hledger-style CSV) on stdout:
+
+```
+openaccounting export --ledger=<ledger-uuid> --format=beancount > books.bean
+openaccounting export --ledger=<ledger-uuid> --format=hledger-csv > books.csv
+```
+
+Import a file back from stdin. Already-imported transactions are
+detected by `(date, description, payee, amount)` and skipped, so
+re-imports are a no-op. `--dry-run` prints the planned diff
+without writing anything:
+
+```
+openaccounting import --ledger=<ledger-uuid> --format=beancount < books.bean
+openaccounting import --ledger=<ledger-uuid> --format=hledger-csv --dry-run < books.csv
+```
+
+Both subcommands read `DATABASE_URL` from the environment or
+`.env` (the same connection settings the server uses).
 
 ## Non-Goals (for v1)
 

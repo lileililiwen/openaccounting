@@ -12,6 +12,7 @@
 //! transaction so concurrent writes cannot tear the snapshot.
 
 pub mod beancount;
+pub mod hledger;
 pub mod json;
 
 use chrono::{DateTime, NaiveDate, Utc};
