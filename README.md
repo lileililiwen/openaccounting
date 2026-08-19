@@ -261,6 +261,20 @@ migrations that drop data (e.g. seed scripts) MUST carry a
 `sqlx migrate add --reversible <name>` is the canonical command
 for new migrations.
 
+## Verifying releases
+
+Release binaries are [reproducible and cosign-signed](docs/release-verification.md).
+To verify a downloaded binary:
+
+```sh
+sha256sum openaccounting
+cosign verify-blob \
+  --bundle openaccounting.bundle \
+  --certificate-identity-regexp 'https://github.com/anomalyco/openaccounting/.github/workflows/release.yml@refs/tags/<TAG>' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  openaccounting
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

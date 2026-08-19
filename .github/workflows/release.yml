@@ -1,0 +1,170 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.1.0). Defaults to the trigger tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # attach binaries to the release
+  id-token: write   # cosign keyless OIDC
+  packages: write   # optional GHCR push
+
+env:
+  CARGO_TERM_COLOR: always
+  # Strip source-info paths and timestamps so two builds of the
+  # same source produce identical SHA256s (see
+  # openspec/changes/d4-reproducible-builds).
+  SOURCE_DATE_EPOCH: "1700000000"
+  RUSTFLAGS: "-C link-arg=-Wl,--build-id=none -C debuginfo=0"
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  test-reproducibility:
+    name: Reproducibility check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry & build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Build #1
+        run: cargo build --release --locked
+
+      - name: Hash #1
+        id: hash1
+        run: |
+          set -euo pipefail
+          sha256sum target/release/openaccounting | tee /tmp/sha1.txt
+
+      - name: Build #2
+        run: cargo build --release --locked
+
+      - name: Hash #2
+        id: hash2
+        run: |
+          set -euo pipefail
+          sha256sum target/release/openaccounting | tee /tmp/sha2.txt
+
+      - name: Compare hashes
+        run: |
+          set -euo pipefail
+          H1=$(cut -d' ' -f1 /tmp/sha1.txt)
+          H2=$(cut -d' ' -f1 /tmp/sha2.txt)
+          if [ "$H1" != "$H2" ]; then
+            echo "ERROR: build is not reproducible" >&2
+            echo "  build #1 SHA256: $H1" >&2
+            echo "  build #2 SHA256: $H2" >&2
+            diff /tmp/sha1.txt /tmp/sha2.txt || true
+            exit 1
+          fi
+          echo "Reproducible ✓ ($H1)"
+
+  build-release:
+    name: Build signed release binary
+    needs: test-reproducibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry & build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          set -euo pipefail
+          {
+            echo "name=openaccounting"
+            sha256sum target/release/openaccounting | awk '{print "sha256="$1}'
+            echo "version=${GITHUB_REF_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign with cosign (keyless OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          cosign sign-blob \
+            --output-signature openaccounting.sig \
+            --output-certificate openaccounting.cert \
+            --bundle openaccounting.bundle \
+            target/release/openaccounting
+
+      - name: Create / update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            target/release/openaccounting
+            openaccounting.sig
+            openaccounting.cert
+            openaccounting.bundle
+          body: |
+            ## Verification
+
+            Verify the binary's signature with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
+
+            ```sh
+            # Download the artifact + .bundle from this release.
+            cosign verify-blob \
+              --bundle openaccounting.bundle \
+              --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ github.ref_name }}' \
+              --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+              openaccounting
+            ```
+
+            Expected output ends with `Verified OK`.
+
+            Also confirm the SHA256 matches the one printed in the build log:
+
+            ```sh
+            sha256sum openaccounting
+            ```
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      APP_SECRET: test-secret-for-ci-only-not-used-in-production-1234
+      RUST_LOG: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --features test-support -- -D warnings
+      - run: cargo test --features test-support

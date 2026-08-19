@@ -1,0 +1,6 @@
+[toolchain]
+# Pin a specific stable release for reproducible builds
+# (see openspec/changes/d4-reproducible-builds).
+channel = "1.95.0"
+components = ["rustc", "cargo", "rust-std", "rustfmt", "clippy"]
+profile = "minimal"
