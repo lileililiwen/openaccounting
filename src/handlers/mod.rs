@@ -32,6 +32,7 @@ pub mod import_wizard;
 pub mod inventory;
 pub mod invoices;
 pub mod ledgers;
+pub mod not_found;
 pub mod notification_preferences;
 pub mod notifications;
 pub mod payments;

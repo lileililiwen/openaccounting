@@ -805,6 +805,7 @@ fn build_router_inner(
     public
         .merge(protected)
         .with_state(state)
+        .fallback(handlers::not_found::not_found)
         // Session-timeout middleware: enforced before the
         // request hits any handler. We install it on the whole
         // router so the `expired=1` flash also fires on
