@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod amortization;
 mod api;
 mod append_only;
 mod approval_routing;

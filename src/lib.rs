@@ -439,6 +439,18 @@ fn build_router_inner(
             get(handlers::reports::export_csv),
         )
         .route(
+            "/ledgers/{id}/reports/amortization",
+            get(handlers::amortization::list_page),
+        )
+        .route(
+            "/ledgers/{id}/amortization/new",
+            get(handlers::amortization::new_page).post(handlers::amortization::create),
+        )
+        .route(
+            "/ledgers/{id}/amortization/{schedule_id}/skip",
+            post(handlers::amortization::skip),
+        )
+        .route(
             "/ledgers/{id}/close-year/{year}",
             post(handlers::closing::close_year),
         )

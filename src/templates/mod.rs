@@ -1,6 +1,7 @@
 pub mod account;
 pub mod accounts;
 pub mod admin;
+pub mod amortization;
 pub mod api_tokens;
 pub mod approval_policies;
 pub mod audit;

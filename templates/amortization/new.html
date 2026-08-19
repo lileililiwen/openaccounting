@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}New Amortization — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <h1 class="text-2xl font-semibold">New amortization schedule</h1>
+  <p class="text-sm text-slate-500">For ledger <a class="underline" href="/ledgers/{{ ledger_id }}">{{ ledger_name }}</a>.</p>
+  {% if !error.is_empty() %}
+  <div class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/ledgers/{{ ledger_id }}/amortization/new" class="space-y-4 bg-white p-5 rounded-xl border border-slate-200">
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Description</label>
+      <input name="description" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Source account</label>
+        <select name="source_account_id" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          {% for a in accounts %}<option value="{{ a.0 }}">{{ a.1 }} — {{ a.2 }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Target account</label>
+        <select name="target_account_id" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          {% for a in accounts %}<option value="{{ a.0 }}">{{ a.1 }} — {{ a.2 }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Total amount</label>
+        <input name="total_amount" type="number" step="0.01" min="0" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Period unit</label>
+        <select name="period_unit" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="monthly" selected>monthly</option>
+          <option value="quarterly">quarterly</option>
+          <option value="yearly">yearly</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Periods</label>
+        <input name="periods" type="number" min="1" required value="12" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Start date</label>
+      <input name="start_date" type="date" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Create schedule</button>
+  </form>
+</main>
+{% endblock %}

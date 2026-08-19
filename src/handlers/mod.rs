@@ -8,6 +8,7 @@ pub mod admin;
 pub mod admin_audit_verify;
 pub mod admin_backups_schedule;
 pub mod aging;
+pub mod amortization;
 pub mod approval_policies;
 pub mod audit;
 pub mod backups;
