@@ -22,9 +22,9 @@
   --oa-nav-link-active-bg-dark: rgba(226, 232, 240, 0.12);
   --oa-nav-link-active-border: #0f172a;
   --oa-nav-link-active-border-dark: #e2e8f0;
-  --oa-sidebar-width: 14rem;
+  --oa-sidebar-width: 12rem;
   --oa-sidebar-width-collapsed: 3.25rem;
-  --oa-sidebar-gap: 1rem;                /* gap between the
+  --oa-sidebar-gap: 0.5rem;          /* gap between the
                                               sidebar and <main>
                                               so content doesn't
                                               kiss the rail. */
@@ -177,12 +177,19 @@
        padding offset would shrink the content column by the
        sidebar width — squeezing narrow forms (e.g. the new-account
        form at max-w-md lost ~240px). A margin keeps the content
-       column at its intended max-width. */
+       column at its intended max-width.
+
+       We also size the box to the space right of the sidebar
+       (`width: calc(100% - offset)`); the per-template `max-w-*`
+       still caps narrower columns, and this keeps wide pages from
+       overflowing the viewport and showing a horizontal scrollbar. */
     margin-left: calc(var(--oa-sidebar-width) + var(--oa-sidebar-gap));
-    transition: margin-left 200ms ease-out;
+    width: calc(100% - var(--oa-sidebar-width) - var(--oa-sidebar-gap));
+    transition: margin-left 200ms ease-out, width 200ms ease-out;
   }
   body:has(> aside.app-sidebar[data-sidebar-collapsed="true"]) main {
     margin-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap));
+    width: calc(100% - var(--oa-sidebar-width-collapsed) - var(--oa-sidebar-gap));
   }
 }
 
