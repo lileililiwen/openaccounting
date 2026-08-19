@@ -17,7 +17,12 @@
   {% endif %}
 
   {% if policies.is_empty() %}
-    <p class="text-sm text-slate-500">No policies yet. Claims require a single Admin approval by default.</p>
+    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+      <p class="text-base font-semibold text-slate-800">No policies yet</p>
+      <p class="mt-1 text-sm text-slate-500">Claims require a single Admin approval by default. Add a policy to set per-amount thresholds.</p>
+      <a href="/ledgers/{{ ledger_id }}/approval-policies/new"
+         class="mt-4 inline-block rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800">+ New Policy</a>
+    </div>
   {% else %}
     <table class="w-full text-sm">
       <thead class="text-left text-xs uppercase text-slate-500">

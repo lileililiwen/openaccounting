@@ -1,0 +1,62 @@
+{# Generic empty-state block. Replaces the lonely inline `No X yet.`
+   messages that the project currently has in admin, contacts,
+   approval_policies, rules, reconciliation/history, and templates
+   list pages. Matches the visual treatment of the dedicated
+   `_empty_transactions.html`, `_empty_accounts.html`, etc. partials.
+
+   Required context:
+     - `empty_title` (e.g. "No policies yet")
+     - `empty_message` (the short explanation)
+     - `empty_cta_label` (optional — the button text)
+     - `empty_cta_url` (optional — the CTA href)
+     - `empty_icon` (optional — one of "users", "contacts",
+       "policies", "rules", "templates", "documents", "history";
+       defaults to a generic inbox icon if absent) #}
+<section data-empty-state="generic"
+         class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-10 flex flex-col items-center text-center space-y-3">
+  <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-300 flex items-center justify-center"
+       aria-hidden="true">
+    {% match empty_icon %}
+      {% when "users" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <circle cx="9" cy="8" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/>
+        </svg>
+      {% when "contacts" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      {% when "policies" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
+        </svg>
+      {% when "rules" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><circle cx="7" cy="6" r="1"/><circle cx="13" cy="12" r="1"/><circle cx="9" cy="18" r="1"/>
+        </svg>
+      {% when "templates" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+        </svg>
+      {% when "documents" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+      {% when "history" %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+        </svg>
+      {% else %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+        </svg>
+    {% endmatch %}
+  </div>
+  <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">{{ empty_title }}</h2>
+  <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md">{{ empty_message }}</p>
+  {% if !empty_cta_label.is_empty() && !empty_cta_url.is_empty() %}
+    <a href="{{ empty_cta_url }}"
+       class="rounded-lg bg-slate-900 dark:bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 dark:hover:bg-slate-600">
+      {{ empty_cta_label }}
+    </a>
+  {% endif %}
+</section>

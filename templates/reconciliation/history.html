@@ -9,8 +9,11 @@
   </header>
 
   {% if history.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
-      No reconciliations yet.
+    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+      <p class="text-base font-semibold text-slate-800">No reconciliations yet</p>
+      <p class="mt-1 text-sm text-slate-500">Once you complete a reconciliation, it'll show up here.</p>
+      <a href="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}"
+         class="mt-4 inline-block rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800">Start a reconciliation</a>
     </div>
   {% else %}
     <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">

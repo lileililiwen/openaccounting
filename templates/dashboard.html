@@ -15,7 +15,7 @@
   </header>
 
   <!-- Layout controls (`u5-dashboard-widgets`) -->
-  <section class="rounded-xl bg-white border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+  <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 flex flex-wrap items-center justify-between gap-2 text-sm">
     <form method="post" action="/ledgers/{{ ledger_id }}/dashboard/layout" class="flex flex-wrap items-center gap-2">
       <label class="text-slate-600">Widget order:</label>
       {% for w in layout %}
@@ -35,19 +35,19 @@
   {% for widget in layout %}
     {% if widget == "kpis" %}
   <section data-widget-id="kpis" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Total Assets</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ total_assets }}</div>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Total Liabilities</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ total_liabilities }}</div>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Net Worth</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ net_worth }}</div>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Income (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular text-emerald-700">{{ month_income }}</div>
       {% if revenue_mom_pct != 0.0 %}
@@ -56,7 +56,7 @@
         </div>
       {% endif %}
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Expense (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular text-rose-700">{{ month_expense }}</div>
       {% if expense_mom_pct != 0.0 %}
@@ -65,7 +65,7 @@
         </div>
       {% endif %}
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Net (MTD)</div>
       <div class="mt-1 text-xl font-semibold tabular">{{ month_net }}</div>
       {% if net_income_mom_pct != 0.0 %}
@@ -77,14 +77,14 @@
   </section>
     {% else if widget == "cash_runway" %}
   <section data-widget-id="cash_runway" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="text-xs uppercase tracking-wide text-slate-500">Cash Runway</div>
       <div class="mt-1 text-2xl font-bold tabular text-{{ cash_runway_color }}-600">
         {% if cash_runway > 0.0 %}{{ cash_runway }}{% else %}—{% endif %} months
       </div>
       <p class="mt-1 text-xs text-slate-500">Based on last 90 days of expenses</p>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="flex items-center justify-between">
         <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Receivable</div>
         <a href="/ledgers/{{ ledger_id }}/reports/ar-aging" class="text-xs text-slate-400 hover:text-slate-600">→</a>
@@ -97,7 +97,7 @@
         {% endif %}
       </div>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <div class="flex items-center justify-between">
         <div class="text-xs uppercase tracking-wide text-slate-500">Accounts Payable</div>
         <a href="/ledgers/{{ ledger_id }}/reports/ap-aging" class="text-xs text-slate-400 hover:text-slate-600">→</a>
@@ -114,20 +114,20 @@
   </section>
     {% else if widget == "charts" %}
   <section data-widget-id="charts" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="rounded-xl bg-white border border-slate-200 p-4 lg:col-span-2">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 lg:col-span-2">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-semibold text-slate-700">Income vs. Expense · last 6 months</h2>
         <span class="text-xs text-slate-400">{{ currency }}</span>
       </div>
       <div class="overflow-x-auto">{{ income_expense_svg|safe }}</div>
     </div>
-    <div class="rounded-xl bg-white border border-slate-200 p-4">
+    <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
       <h2 class="text-sm font-semibold text-slate-700 mb-2">Expense breakdown · last 30 days</h2>
       <div class="flex justify-center">{{ expense_breakdown_svg|safe }}</div>
     </div>
   </section>
     {% else if widget == "top_expenses" %}
-  <section data-widget-id="top_expenses" class="rounded-xl bg-white border border-slate-200">
+  <section data-widget-id="top_expenses" class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
     <header class="px-4 py-3 border-b border-slate-200">
       <h2 class="text-sm font-semibold text-slate-700">Top expense categories · this month</h2>
     </header>
@@ -145,7 +145,7 @@
     {% endif %}
   </section>
     {% else if widget == "recent_txns" %}
-  <section data-widget-id="recent_txns" class="rounded-xl bg-white border border-slate-200">
+  <section data-widget-id="recent_txns" class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
     <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-700">Recent transactions</h2>
       <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">View all →</a>
@@ -167,7 +167,7 @@
     {% endif %}
   </section>
     {% else if widget == "budget_burn" %}
-  <section data-widget-id="budget_burn" class="rounded-xl bg-white border border-slate-200">
+  <section data-widget-id="budget_burn" class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
     <header class="px-4 py-3 border-b border-slate-200">
       <h2 class="text-sm font-semibold text-slate-700">Budget vs. actual</h2>
     </header>
@@ -189,7 +189,7 @@
     {% endif %}
   </section>
     {% else if widget == "account_balances" %}
-  <section data-widget-id="account_balances" class="rounded-xl bg-white border border-slate-200">
+  <section data-widget-id="account_balances" class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
     <header class="px-4 py-3 border-b border-slate-200">
       <h2 class="text-sm font-semibold text-slate-700">Top account balances</h2>
     </header>

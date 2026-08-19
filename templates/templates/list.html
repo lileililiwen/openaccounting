@@ -13,8 +13,11 @@
   {% endif %}
 
   {% if templates.is_empty() %}
-    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
-      No templates yet. <a href="/ledgers/{{ ledger_id }}/templates/new" class="text-slate-800 underline">Create your first one</a>.
+    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+      <p class="text-base font-semibold text-slate-800">No templates yet</p>
+      <p class="mt-1 text-sm text-slate-500">Recurring templates automatically post transactions on a schedule (rent, salary, subscriptions).</p>
+      <a href="/ledgers/{{ ledger_id }}/templates/new"
+         class="mt-4 inline-block rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800">+ New Template</a>
     </div>
   {% else %}
     <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">

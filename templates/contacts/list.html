@@ -40,7 +40,13 @@
         {% endfor %}
         {% if contacts.is_empty() %}
           <tr>
-            <td colspan="4" class="px-4 py-10 text-center text-slate-500">No contacts yet.</td>
+            <td colspan="4" class="px-4 py-12">
+              <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                <p class="text-sm font-medium text-slate-700">No contacts yet</p>
+                <p class="mt-1 text-xs text-slate-500">Add a customer or vendor to start tracking who you do business with.</p>
+                <a href="/ledgers/{{ ledger_id }}/contacts/new" class="mt-3 inline-block rounded-md bg-slate-900 text-white px-3 py-1.5 text-xs font-medium hover:bg-slate-800">+ New contact</a>
+              </div>
+            </td>
           </tr>
         {% endif %}
       </tbody>

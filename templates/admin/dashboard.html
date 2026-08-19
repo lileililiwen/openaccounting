@@ -28,7 +28,10 @@
   <section class="rounded-xl bg-white border border-slate-200 p-5 space-y-3">
     <h2 class="text-sm font-semibold text-slate-700">Recent Users</h2>
     {% if recent_users.is_empty() %}
-      <p class="text-sm text-slate-500">No users yet.</p>
+      <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        <p class="font-medium text-slate-700">No users yet</p>
+        <p class="mt-1 text-xs text-slate-500">When new users register, they'll show up here.</p>
+      </div>
     {% else %}
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
