@@ -20,6 +20,21 @@ use crate::{
     AppState,
 };
 
+/// Group accounts by type so the picker can render `<optgroup>`
+/// labels (`ux-transaction-entry`). The query already orders by
+/// type, so groups arrive in a stable order.
+pub fn group_accounts(accounts: Vec<Account>) -> Vec<(String, Vec<Account>)> {
+    let mut groups: Vec<(String, Vec<Account>)> = Vec::new();
+    for a in accounts {
+        let label = a.r#type.clone();
+        match groups.iter_mut().find(|(t, _)| *t == label) {
+            Some(g) => g.1.push(a),
+            None => groups.push((label, vec![a])),
+        }
+    }
+    groups
+}
+
 pub async fn list(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -168,7 +183,7 @@ pub async fn new_page(
         ledger_name: ledger.name,
         current_section: "transactions".to_string(),
         currency: ledger.base_currency.clone(),
-        accounts,
+        account_groups: group_accounts(accounts),
         error: String::new(),
         form: TransactionForm::empty(),
     }))
@@ -272,7 +287,7 @@ pub async fn create(
         ledger_name: ledger.name.clone(),
         current_section: "transactions".to_string(),
         currency: ledger.base_currency.clone(),
-        accounts: accounts.clone(),
+        account_groups: group_accounts(accounts.clone()),
         error: msg,
         form: TransactionForm {
             date: form.date.clone(),
@@ -374,6 +389,32 @@ pub async fn create(
             "Postings do not balance: net is {} (debits must equal credits).",
             total
         ))));
+    }
+
+    // `ux-transaction-entry`: refuse an entry that moves money
+    // within a single account (same account on both sides) —
+    // balanced but economically meaningless.
+    {
+        use std::collections::HashMap;
+        let mut by_account: HashMap<Uuid, (bool, bool)> = HashMap::new();
+        for i in &inputs {
+            let e = by_account.entry(i.account_id).or_insert((false, false));
+            if i.signed_amount.is_sign_positive() {
+                e.0 = true;
+            } else if i.signed_amount.is_sign_negative() {
+                e.1 = true;
+            }
+        }
+        if let Some((account_id, _)) = by_account.iter().find(|(_, (d, c))| *d && *c) {
+            let name = accounts
+                .iter()
+                .find(|a| a.id == *account_id)
+                .map(|a| a.name.as_str())
+                .unwrap_or("this account");
+            return Ok(render_response(make_error(format!(
+                "This entry moves money within \"{name}\" (the same account on both sides) — pick a different account for one of the lines."
+            ))));
+        }
     }
 
     // Route the actual write through `PostingService`

@@ -46,6 +46,13 @@
     var net = debits - credits;
     var display = document.getElementById('split-balance');
     if (!display) return;
+    // `ux-transaction-entry`: don't claim "balanced" before the
+    // user has entered any amount.
+    if (debits + credits === 0) {
+      display.textContent = '—';
+      display.classList.remove('text-emerald-600', 'text-rose-600');
+      return;
+    }
     display.textContent = (net === 0 ? '✓ balanced' : 'net ' + net.toFixed(2)).toString();
     display.classList.toggle('text-emerald-600', net === 0);
     display.classList.toggle('text-rose-600', net !== 0);
@@ -161,6 +168,54 @@
           idx = container.querySelectorAll('.posting').length;
           recomputeBalance(container);
         }, 0);
+      });
+    }
+
+    // `ux-transaction-entry`: block meaningless same-account
+    // entries and confirm far-future dates before submitting.
+    var form = document.getElementById('txn-form');
+    if (form) {
+      form.addEventListener('submit', function (ev) {
+        var rows = Array.from(container.querySelectorAll('.posting'));
+        var byAccount = {};
+        rows.forEach(function (row) {
+          var acc = row.querySelector('select[name$="[account_id]"]');
+          var dir = row.querySelector('select[name$="[direction]"]');
+          if (!acc || !acc.value || !dir) return;
+          if (!byAccount[acc.value]) byAccount[acc.value] = { d: false, c: false };
+          if (dir.value === 'DEBIT') byAccount[acc.value].d = true;
+          else if (dir.value === 'CREDIT') byAccount[acc.value].c = true;
+        });
+        var badId = null;
+        Object.keys(byAccount).forEach(function (id) {
+          if (byAccount[id].d && byAccount[id].c) badId = id;
+        });
+        if (badId) {
+          var opt = container.querySelector('option[value="' + badId + '"]');
+          var label = opt ? opt.textContent : 'this account';
+          ev.preventDefault();
+          window.alert(
+            'This entry moves money within "' + label +
+            '" (the same account on both sides) — pick a different account for one of the lines.'
+          );
+          return;
+        }
+        var dateEl = form.querySelector('input[name="date"]');
+        if (dateEl && dateEl.value) {
+          var d = new Date(dateEl.value + 'T00:00:00');
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          var days = Math.round((d - today) / 86400000);
+          if (days > 30) {
+            var ok = window.confirm(
+              'You are recording a transaction dated ' + dateEl.value +
+              ' (' + days + ' days in the future) — is that intentional?'
+            );
+            if (!ok) {
+              ev.preventDefault();
+            }
+          }
+        }
       });
     }
   }

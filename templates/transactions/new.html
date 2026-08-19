@@ -38,7 +38,11 @@
 
     <div>
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-sm font-semibold text-slate-700">Postings (must balance)</h2>
+        <div class="flex items-center gap-1.5">
+          <h2 class="text-sm font-semibold text-slate-700">Postings</h2>
+          <button type="button" id="posting-help-btn" aria-expanded="false"
+                  class="w-5 h-5 rounded-full border border-slate-300 text-xs leading-5 text-center text-slate-500 hover:bg-slate-100">?</button>
+        </div>
         <div class="flex items-center gap-2">
           <span id="split-balance" class="text-xs text-slate-500">—</span>
           <label class="text-xs text-slate-600 flex items-center gap-1">
@@ -56,8 +60,12 @@
           <div class="posting grid grid-cols-12 gap-2 items-center">
             <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-6 sm:col-span-7 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="">— pick account —</option>
-              {% for a in accounts %}
-                <option value="{{ a.id }}" {% if a.id.to_string() == line.account_id %}selected{% endif %}>{{ a.type }} · {{ a.name }}</option>
+              {% for (label, group) in account_groups %}
+                <optgroup label="{{ label }}">
+                {% for a in group %}
+                  <option value="{{ a.id }}" {% if a.id.to_string() == line.account_id %}selected{% endif %}>{{ a.name }}</option>
+                {% endfor %}
+                </optgroup>
               {% endfor %}
             </select>
             <select name="lines[{{ loop.index0 }}][direction]" required class="col-span-3 sm:col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm">
@@ -69,6 +77,13 @@
         {% endfor %}
       </div>
       <p class="mt-1 text-xs text-slate-500">Tip: every debit must have a matching credit. The form will not save if postings do not balance.</p>
+      <p id="posting-help" hidden class="mt-1 text-xs text-slate-600 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+        Every transaction has two sides and they must total the same amount: the
+        <strong>debit</strong> is where the money goes (an expense, or money into an
+        asset), the <strong>credit</strong> is where it comes from (a bank or cash
+        account, or money out of an asset). For example, paying rent:
+        debit <em>Rent</em> and credit <em>Bank Account</em> for the same amount.
+      </p>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -76,8 +91,8 @@
               class="w-full sm:w-auto rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
         Save transaction
       </button>
-      <button name="action" value="draft"
-              class="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
+      <button name="action" value="draft" type="submit"
+              class="w-full sm:w-auto text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
         Save as draft
       </button>
     </div>
@@ -104,6 +119,16 @@
     container.appendChild(clone);
     idx++;
   });
+
+  var helpBtn = document.getElementById('posting-help-btn');
+  var helpBox = document.getElementById('posting-help');
+  if (helpBtn && helpBox) {
+    helpBtn.addEventListener('click', function() {
+      var open = helpBox.hidden;
+      helpBox.hidden = !open;
+      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
 })();
 </script>
 {% endblock %}

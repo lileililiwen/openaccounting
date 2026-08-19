@@ -54,7 +54,9 @@ pub struct TransactionNew {
     pub ledger_name: String,
     pub current_section: String,
     pub currency: String,
-    pub accounts: Vec<Account>,
+    /// Accounts grouped by type for an `<optgroup>`-labelled picker
+    /// (`ux-transaction-entry`). Each entry is `(type label, accounts)`.
+    pub account_groups: Vec<(String, Vec<Account>)>,
     pub error: String,
     pub form: TransactionForm,
 }
