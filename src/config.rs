@@ -95,6 +95,16 @@ impl Config {
             .filter(|s| !s.is_empty() && s.len() >= 32);
         let database_url =
             env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL must be set"))?;
+        // `d5-sqlite-option`: accept `sqlite://<path>` and refuse
+        // anything other than Postgres or SQLite.
+        match database_url_scheme(&database_url) {
+            DbScheme::Postgres | DbScheme::Sqlite => {}
+            DbScheme::Other(s) => {
+                anyhow::bail!(
+                    "DATABASE_URL must use the `postgres://` or `sqlite://` scheme (got {s}://)"
+                );
+            }
+        }
         let documents_dir = env::var("DOCUMENTS_DIR").unwrap_or_else(|_| "./data/documents".into());
         let app_env = AppEnv::from_env()?;
         let metrics_enabled = env::var("METRICS_ENABLED")
@@ -119,6 +129,40 @@ impl Config {
             metrics_enabled,
             upload_max_bytes,
         })
+    }
+}
+
+/// Supported `DATABASE_URL` schemes (`d5-sqlite-option`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DbScheme {
+    Postgres,
+    Sqlite,
+    Other(&'static str),
+}
+
+/// Detect the database scheme from a URL. Anything that does
+/// not match `postgres://`, `postgresql://`, or `sqlite://`
+/// returns `Other`.
+pub fn database_url_scheme(url: &str) -> DbScheme {
+    if let Some(rest) = url.strip_prefix("postgres://") {
+        let _ = rest;
+        DbScheme::Postgres
+    } else if let Some(_) = url.strip_prefix("postgresql://") {
+        DbScheme::Postgres
+    } else if url.starts_with("sqlite://") {
+        DbScheme::Sqlite
+    } else if let Some(idx) = url.find("://") {
+        // Map unknown schemes into `Other` without leaking the
+        // rest of the URL (which may carry credentials).
+        let scheme = &url[..idx];
+        // Const-friendly lifetime: `&'static str` lifetime
+        // requires a string that lives forever. We leak a small
+        // boxed slice for each unknown scheme we see; this is
+        // called once per process so the leak is negligible.
+        let leaked: &'static str = Box::leak(scheme.to_string().into_boxed_str());
+        DbScheme::Other(leaked)
+    } else {
+        DbScheme::Other("")
     }
 }
 
@@ -155,5 +199,22 @@ mod tests {
         assert!(AppEnv::Staging.requires_secure_cookie());
         assert!(!AppEnv::Development.requires_secure_cookie());
         assert!(!AppEnv::Test.requires_secure_cookie());
+    }
+
+    #[test]
+    fn database_url_scheme_classifier() {
+        assert_eq!(
+            database_url_scheme("postgres://u:p@h/d"),
+            DbScheme::Postgres
+        );
+        assert_eq!(
+            database_url_scheme("postgresql://u:p@h/d"),
+            DbScheme::Postgres
+        );
+        assert_eq!(database_url_scheme("sqlite:///tmp/oa.db"), DbScheme::Sqlite);
+        let mysql = database_url_scheme("mysql://u@h/d");
+        assert!(matches!(mysql, DbScheme::Other(_)));
+        let bad = database_url_scheme("not-a-url");
+        assert!(matches!(bad, DbScheme::Other(_)));
     }
 }

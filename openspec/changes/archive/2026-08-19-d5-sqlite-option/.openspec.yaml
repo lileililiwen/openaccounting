@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Remove the Postgres requirement for solo/freelancer use.

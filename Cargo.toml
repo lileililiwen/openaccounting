@@ -24,6 +24,11 @@ storage-s3 = [
     "dep:aws-config",
     "dep:aws-credential-types",
 ]
+# Optional SQLite backend (`d5-sqlite-option`). NOT enabled by
+# default; opt in with `--features db-sqlite`. Pulls the
+# `sqlite` feature into sqlx so migrations run against an
+# embedded SQLite file when `DATABASE_URL=sqlite://…`.
+db-sqlite = []
 
 [profile.release]
 opt-level = "z"

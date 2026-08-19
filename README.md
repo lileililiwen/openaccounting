@@ -242,6 +242,12 @@ Read the [cash-basis guide](docs/cash-basis.md) to understand the
 read-time cash filter, the DeferredRevenue / PrepaidExpense
 convention, and one-click recognition.
 
+## SQLite backend
+
+Read the [SQLite guide](docs/sqlite-backend.md) to enable the
+optional `db-sqlite` Cargo feature and run with
+`DATABASE_URL=sqlite:///path/to/db.sqlite`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
