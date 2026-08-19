@@ -130,12 +130,11 @@ async fn create(
             .fetch_one(pool)
             .await
             .map_err(AppError::Db)?;
-    let to_currency: String =
-        sqlx::query_scalar("SELECT base_currency FROM ledgers WHERE id = $1")
-            .bind(form.to_ledger_id)
-            .fetch_one(pool)
-            .await
-            .map_err(AppError::Db)?;
+    let to_currency: String = sqlx::query_scalar("SELECT base_currency FROM ledgers WHERE id = $1")
+        .bind(form.to_ledger_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::Db)?;
 
     // Open a single connection so both inserts can run inside
     // one tx. Disable the per-row balance trigger (see a3 /
@@ -230,8 +229,11 @@ async fn create(
     )
     .await;
 
-    Ok(Redirect::to(&format!("/ledgers/{}/reports/inter-entity", form.from_ledger_id))
-        .into_response())
+    Ok(Redirect::to(&format!(
+        "/ledgers/{}/reports/inter-entity",
+        form.from_ledger_id
+    ))
+    .into_response())
 }
 
 /// Reverse an inter-ledger transfer by inserting a reversal of
@@ -267,8 +269,7 @@ async fn reverse(
         tx.commit().await.map_err(AppError::Db)?;
     }
 
-    Ok(Redirect::to(&format!("/ledgers/{}/reports/inter-entity", form.ledger_id))
-        .into_response())
+    Ok(Redirect::to(&format!("/ledgers/{}/reports/inter-entity", form.ledger_id)).into_response())
 }
 
 #[derive(Debug, Deserialize)]

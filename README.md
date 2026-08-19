@@ -255,19 +255,6 @@ A read-only in-browser demo ships at
 [`crates/wasm-demo/README.md`](crates/wasm-demo/README.md) for
 build instructions. The full server is unchanged.
 
-## Migrations
-
-Every migration in `migrations/` MUST be reversible: each file
-ends with a `-- !DOWN` block that undoes the UP section in order.
-`scripts/migrate-down.sh` reverts and re-applies every migration
-against a fresh database; the CI job `.github/workflows/ci.yml`
-runs this script in the `migrations-reversible` step. New
-migrations that drop data (e.g. seed scripts) MUST carry a
-`-- Reversible: no` header and explain why in the design doc.
-
-`sqlx migrate add --reversible <name>` is the canonical command
-for new migrations.
-
 ## Verifying releases
 
 Release binaries are [reproducible and cosign-signed](docs/release-verification.md).
@@ -281,6 +268,19 @@ cosign verify-blob \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   openaccounting
 ```
+
+## Migrations
+
+Every migration in `migrations/` MUST be reversible: each file
+ends with a `-- !DOWN` block that undoes the UP section in order.
+`scripts/migrate-down.sh` reverts and re-applies every migration
+against a fresh database; the CI job `.github/workflows/ci.yml`
+runs this script in the `migrations-reversible` step. New
+migrations that drop data (e.g. seed scripts) MUST carry a
+`-- Reversible: no` header and explain why in the design doc.
+
+`sqlx migrate add --reversible <name>` is the canonical command
+for new migrations.
 
 ## License
 

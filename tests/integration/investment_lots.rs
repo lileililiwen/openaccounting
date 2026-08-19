@@ -188,13 +188,12 @@ async fn fifo_buy_creates_one_lot() {
     )
     .await;
     let pool = server.db().pool();
-    let row: (Decimal, Decimal) = sqlx::query_as(
-        "SELECT qty, unit_cost FROM investment_lots WHERE id = $1",
-    )
-    .bind(lot_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row: (Decimal, Decimal) =
+        sqlx::query_as("SELECT qty, unit_cost FROM investment_lots WHERE id = $1")
+            .bind(lot_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(row.0, Decimal::new(10, 0));
     assert_eq!(row.1, Decimal::new(50, 0));
 }
@@ -398,9 +397,13 @@ async fn fifo_property_100_sequences() {
     let mut rng: u64 = 0xDEAD_BEEF_CAFE_F00D;
 
     for _ in 0..100 {
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let buys: u32 = ((rng >> 33) % 5 + 1) as u32;
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let sells: u32 = ((rng >> 33) % 5 + 1) as u32;
 
         // Reset lots: drop any existing ones for this account.
@@ -412,9 +415,13 @@ async fn fifo_property_100_sequences() {
 
         let mut total_bought = Decimal::ZERO;
         for _ in 0..buys {
-            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let qty = Decimal::new(((rng >> 33) % 9 + 1) as i64, 0);
-            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let cost = Decimal::new(((rng >> 33) % 100 + 1) as i64, 0);
             let txn_id = stub_txn(&server, ledger_id, "2026-08-15").await;
             insert_lot(&server, inv_id, "2026-08-15", qty, cost, txn_id).await;
@@ -422,9 +429,13 @@ async fn fifo_property_100_sequences() {
         }
 
         for _ in 0..sells {
-            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let qty = Decimal::new(((rng >> 33) % 5 + 1) as i64, 0);
-            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let proceeds = Decimal::new(((rng >> 33) % 100 + 1) as i64, 0);
             let txn_id = stub_txn(&server, ledger_id, "2026-08-16").await;
             openaccounting::domain::investment_lot::fifo_match(
@@ -439,12 +450,10 @@ async fn fifo_property_100_sequences() {
             .unwrap();
         }
 
-        let remaining = openaccounting::domain::investment_lot::remaining_qty(
-            &server.db().pool(),
-            inv_id,
-        )
-        .await
-        .unwrap();
+        let remaining =
+            openaccounting::domain::investment_lot::remaining_qty(&server.db().pool(), inv_id)
+                .await
+                .unwrap();
         // No short-selling in this test: sell qty ≤ remaining at
         // every step. So sum(open + disposed) == sum(buys).
         let disposed: Decimal = sqlx::query_scalar(

@@ -32,16 +32,16 @@ pub async fn inter_entity(
     let _ = ledgers::ensure_access(&state, user.id, ledger_id).await?;
 
     let rows: Vec<(
-        Uuid,         // transfer id
-        Uuid,         // from ledger
-        Uuid,         // to ledger
-        Uuid,         // from account
-        Uuid,         // to account
-        Decimal,      // amount
-        String,       // currency
-        Uuid,         // from txn
-        Uuid,         // to txn
-        Decimal,      // fee amount
+        Uuid,                          // transfer id
+        Uuid,                          // from ledger
+        Uuid,                          // to ledger
+        Uuid,                          // from account
+        Uuid,                          // to account
+        Decimal,                       // amount
+        String,                        // currency
+        Uuid,                          // from txn
+        Uuid,                          // to txn
+        Decimal,                       // fee amount
         chrono::DateTime<chrono::Utc>, // created_at
     )> = sqlx::query_as(
         "SELECT id, from_ledger_id, to_ledger_id, from_account_id, to_account_id,

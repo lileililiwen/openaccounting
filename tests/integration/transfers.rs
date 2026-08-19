@@ -118,7 +118,15 @@ async fn bootstrap_two_ledgers(
     .fetch_one(&pool)
     .await
     .unwrap();
-    (cookie, ledger_a, ledger_b, from_a, to_b, Uuid::nil(), Uuid::nil())
+    (
+        cookie,
+        ledger_a,
+        ledger_b,
+        from_a,
+        to_b,
+        Uuid::nil(),
+        Uuid::nil(),
+    )
 }
 
 #[tokio::test]
@@ -314,9 +322,6 @@ async fn http_inter_entity_report_renders() {
         let body: serde_json::Value = resp.json().await.unwrap();
         let transfers = body["transfers"].as_array().unwrap();
         assert_eq!(transfers.len(), 1);
-        assert_eq!(
-            transfers[0]["amount"].as_str().unwrap_or(""),
-            "100.0000"
-        );
+        assert_eq!(transfers[0]["amount"].as_str().unwrap_or(""), "100.0000");
     }
 }

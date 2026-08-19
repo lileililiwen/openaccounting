@@ -116,7 +116,11 @@ pub async fn fifo_match(
         let Some((lot_id, unit_cost, _acquired_at, available)) = candidate else {
             break;
         };
-        let take = if available <= remaining { available } else { remaining };
+        let take = if available <= remaining {
+            available
+        } else {
+            remaining
+        };
         let cost_basis = take * unit_cost;
         let proceeds = take * unit_proceeds;
         let realized_gain = proceeds - cost_basis;
@@ -153,10 +157,7 @@ pub async fn fifo_match(
 
 /// Sum of remaining qty on an account (sum of all open lots
 /// after disposals). Used by the holdings report.
-pub async fn remaining_qty(
-    pool: &PgPool,
-    account_id: Uuid,
-) -> Result<Decimal, sqlx::Error> {
+pub async fn remaining_qty(pool: &PgPool, account_id: Uuid) -> Result<Decimal, sqlx::Error> {
     let row: (Option<Decimal>,) = sqlx::query_as(
         "SELECT COALESCE(SUM(l.qty - COALESCE(d_sum.qty_sum, 0)), 0)::DECIMAL
          FROM investment_lots l

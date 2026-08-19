@@ -199,12 +199,11 @@ async fn posting_service_unbalanced_rejected_no_rows() {
 
     // No transaction row should have been inserted.
     let pool = server.db().pool();
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
-            .bind(ledger_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE ledger_id = $1")
+        .bind(ledger_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count.0, 0, "no transactions must have been inserted");
 }
 

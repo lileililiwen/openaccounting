@@ -153,7 +153,10 @@ async fn http_create_three_leg_split_succeeds() {
         .expect("POST 3-leg split");
     let status = resp.status();
     let body = resp.text().await.unwrap_or_default();
-    assert_eq!(status, 303, "balanced 3-leg must succeed; got {status} body={body}");
+    assert_eq!(
+        status, 303,
+        "balanced 3-leg must succeed; got {status} body={body}"
+    );
 }
 
 #[tokio::test]

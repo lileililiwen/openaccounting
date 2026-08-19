@@ -152,7 +152,17 @@ async fn post_txn(
 async fn http_first_txn_of_year_is_000001() {
     let server = TestServer::new().await;
     let (cookie, ledger_id, cash, sales) = bootstrap(&server).await;
-    let resp = post_txn(&server, &cookie, ledger_id, cash, sales, "2026-08-15", "first", None).await;
+    let resp = post_txn(
+        &server,
+        &cookie,
+        ledger_id,
+        cash,
+        sales,
+        "2026-08-15",
+        "first",
+        None,
+    )
+    .await;
     assert_eq!(resp.status(), 303);
 
     let pool = server.db().pool();
@@ -170,9 +180,29 @@ async fn http_first_txn_of_year_is_000001() {
 async fn http_year_resets_counter() {
     let server = TestServer::new().await;
     let (cookie, ledger_id, cash, sales) = bootstrap(&server).await;
-    let r1 = post_txn(&server, &cookie, ledger_id, cash, sales, "2025-12-30", "in 2025", None).await;
+    let r1 = post_txn(
+        &server,
+        &cookie,
+        ledger_id,
+        cash,
+        sales,
+        "2025-12-30",
+        "in 2025",
+        None,
+    )
+    .await;
     assert_eq!(r1.status(), 303);
-    let r2 = post_txn(&server, &cookie, ledger_id, cash, sales, "2026-01-02", "in 2026", None).await;
+    let r2 = post_txn(
+        &server,
+        &cookie,
+        ledger_id,
+        cash,
+        sales,
+        "2026-01-02",
+        "in 2026",
+        None,
+    )
+    .await;
     assert_eq!(r2.status(), 303);
 
     let pool = server.db().pool();
@@ -194,7 +224,17 @@ async fn http_year_resets_counter() {
 async fn http_ledger_resets_counter() {
     let server = TestServer::new().await;
     let (cookie, ledger1, cash1, sales1) = bootstrap(&server).await;
-    let resp = post_txn(&server, &cookie, ledger1, cash1, sales1, "2026-08-15", "ledger1 first", None).await;
+    let resp = post_txn(
+        &server,
+        &cookie,
+        ledger1,
+        cash1,
+        sales1,
+        "2026-08-15",
+        "ledger1 first",
+        None,
+    )
+    .await;
     assert_eq!(resp.status(), 303);
 
     // Create a second ledger via the HTTP endpoint.
@@ -236,24 +276,32 @@ async fn http_ledger_resets_counter() {
     .await
     .unwrap();
 
-    let resp = post_txn(&server, &cookie, ledger2, cash2, sales2, "2026-08-15", "ledger2 first", None).await;
+    let resp = post_txn(
+        &server,
+        &cookie,
+        ledger2,
+        cash2,
+        sales2,
+        "2026-08-15",
+        "ledger2 first",
+        None,
+    )
+    .await;
     assert_eq!(resp.status(), 303);
 
     // Each ledger's first txn must be 2026-000001.
-    let n1: Option<String> = sqlx::query_scalar(
-        "SELECT number FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger1)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    let n2: Option<String> = sqlx::query_scalar(
-        "SELECT number FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger2)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let n1: Option<String> =
+        sqlx::query_scalar("SELECT number FROM transactions WHERE ledger_id = $1")
+            .bind(ledger1)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let n2: Option<String> =
+        sqlx::query_scalar("SELECT number FROM transactions WHERE ledger_id = $1")
+            .bind(ledger2)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(n1.as_deref(), Some("2026-000001"));
     assert_eq!(n2.as_deref(), Some("2026-000001"));
 }
@@ -276,17 +324,26 @@ async fn http_manual_number_accepted() {
     assert_eq!(resp.status(), 303);
 
     let pool = server.db().pool();
-    let row: (Option<String>,) = sqlx::query_as(
-        "SELECT number FROM transactions WHERE ledger_id = $1",
-    )
-    .bind(ledger_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row: (Option<String>,) =
+        sqlx::query_as("SELECT number FROM transactions WHERE ledger_id = $1")
+            .bind(ledger_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(row.0.as_deref(), Some("2026-EXPENSE-42"));
 
     // The next auto-numbered txn must skip past this one.
-    let resp = post_txn(&server, &cookie, ledger_id, cash, sales, "2026-08-16", "auto", None).await;
+    let resp = post_txn(
+        &server,
+        &cookie,
+        ledger_id,
+        cash,
+        sales,
+        "2026-08-16",
+        "auto",
+        None,
+    )
+    .await;
     assert_eq!(resp.status(), 303);
     let n: Option<String> = sqlx::query_scalar(
         "SELECT number FROM transactions WHERE ledger_id = $1 ORDER BY created_at DESC LIMIT 1",
@@ -365,10 +422,12 @@ async fn http_number_in_list_view() {
     let pool = server.db().pool();
     let token = openaccounting::auth::api_token::issue_token(
         &pool,
-        sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE email = 'numbering-owner@example.com'")
-            .fetch_one(&pool)
-            .await
-            .unwrap(),
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM users WHERE email = 'numbering-owner@example.com'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
         "test-token",
     )
     .await
