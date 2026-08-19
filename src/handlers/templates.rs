@@ -356,14 +356,22 @@ pub async fn process_due(
     {
         let template = (description, payee, reference, frequency, next_date, true);
         let postings = sqlx::query_as::<_, (Uuid, String, Decimal, Option<String>)>(
-            r#"SELECT account_id, direction, amount, memo FROM template_postings WHERE template_id = $1"#,
+            "SELECT account_id, direction, amount, memo FROM template_postings WHERE template_id = $1",
         )
         .bind(template_id)
         .fetch_all(&state.pool)
         .await?;
 
         // For auto-generation, use the system user
-        let _ = run_template(&state, ledger_id, &template, &postings, next_date, _user.id).await;
+        if let Err(e) =
+            run_template(&state, ledger_id, &template, &postings, next_date, _user.id).await
+        {
+            tracing::warn!(
+                template_id = %template_id,
+                error = %e,
+                "process_due: run_template failed"
+            );
+        }
     }
 
     Ok(Redirect::to("/").into_response())
@@ -387,9 +395,10 @@ async fn run_template(
     let mut tx = state.pool.begin().await?;
 
     let txn_id: Uuid = sqlx::query_scalar(
-        r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, kind, currency)
+        r#"INSERT INTO transactions (ledger_id, txn_date, description, payee, reference, kind, currency, created_by)
            VALUES ($1, $2, $3, $4, $5, 'recurring',
-                   (SELECT base_currency FROM ledgers WHERE id = $1))
+                   (SELECT base_currency FROM ledgers WHERE id = $1),
+                   $6)
            RETURNING id"#,
     )
     .bind(ledger_id)
@@ -397,20 +406,19 @@ async fn run_template(
     .bind(&template.0)
     .bind(&template.1)
     .bind(&template.2)
+    .bind(user_id)
     .fetch_one(&mut *tx)
     .await?;
 
     for (account_id, direction, amount, memo) in postings {
         sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency, memo)
-               VALUES ($1, $2, $3, $4,
-                       (SELECT base_currency FROM ledgers WHERE id = $5), $6)"#,
+            "INSERT INTO postings (transaction_id, account_id, direction, amount, memo)
+             VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(txn_id)
         .bind(account_id)
         .bind(direction)
         .bind(amount)
-        .bind(ledger_id)
         .bind(memo)
         .execute(&mut *tx)
         .await?;

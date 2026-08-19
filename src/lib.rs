@@ -343,6 +343,7 @@ fn build_router_inner(
         )
         .merge(handlers::transactions_edit::router())
         .merge(handlers::transactions_draft::router())
+        .merge(handlers::templates_recognize::router())
         .route(
             "/ledgers/{id}/searches",
             get(handlers::saved_searches::list_searches).post(handlers::saved_searches::create),
@@ -671,6 +672,10 @@ fn build_router_inner(
         .route(
             "/ledgers/{id}/templates/{template_id}/run",
             post(handlers::templates::run),
+        )
+        .route(
+            "/ledgers/{id}/templates/process_due",
+            post(handlers::templates::process_due),
         )
         .route("/ledgers/{id}/share", get(handlers::sharing::page))
         .route(

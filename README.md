@@ -236,6 +236,12 @@ openaccounting/
 
 ---
 
+## Cash basis
+
+Read the [cash-basis guide](docs/cash-basis.md) to understand the
+read-time cash filter, the DeferredRevenue / PrepaidExpense
+convention, and one-click recognition.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

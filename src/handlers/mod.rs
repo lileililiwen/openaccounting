@@ -44,6 +44,7 @@ pub mod saved_searches;
 pub mod sharing;
 pub mod taxes;
 pub mod templates;
+pub mod templates_recognize;
 pub mod transactions;
 pub mod transactions_bulk;
 pub mod transactions_draft;

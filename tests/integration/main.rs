@@ -16,6 +16,7 @@ mod menu_navigation;
 mod bank_feeds;
 mod bank_statement_imports;
 mod cash_basis;
+mod cash_basis_recognize;
 mod cash_flow_forecast;
 mod csrf;
 mod csv_import_completion;

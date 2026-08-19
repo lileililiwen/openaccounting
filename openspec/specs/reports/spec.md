@@ -216,6 +216,11 @@ The report footer SHALL display the active basis in plain text
 ("Basis: Cash" / "Basis: Accrual") so a user reading the report
 cannot mistake which view they are looking at.
 
+The cash-basis filter is a **read-time projection**: postings are
+not rewritten or deleted when basis changes. See
+`docs/cash-basis.md` for the canonical user-facing explanation
+and the DeferredRevenue / PrepaidExpense recognition pattern.
+
 #### Scenario: Cash-basis hides unpaid receivable revenue
 
 - **WHEN** the ledger has a transaction "Sale on credit 30 days":

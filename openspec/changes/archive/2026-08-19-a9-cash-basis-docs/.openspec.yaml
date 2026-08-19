@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-17
+goal: Make cash-basis a real workflow choice, not just a read-time filter.
