@@ -1,0 +1,31 @@
+[package]
+name = "openaccounting-wasm-demo"
+version = "0.1.0"
+edition = "2021"
+description = "WASM in-browser demo for OpenAccounting (read-only seeded ledger)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Default = build for native unit tests. To compile to wasm32-unknown-unknown,
+# use `--target wasm32-unknown-unknown --release`.
+default = []
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+js-sys = "0.3"
+serde-wasm-bindgen = "0.6"
+
+[dev-dependencies]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

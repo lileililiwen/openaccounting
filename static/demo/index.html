@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OpenAccounting — In-Browser Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">OpenAccounting <span class="text-slate-400 font-normal">— in-browser demo</span></h1>
+      <div id="banner" class="rounded-md bg-amber-100 text-amber-900 text-xs px-2 py-1">
+        <!-- Banner text injected by WASM -->
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <section id="dashboard" class="grid grid-cols-3 gap-4">
+      <div class="rounded-xl bg-white border border-slate-200 p-4">
+        <div class="text-xs uppercase text-slate-500">Transactions</div>
+        <div id="kpi-txns" class="mt-1 text-2xl font-semibold">…</div>
+      </div>
+      <div class="rounded-xl bg-white border border-slate-200 p-4">
+        <div class="text-xs uppercase text-slate-500">Movement (10 mo)</div>
+        <div id="kpi-movement" class="mt-1 text-2xl font-semibold">…</div>
+      </div>
+      <div class="rounded-xl bg-white border border-slate-200 p-4">
+        <div class="text-xs uppercase text-slate-500">Ledger</div>
+        <div id="kpi-name" class="mt-1 text-2xl font-semibold">…</div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold mb-2">Accounts</h2>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+            <tr>
+              <th class="px-3 py-2">Code</th>
+              <th class="px-3 py-2">Name</th>
+              <th class="px-3 py-2">Type</th>
+              <th class="px-3 py-2 text-right">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="accounts-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold mb-2">Transactions</h2>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+            <tr>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Description</th>
+              <th class="px-3 py-2 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="txns-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    // The WASM binary exposes `load_demo_ledger`,
+    // `transaction_count`, `total_movement`, `format_balance`,
+    // `banner_text`. The wasm-bindgen glue (`wasm-bindgen` crate
+    // feature `std`) gives us `init` from `wasm-bindgen`.
+    import init, {
+      load_demo_ledger,
+      transaction_count,
+      total_movement,
+      format_balance,
+      banner_text,
+    } from "./openaccounting_wasm_demo.js";
+
+    await init();
+
+    document.getElementById("banner").textContent = banner_text();
+
+    const ledger = load_demo_ledger();
+
+    document.getElementById("kpi-txns").textContent =
+      transaction_count(ledger);
+    const movement = total_movement(ledger);
+    document.getElementById("kpi-movement").textContent =
+      format_balance(movement, ledger.base_currency);
+    document.getElementById("kpi-name").textContent = ledger.name;
+
+    const acctTbody = document.getElementById("accounts-tbody");
+    for (const a of ledger.accounts) {
+      const tr = document.createElement("tr");
+      tr.className = "border-t border-slate-100";
+      tr.innerHTML = `
+        <td class="px-3 py-2 text-slate-600">${a.code ?? ""}</td>
+        <td class="px-3 py-2">${a.name}</td>
+        <td class="px-3 py-2 text-slate-500">${a.type}</td>
+        <td class="px-3 py-2 text-right tabular-nums">${
+          format_balance(a.balance, ledger.base_currency)
+        }</td>`;
+      acctTbody.appendChild(tr);
+    }
+
+    const txnTbody = document.getElementById("txns-tbody");
+    for (const t of ledger.transactions) {
+      const debit = t.postings.find((p) => p.direction === "DEBIT");
+      const tr = document.createElement("tr");
+      tr.className = "border-t border-slate-100";
+      tr.innerHTML = `
+        <td class="px-3 py-2">${t.date}</td>
+        <td class="px-3 py-2">${t.description}</td>
+        <td class="px-3 py-2 text-right tabular-nums">${
+          debit ? format_balance(debit.amount, ledger.base_currency) : ""
+        }</td>`;
+      txnTbody.appendChild(tr);
+    }
+
+    // IndexedDB persistence: keep the user's last edit so a
+    // refresh shows it. The demo is read-only; this is just a
+    // banner acknowledgement.
+    if (window.indexedDB) {
+      const req = indexedDB.open("openaccounting-demo", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("kv")) {
+          db.createObjectStore("kv");
+        }
+      };
+    }
+  </script>
+</body>
+</html>

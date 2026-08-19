@@ -248,6 +248,13 @@ Read the [SQLite guide](docs/sqlite-backend.md) to enable the
 optional `db-sqlite` Cargo feature and run with
 `DATABASE_URL=sqlite:///path/to/db.sqlite`.
 
+## WASM demo
+
+A read-only in-browser demo ships at
+[`static/demo/index.html`](static/demo/index.html). See
+[`crates/wasm-demo/README.md`](crates/wasm-demo/README.md) for
+build instructions. The full server is unchanged.
+
 ## Migrations
 
 Every migration in `migrations/` MUST be reversible: each file
