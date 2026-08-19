@@ -137,7 +137,7 @@ pub async fn create(
     let ledger = sqlx::query_as::<_, Ledger>(
         r#"INSERT INTO ledgers (owner_id, name, base_currency, timezone, basis)
            VALUES ($1, $2, $3, $4, $5)
-           RETURNING id, owner_id, name, base_currency, timezone, basis, created_at, updated_at"#,
+           RETURNING id, owner_id, name, base_currency, timezone, basis, append_only, created_at, updated_at"#,
     )
     .bind(user.id)
     .bind(name)
@@ -191,7 +191,7 @@ pub async fn show(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, append_only, created_at, updated_at
          FROM ledgers WHERE id = $1 AND owner_id = $2",
     )
     .bind(ledger_id)
@@ -229,7 +229,7 @@ pub async fn show(
 /// ledger's existence is hidden.
 pub async fn ensure_owner(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> AppResult<Ledger> {
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, append_only, created_at, updated_at
          FROM ledgers WHERE id = $1 AND owner_id = $2",
     )
     .bind(ledger_id)
@@ -248,7 +248,7 @@ pub async fn ensure_access(
     ledger_id: Uuid,
 ) -> AppResult<(Ledger, String)> {
     let ledger = sqlx::query_as::<_, Ledger>(
-        "SELECT id, owner_id, name, base_currency, timezone, basis, created_at, updated_at
+        "SELECT id, owner_id, name, base_currency, timezone, basis, append_only, created_at, updated_at
          FROM ledgers WHERE id = $1",
     )
     .bind(ledger_id)
@@ -306,4 +306,65 @@ pub async fn ensure_owner_strict(
         return Err(AppError::Forbidden);
     }
     Ok(ledger)
+}
+
+/// Toggle the `append_only` flag on a ledger. Owner-only
+/// (`d2-append-only-mode`). The audit log records the previous
+/// value, the new value, and the actor.
+#[derive(Deserialize)]
+pub struct ToggleAppendOnlyForm {
+    pub enabled: bool,
+    pub redirect_to: Option<String>,
+}
+
+pub async fn toggle_append_only(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(ledger_id): Path<Uuid>,
+    Form(form): Form<ToggleAppendOnlyForm>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let ledger = ensure_owner_strict(&state, user.id, ledger_id).await?;
+    // Editors and viewers hit ensure_owner_strict with 403 already;
+    // this is the second check that catches anyone who gets a row
+    // back but somehow isn't (defensive; should never trigger).
+    if ledger.owner_id != user.id {
+        return Err(AppError::Forbidden);
+    }
+    let previous = ledger.append_only;
+    if previous == form.enabled {
+        // No-op: redirect back without writing an audit row.
+        let target = form
+            .redirect_to
+            .as_deref()
+            .unwrap_or("/ledgers/{id}")
+            .replace("{id}", &ledger_id.to_string());
+        return Ok(Redirect::to(&target).into_response());
+    }
+    sqlx::query("UPDATE ledgers SET append_only = $1, updated_at = now() WHERE id = $2")
+        .bind(form.enabled)
+        .bind(ledger_id)
+        .execute(&state.pool)
+        .await?;
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "toggle",
+        "ledger",
+        Some(ledger_id),
+        None,
+        Some(serde_json::json!({
+            "field": "append_only",
+            "previous": previous,
+            "new": form.enabled,
+        })),
+    )
+    .await;
+    let target = form
+        .redirect_to
+        .as_deref()
+        .unwrap_or("/ledgers/{id}")
+        .replace("{id}", &ledger_id.to_string());
+    Ok(Redirect::to(&target).into_response())
 }

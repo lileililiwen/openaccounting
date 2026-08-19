@@ -28,6 +28,7 @@ pub struct LedgerDto {
     pub base_currency: String,
     pub timezone: String,
     pub basis: String,
+    pub append_only: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -54,7 +55,7 @@ async fn list(
     user: ApiUser,
 ) -> Result<Json<serde_json::Value>, Problem> {
     let rows: Vec<LedgerDto> = sqlx::query_as::<_, LedgerDto>(
-        "SELECT id, name, base_currency, timezone, basis, created_at, updated_at
+        "SELECT id, name, base_currency, timezone, basis, append_only, created_at, updated_at
          FROM ledgers WHERE owner_id = $1
          ORDER BY created_at DESC",
     )
@@ -71,7 +72,7 @@ async fn get_one(
     Path(id): Path<Uuid>,
 ) -> Result<Json<LedgerDto>, Problem> {
     let row: Option<LedgerDto> = sqlx::query_as::<_, LedgerDto>(
-        "SELECT id, name, base_currency, timezone, basis, created_at, updated_at
+        "SELECT id, name, base_currency, timezone, basis, append_only, created_at, updated_at
          FROM ledgers WHERE id = $1 AND owner_id = $2",
     )
     .bind(id)
@@ -97,7 +98,7 @@ async fn create(
     let row: Result<LedgerDto, sqlx::Error> = sqlx::query_as::<_, LedgerDto>(
         "INSERT INTO ledgers (owner_id, name, base_currency, timezone, basis)
          VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, name, base_currency, timezone, basis, created_at, updated_at",
+         RETURNING id, name, base_currency, timezone, basis, append_only, created_at, updated_at",
     )
     .bind(user.0)
     .bind(&body.name)

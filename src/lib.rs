@@ -310,6 +310,10 @@ fn build_router_inner(
             get(handlers::ledgers::new_page).post(handlers::ledgers::create),
         )
         .route("/ledgers/{id}", get(handlers::ledgers::show))
+        .route(
+            "/ledgers/{id}/append_only",
+            post(handlers::ledgers::toggle_append_only),
+        )
         .route("/ledgers/{id}/dashboard", get(handlers::dashboard::show))
         .route(
             "/ledgers/{id}/dashboard/layout",

@@ -8,6 +8,7 @@
 mod common;
 
 mod api;
+mod append_only;
 mod approval_routing;
 mod audit_chain;
 mod menu_navigation;

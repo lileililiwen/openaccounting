@@ -19,6 +19,11 @@ pub struct Ledger {
     /// as the raw database string; the typed wrapper is
     /// [`crate::reports::ReportBasis`].
     pub basis: String,
+    /// When true, the ledger is append-only: existing
+    /// transactions and accounts cannot be edited or deleted;
+    /// reversals are still permitted. (`d2-append-only-mode`.)
+    #[serde(default)]
+    pub append_only: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

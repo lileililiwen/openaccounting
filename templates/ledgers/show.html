@@ -5,10 +5,41 @@
 <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
   <h1 class="text-2xl font-semibold">{{ ledger.name }}</h1>
   <p class="text-slate-500 text-sm">Base currency {{ ledger.base_currency }} · {{ ledger.timezone }}</p>
-  <div class="flex gap-2">
+  <div class="flex gap-2 flex-wrap items-center">
     <a href="/ledgers/{{ ledger.id }}/share" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Share</a>
     <a href="/ledgers/{{ ledger.id }}/templates" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Recurring</a>
     <a href="/ledgers/{{ ledger.id }}/payments" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Payments</a>
+    {% if ledger.append_only %}
+      <span class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800"
+            title="Edits and deletes are blocked; reversals are the only correction">
+        🔒 Append-only
+      </span>
+      {% if user_id == ledger.owner_id %}
+      <form method="post" action="/ledgers/{{ ledger.id }}/append_only"
+            hx-post="/ledgers/{{ ledger.id }}/append_only" hx-swap="none"
+            class="inline"
+            onsubmit="return confirm('Disable append-only? You will be able to edit and delete transactions again.')">
+        <input type="hidden" name="enabled" value="false">
+        <input type="hidden" name="redirect_to" value="/ledgers/{{ ledger.id }}">
+        <button type="submit" class="rounded-lg border border-amber-400 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200">
+          Disable append-only
+        </button>
+      </form>
+      {% endif %}
+    {% else %}
+      {% if user_id == ledger.owner_id %}
+      <form method="post" action="/ledgers/{{ ledger.id }}/append_only"
+            hx-post="/ledgers/{{ ledger.id }}/append_only" hx-swap="none"
+            class="inline"
+            onsubmit="return confirm('Enable append-only? After this, transactions and accounts can only be reversed, not edited.')">
+        <input type="hidden" name="enabled" value="true">
+        <input type="hidden" name="redirect_to" value="/ledgers/{{ ledger.id }}">
+        <button type="submit" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
+          Enable append-only
+        </button>
+      </form>
+      {% endif %}
+    {% endif %}
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <a href="/ledgers/{{ ledger.id }}/dashboard" class="rounded-xl bg-white border border-slate-200 p-4 hover:border-slate-300">

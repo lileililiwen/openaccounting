@@ -78,7 +78,12 @@ pub async fn reverse(
     Form(_form): Form<ReverseForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    // Reversals are explicitly allowed in append-only mode
+    // (`d2-append-only-mode` spec: "Reversal Allowed").
+    // Append-only blocks edits and deletes — reversals create a
+    // new row, so they pass the trigger naturally.
+    let _ = ledger;
 
     let mut tx = state.pool.begin().await?;
     // Lock the original row to prevent double-reversal.
@@ -138,7 +143,17 @@ pub async fn edit(
     Form(form): Form<EditForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    // `d2-append-only-mode`: editing a transaction in an
+    // append-only ledger is forbidden. The DB trigger will
+    // also reject the underlying UPDATE, but we surface a
+    // clean 422 with the "reverse instead" hint here.
+    if ledger.append_only {
+        return Err(AppError::Unprocessable(format!(
+            "ledger {} is append-only; edits are not allowed — reverse the transaction instead",
+            ledger_id
+        )));
+    }
 
     let parsed = parse_lines_for_edit(&form.extra);
     if parsed.len() < 2 {
