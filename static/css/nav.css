@@ -171,11 +171,18 @@
    sidebar is rendered before main in the DOM. */
 @media (min-width: 768px) {
   body:has(> aside.app-sidebar) main {
-    padding-left: calc(var(--oa-sidebar-width) + var(--oa-sidebar-gap));
-    transition: padding-left 200ms ease-out;
+    /* Use margin-left, NOT padding-left: the sidebar offset must
+       sit OUTSIDE the box. `<main>` carries `max-w-* mx-auto`, and
+       `max-width` constrains the whole box (border-box), so a
+       padding offset would shrink the content column by the
+       sidebar width — squeezing narrow forms (e.g. the new-account
+       form at max-w-md lost ~240px). A margin keeps the content
+       column at its intended max-width. */
+    margin-left: calc(var(--oa-sidebar-width) + var(--oa-sidebar-gap));
+    transition: margin-left 200ms ease-out;
   }
   body:has(> aside.app-sidebar[data-sidebar-collapsed="true"]) main {
-    padding-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap));
+    margin-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap));
   }
 }
 
@@ -282,13 +289,6 @@
 @keyframes nav-skeleton-shimmer {
   from { background-position: 200% 0; }
   to   { background-position: -200% 0; }
-}
-
-/* ── Layout: shift <main> next to the sidebar on ≥md ────────────── */
-@media (min-width: 768px) {
-  body:has(> aside.app-sidebar) main {
-    margin-left: 0;
-  }
 }
 
 /* ── Print: hide the nav, breadcrumb, and sidebar ─────────────── */

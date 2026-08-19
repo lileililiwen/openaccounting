@@ -2,7 +2,7 @@
 {% block title %}New invoice — {{ ledger_name }}{% endblock %}
 {% block body %}
 {% include "partials/_nav.html" %}
-<main class="flex-1 max-w-md w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<main class="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
   <h1 class="text-2xl font-semibold mb-4">New invoice</h1>
   <p class="text-sm text-slate-500 mb-4">In <strong>{{ ledger_name }}</strong></p>
   {% if !error.is_empty() %}
