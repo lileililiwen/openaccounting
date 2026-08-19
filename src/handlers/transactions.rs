@@ -292,6 +292,11 @@ pub async fn create(
         },
     };
 
+    // `a8-draft-transactions`: "Save as draft" submits with
+    // action=draft; everything else (the default submit, JS
+    // submit, etc.) creates a posted transaction.
+    let save_as_draft = matches!(form.extra.get("action").map(String::as_str), Some("draft"));
+
     if form.extra.is_empty() {
         return Ok(render_response(make_error(
             "A transaction needs at least two postings.".into(),
@@ -375,37 +380,34 @@ pub async fn create(
     // (`a3-posting-service`). The service handles the
     // closed-period check, balance validation, atomic
     // insertion, ledger FOR UPDATE lock, and audit log.
-    let created = match crate::domain::posting_service::PostingService::create(
-        &state.pool,
-        crate::domain::posting_service::NewTransaction {
-            ledger_id,
-            txn_date: date,
-            description: description.to_string(),
-            payee: form
-                .payee
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string),
-            reference: form
-                .reference
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string),
-            kind: Some("standard".to_string()),
-            created_by: user.id,
-            lines: inputs.clone(),
-            reverses_id: None,
-            number: form
-                .extra
-                .get("number")
-                .cloned()
-                .filter(|s| !s.is_empty()),
-        },
-    )
-    .await
-    {
+    let new_txn = crate::domain::posting_service::NewTransaction {
+        ledger_id,
+        txn_date: date,
+        description: description.to_string(),
+        payee: form
+            .payee
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string),
+        reference: form
+            .reference
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string),
+        kind: Some("standard".to_string()),
+        created_by: user.id,
+        lines: inputs.clone(),
+        reverses_id: None,
+        number: form.extra.get("number").cloned().filter(|s| !s.is_empty()),
+    };
+    let service_call = if save_as_draft {
+        crate::domain::posting_service::PostingService::create_draft(&state.pool, new_txn).await
+    } else {
+        crate::domain::posting_service::PostingService::create(&state.pool, new_txn).await
+    };
+    let created = match service_call {
         Ok(c) => c,
         Err(crate::domain::posting_service::PostingServiceError::Unbalanced {
             debits,
@@ -426,12 +428,15 @@ pub async fn create(
         Err(crate::domain::posting_service::PostingServiceError::UnknownAccount(id)) => {
             return Err(AppError::Validation(format!("unknown account {id}")));
         }
-Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
+        Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
             return Err(AppError::Validation(format!(
                 "account belongs to a different ledger"
             )));
         }
-        Err(crate::domain::posting_service::PostingServiceError::DuplicateNumber { year, number }) => {
+        Err(crate::domain::posting_service::PostingServiceError::DuplicateNumber {
+            year,
+            number,
+        }) => {
             return Err(AppError::Conflict(format!(
                 "Transaction number already used in {year}: {number}"
             )));
@@ -444,7 +449,12 @@ Err(crate::domain::posting_service::PostingServiceError::WrongLedger(id)) => {
     // Domain metric (`o4-metrics-endpoint`).
     crate::observability::metrics::postings_created(inputs.len() as u64);
 
-    Ok(Redirect::to(&format!("/ledgers/{}/transactions/{}", ledger_id, created.id)).into_response())
+    let target = if save_as_draft {
+        format!("/ledgers/{}/drafts", ledger_id)
+    } else {
+        format!("/ledgers/{}/transactions/{}", ledger_id, created.id)
+    };
+    Ok(Redirect::to(&target).into_response())
 }
 
 pub async fn show(

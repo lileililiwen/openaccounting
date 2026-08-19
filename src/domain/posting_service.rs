@@ -63,10 +63,7 @@ pub struct CreatedTransaction {
 #[derive(Debug, thiserror::Error)]
 pub enum PostingServiceError {
     #[error("Postings do not balance (debits={debits}, credits={credits})")]
-    Unbalanced {
-        debits: Decimal,
-        credits: Decimal,
-    },
+    Unbalanced { debits: Decimal, credits: Decimal },
     #[error("Period {year} is closed for ledger {ledger_id}")]
     PeriodClosed { ledger_id: Uuid, year: i32 },
     #[error("Ledger not found")]
@@ -76,10 +73,7 @@ pub enum PostingServiceError {
     #[error("Account belongs to a different ledger: {0}")]
     WrongLedger(Uuid),
     #[error("Transaction number already used in {year}: {number}")]
-    DuplicateNumber {
-        year: i32,
-        number: String,
-    },
+    DuplicateNumber { year: i32, number: String },
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -95,11 +89,167 @@ impl PostingService {
         pool: &PgPool,
         new: NewTransaction,
     ) -> Result<CreatedTransaction, PostingServiceError> {
-        // ── In-memory validation ─────────────────────────────────
-        eprintln!("DEBUG PostingService::create received {} lines", new.lines.len());
-        for l in &new.lines {
-            eprintln!("  line: account={} signed={}", l.account_id, l.signed_amount);
+        Self::create_with_kind(pool, new, false).await
+    }
+
+    /// Save a draft. Skips the period-close check (so drafts can
+    /// be saved for closed periods) and skips the audit-log write
+    /// (drafts are throwaway). The row carries `kind='draft'` and
+    /// is excluded from reports. (`a8-draft-transactions`.)
+    pub async fn create_draft(
+        pool: &PgPool,
+        new: NewTransaction,
+    ) -> Result<CreatedTransaction, PostingServiceError> {
+        let mut new = new;
+        new.kind = Some("draft".to_string());
+        Self::create_with_kind(pool, new, true).await
+    }
+
+    /// Promote a draft to posted. Loads the existing row,
+    /// re-runs the full create-time checks (period-close,
+    /// ledger lock, account validation), updates `kind` to
+    /// `'standard'`, writes the audit log, and returns the
+    /// promoted transaction. The row stays on the same `id`,
+    /// so any FK references are preserved.
+    pub async fn post_draft(
+        pool: &PgPool,
+        ledger_id: Uuid,
+        txn_id: Uuid,
+        actor: Uuid,
+    ) -> Result<CreatedTransaction, PostingServiceError> {
+        let mut tx = pool.begin().await?;
+
+        // Lock the ledger row.
+        let ledger_row: Option<(Uuid,)> =
+            sqlx::query_as("SELECT id FROM ledgers WHERE id = $1 FOR UPDATE")
+                .bind(ledger_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if ledger_row.is_none() {
+            return Err(PostingServiceError::LedgerNotFound);
         }
+
+        // Lock + load the draft row.
+        let draft: Option<(Uuid, String, chrono::NaiveDate)> = sqlx::query_as(
+            "SELECT id, kind, txn_date FROM transactions
+             WHERE id = $1 AND ledger_id = $2 FOR UPDATE",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let draft = draft.ok_or(PostingServiceError::LedgerNotFound)?;
+        if draft.1 != "draft" {
+            return Err(PostingServiceError::Unbalanced {
+                debits: Decimal::ZERO,
+                credits: Decimal::ZERO,
+            });
+        }
+
+        // Closed-period check now applies (drafts were allowed
+        // past this gate; promotions are not).
+        let year = draft.2.format("%Y").to_string().parse::<i32>().unwrap_or(0);
+        let closed: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT ledger_id FROM closed_periods WHERE ledger_id = $1 AND period_year = $2",
+        )
+        .bind(ledger_id)
+        .bind(year)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if closed.is_some() {
+            return Err(PostingServiceError::PeriodClosed { ledger_id, year });
+        }
+
+        sqlx::query(
+            "UPDATE transactions SET kind = 'standard', updated_at = now()
+             WHERE id = $1",
+        )
+        .bind(txn_id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        let _ = crate::audit::log(
+            pool,
+            Some(ledger_id),
+            actor,
+            "promote",
+            "transaction",
+            Some(txn_id),
+            None,
+            Some(serde_json::json!({
+                "txn_id": txn_id,
+                "kind": "standard",
+                "from_kind": "draft",
+            })),
+        )
+        .await;
+
+        Ok(CreatedTransaction {
+            id: txn_id,
+            kind: "standard".to_string(),
+            number: None,
+        })
+    }
+
+    /// Delete a draft. Refuses anything that is not `kind='draft'`
+    /// (drafts are the only kind where destructive delete is
+    /// permitted; everything else must be reversed). (`a8-draft-
+    /// transactions`.)
+    pub async fn delete_draft(
+        pool: &PgPool,
+        ledger_id: Uuid,
+        txn_id: Uuid,
+        actor: Uuid,
+    ) -> Result<(), PostingServiceError> {
+        let mut tx = pool.begin().await?;
+
+        let kind: Option<(String,)> = sqlx::query_as(
+            "SELECT kind FROM transactions
+             WHERE id = $1 AND ledger_id = $2 FOR UPDATE",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let kind = kind.ok_or(PostingServiceError::LedgerNotFound)?;
+        if kind.0 != "draft" {
+            return Err(PostingServiceError::Unbalanced {
+                debits: Decimal::ZERO,
+                credits: Decimal::ZERO,
+            });
+        }
+        sqlx::query("DELETE FROM postings WHERE transaction_id = $1")
+            .bind(txn_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("DELETE FROM transactions WHERE id = $1")
+            .bind(txn_id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+
+        let _ = crate::audit::log(
+            pool,
+            Some(ledger_id),
+            actor,
+            "delete",
+            "transaction",
+            Some(txn_id),
+            None,
+            Some(serde_json::json!({ "txn_id": txn_id, "kind": "draft" })),
+        )
+        .await;
+        Ok(())
+    }
+
+    async fn create_with_kind(
+        pool: &PgPool,
+        new: NewTransaction,
+        is_draft: bool,
+    ) -> Result<CreatedTransaction, PostingServiceError> {
+        // ── In-memory validation ─────────────────────────────────
         if new.lines.len() < 2 {
             return Err(PostingServiceError::Unbalanced {
                 debits: Decimal::ZERO,
@@ -108,11 +258,7 @@ impl PostingService {
         }
         let mut debits = Decimal::ZERO;
         let mut credits = Decimal::ZERO;
-        for l in &new.lines.clone() {
-            // The `signed_amount` convention: positive = debit,
-            // negative = credit. The DB CHECK constraint stores
-            // (amount, direction) separately, so we convert here.
-            eprintln!("DEBUG LOOP IT: account={} signed={}", l.account_id, l.signed_amount);
+        for l in &new.lines {
             if l.signed_amount >= Decimal::ZERO {
                 debits += l.signed_amount;
             } else {
@@ -133,11 +279,9 @@ impl PostingService {
         // code (above) and keep the trigger as a final backstop
         // by disabling it for the duration of our write tx.
         // Re-enabled on commit / rollback automatically.
-        sqlx::query(
-            "ALTER TABLE postings DISABLE TRIGGER trg_posting_balance",
-        )
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("ALTER TABLE postings DISABLE TRIGGER trg_posting_balance")
+            .execute(&mut *tx)
+            .await?;
 
         // Lock the ledger row to serialize concurrent writers.
         let ledger_row: Option<(Uuid,)> =
@@ -149,41 +293,42 @@ impl PostingService {
             return Err(PostingServiceError::LedgerNotFound);
         }
 
-        // Closed-period check.
-        let year = new.txn_date.format("%Y").to_string().parse::<i32>().unwrap_or(0);
-        let closed: Option<(Uuid,)> = sqlx::query_as(
-            "SELECT ledger_id FROM closed_periods WHERE ledger_id = $1 AND period_year = $2",
-        )
-        .bind(new.ledger_id)
-        .bind(year)
-        .fetch_optional(&mut *tx)
-        .await?;
-        if closed.is_some() {
-            return Err(PostingServiceError::PeriodClosed {
-                ledger_id: new.ledger_id,
-                year,
-            });
+        // Closed-period check (skipped for drafts).
+        let year = new
+            .txn_date
+            .format("%Y")
+            .to_string()
+            .parse::<i32>()
+            .unwrap_or(0);
+        if !is_draft {
+            let closed: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT ledger_id FROM closed_periods WHERE ledger_id = $1 AND period_year = $2",
+            )
+            .bind(new.ledger_id)
+            .bind(year)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if closed.is_some() {
+                return Err(PostingServiceError::PeriodClosed {
+                    ledger_id: new.ledger_id,
+                    year,
+                });
+            }
         }
 
         // Validate every account exists in this ledger.
         for l in &new.lines {
-            let row: Option<(Uuid,)> = sqlx::query_as(
-                "SELECT id FROM accounts WHERE id = $1 AND ledger_id = $2",
-            )
-            .bind(l.account_id)
-            .bind(new.ledger_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+            let row: Option<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM accounts WHERE id = $1 AND ledger_id = $2")
+                    .bind(l.account_id)
+                    .bind(new.ledger_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
             if row.is_none() {
-                // Either the account is unknown OR it's in a
-                // different ledger; we can't easily tell from
-                // here without an extra query. Surface the more
-                // specific error when we can.
-                let any: Option<(Uuid,)> =
-                    sqlx::query_as("SELECT id FROM accounts WHERE id = $1")
-                        .bind(l.account_id)
-                        .fetch_optional(&mut *tx)
-                        .await?;
+                let any: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM accounts WHERE id = $1")
+                    .bind(l.account_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
                 return Err(if any.is_some() {
                     PostingServiceError::WrongLedger(l.account_id)
                 } else {
@@ -197,8 +342,18 @@ impl PostingService {
         // it. Otherwise count existing rows for this ledger/year
         // and use `{year}-{NNNNNN}`. The service holds the ledger
         // FOR UPDATE lock, so the count is stable within the tx.
-        let year = new.txn_date.format("%Y").to_string().parse::<i32>().unwrap_or(0);
-        let resolved_number: Option<String> = match new.number.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let year = new
+            .txn_date
+            .format("%Y")
+            .to_string()
+            .parse::<i32>()
+            .unwrap_or(0);
+        let resolved_number: Option<String> = match new
+            .number
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             Some(user_num) => {
                 // Validate uniqueness (the UNIQUE index will
                 // catch duplicates, but a pre-check gives a nicer
@@ -279,24 +434,29 @@ impl PostingService {
         tx.commit().await?;
 
         // Audit log (best-effort — failures here are not user-visible).
-        let _ = crate::audit::log(
-            pool,
-            Some(new.ledger_id),
-            new.created_by,
-            "create",
-            "transaction",
-            Some(txn_id),
-            None,
-            Some(serde_json::json!({
-                "txn_id": txn_id,
-                "ledger_id": new.ledger_id,
-                "txn_date": new.txn_date,
-                "description": new.description,
-                "kind": kind,
-                "lines": new.lines.len(),
-            })),
-        )
-        .await;
+        // Skipped for drafts (`a8-draft-transactions`): drafts are
+        // throwaway scratch work and would otherwise flood the audit
+        // log with meaningless rows.
+        if !is_draft {
+            let _ = crate::audit::log(
+                pool,
+                Some(new.ledger_id),
+                new.created_by,
+                "create",
+                "transaction",
+                Some(txn_id),
+                None,
+                Some(serde_json::json!({
+                    "txn_id": txn_id,
+                    "ledger_id": new.ledger_id,
+                    "txn_date": new.txn_date,
+                    "description": new.description,
+                    "kind": kind,
+                    "lines": new.lines.len(),
+                })),
+            )
+            .await;
+        }
 
         Ok(CreatedTransaction {
             id: txn_id,

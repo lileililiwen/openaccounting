@@ -39,7 +39,7 @@ pub async fn build_balance_sheet(
              - COALESCE(SUM(CASE WHEN p.direction='CREDIT' THEN p.amount ELSE 0 END), 0) AS raw_net
         FROM accounts a
         LEFT JOIN postings p ON p.account_id = a.id
-        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2
+        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
         WHERE a.ledger_id = $1
           AND a.type IN ('ASSET','LIABILITY','EQUITY')
         GROUP BY a.id, a.name, a.type, a.subtype

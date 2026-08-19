@@ -51,6 +51,7 @@ pub async fn build_general_ledger(
         WHERE t.ledger_id = $1
           AND t.txn_date BETWEEN $2 AND $3
           AND ($4::uuid IS NULL OR p.account_id = $4)
+          AND t.kind != 'draft'
         ORDER BY t.txn_date, t.created_at, p.id
         "#,
     )
@@ -100,7 +101,7 @@ pub async fn build_general_ledger(
                AS net
         FROM accounts a
         LEFT JOIN postings p ON p.account_id = a.id
-        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2
+        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
         WHERE a.ledger_id = $1
         GROUP BY a.id, a.type
         "#,

@@ -236,6 +236,7 @@ pub async fn today_cash_balance(pool: &PgPool, ledger_id: Uuid) -> AppResult<Dec
         WHERE t.ledger_id = $1
           AND a.ledger_id = $1
           AND (LOWER(a.name) LIKE '%cash%' OR LOWER(a.name) LIKE '%bank%')
+          AND t.kind != 'draft'
         "#,
     )
     .bind(ledger_id)

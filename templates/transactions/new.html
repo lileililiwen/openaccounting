@@ -71,7 +71,16 @@
       <p class="mt-1 text-xs text-slate-500">Tip: every debit must have a matching credit. The form will not save if postings do not balance.</p>
     </div>
 
-    <button class="w-full sm:w-auto rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Save transaction</button>
+    <div class="flex flex-wrap gap-2">
+      <button name="action" value="save"
+              class="w-full sm:w-auto rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
+        Save transaction
+      </button>
+      <button name="action" value="draft"
+              class="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
+        Save as draft
+      </button>
+    </div>
   </form>
 </main>
 <script src="/static/js/split.js"></script>

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Drafts — {{ ledger_name }} — OpenAccounting{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-semibold">Drafts</h1>
+      <p class="text-sm text-slate-500">
+        Saved-but-not-posted transactions for
+        <a class="underline" href="/ledgers/{{ ledger_id }}">{{ ledger_name }}</a>.
+        Drafts do not affect any report until you post them.
+      </p>
+    </div>
+    <a href="/ledgers/{{ ledger_id }}/transactions/new"
+       class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">
+      + New transaction
+    </a>
+  </div>
+
+  {% if !flash.is_empty() %}
+  <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{{ flash }}</div>
+  {% endif %}
+
+  {% if drafts.is_empty() %}
+  <div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+    No drafts. Save a transaction as draft from the
+    <a class="underline" href="/ledgers/{{ ledger_id }}/transactions/new">new transaction form</a>.
+  </div>
+  {% else %}
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-2">Date</th>
+          <th class="px-4 py-2">Description</th>
+          <th class="px-4 py-2">Payee</th>
+          <th class="px-4 py-2 text-right">Total</th>
+          <th class="px-4 py-2">Currency</th>
+          <th class="px-4 py-2 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for d in drafts %}
+        <tr class="border-t border-slate-100">
+          <td class="px-4 py-2">{{ d.date }}</td>
+          <td class="px-4 py-2">
+            <a class="underline" href="/ledgers/{{ ledger_id }}/transactions/{{ d.id }}">{{ d.description }}</a>
+          </td>
+          <td class="px-4 py-2 text-slate-500">{{ d.payee }}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{{ d.total }}</td>
+          <td class="px-4 py-2 text-slate-500">{{ d.currency }}</td>
+          <td class="px-4 py-2 text-right">
+            <form method="post"
+                  action="/ledgers/{{ ledger_id }}/transactions/{{ d.id }}/post"
+                  class="inline"
+                  onsubmit="return confirm('Post this draft? It will then appear in reports.')">
+              <button class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50">
+                Post
+              </button>
+            </form>
+            <form method="post"
+                  action="/ledgers/{{ ledger_id }}/transactions/{{ d.id }}/discard"
+                  class="inline ml-1"
+                  onsubmit="return confirm('Discard this draft? This cannot be undone.')">
+              <button class="rounded-md border border-rose-300 bg-white px-2 py-1 text-xs text-rose-700 hover:bg-rose-50">
+                Discard
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

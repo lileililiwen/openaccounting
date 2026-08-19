@@ -342,6 +342,7 @@ fn build_router_inner(
             post(handlers::transactions_bulk::bulk_action),
         )
         .merge(handlers::transactions_edit::router())
+        .merge(handlers::transactions_draft::router())
         .route(
             "/ledgers/{id}/searches",
             get(handlers::saved_searches::list_searches).post(handlers::saved_searches::create),

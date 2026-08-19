@@ -30,14 +30,14 @@ pub async fn realized_gains(
 
     let rows: Vec<(
         uuid::Uuid,            // disposal id
-        chrono::NaiveDate,      // disposed_at
+        chrono::NaiveDate,     // disposed_at
         uuid::Uuid,            // lot id
         uuid::Uuid,            // account id
-        String,                 // account name
-        rust_decimal::Decimal,  // qty
-        rust_decimal::Decimal,  // unit_proceeds
-        rust_decimal::Decimal,  // realized_gain
-        uuid::Uuid,             // source_txn_id
+        String,                // account name
+        rust_decimal::Decimal, // qty
+        rust_decimal::Decimal, // unit_proceeds
+        rust_decimal::Decimal, // realized_gain
+        uuid::Uuid,            // source_txn_id
     )> = sqlx::query_as(
         "SELECT d.id, d.disposed_at, l.id, a.id, a.name,
                 d.qty, d.unit_proceeds, d.realized_gain, d.source_txn_id
@@ -46,6 +46,7 @@ pub async fn realized_gains(
          JOIN accounts a ON a.id = l.account_id
          JOIN transactions t ON t.id = d.source_txn_id
          WHERE t.ledger_id = $1
+            AND t.kind != 'draft'
          ORDER BY d.disposed_at DESC, d.id DESC",
     )
     .bind(ledger_id)

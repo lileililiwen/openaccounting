@@ -52,6 +52,7 @@ mod signed_cookies;
 mod smoke;
 mod totp;
 mod transactions_bulk;
+mod transactions_draft;
 mod transactions_edit;
 mod transactions_split;
 mod transaction_number;

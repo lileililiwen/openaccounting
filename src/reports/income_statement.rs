@@ -94,7 +94,7 @@ pub async fn build_income_statement(
              - COALESCE(SUM(CASE WHEN p.direction='CREDIT' AND peer.peer_is_cash THEN p.amount ELSE 0 END), 0) AS cash_raw_net
         FROM accounts a
         JOIN postings p ON p.account_id = a.id
-        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date BETWEEN $2 AND $3
+        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date BETWEEN $2 AND $3 AND t.kind != 'draft'
         JOIN peer ON peer.posting_id = p.id
         WHERE a.ledger_id = $1
           AND a.type IN ('INCOME','EXPENSE')

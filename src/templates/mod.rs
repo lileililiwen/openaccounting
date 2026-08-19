@@ -33,6 +33,7 @@ pub mod sharing;
 pub mod taxes;
 pub mod templates;
 pub mod transactions;
+pub mod transactions_draft;
 
 pub use into_response::render_response;
 
