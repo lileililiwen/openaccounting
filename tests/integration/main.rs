@@ -46,6 +46,7 @@ mod pta_round_trip;
 mod pwa;
 mod reconciliation_rules;
 mod role_enforcement;
+mod s3_store;
 mod saved_searches;
 mod scheduled_backup;
 mod secure_cookie;

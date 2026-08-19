@@ -123,8 +123,8 @@ pub async fn run(
     let txn_id: Uuid = row.get("transaction_id");
 
     // Read the file bytes.
-    let path = state.storage.root().join(txn_id.to_string()).join(&stored);
-    let bytes = state.storage.read(&path).await?;
+    let key = state.storage.key_from_stored(&stored)?;
+    let bytes = state.storage.read(&key).await?;
 
     let _ = audit::log(
         &state.pool,

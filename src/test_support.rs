@@ -223,7 +223,7 @@ impl TestServer {
 
         let state = AppState {
             pool: db.pool(),
-            storage,
+            storage: std::sync::Arc::new(storage),
             totp_cipher: crate::auth::totp::TotpCipher::from_app_secret(secret),
         };
         let config = f(AppConfig::new(secret.to_string()).expect("valid app config"));

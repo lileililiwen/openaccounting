@@ -93,11 +93,12 @@ async fn bootstrap_with_doc(
 
     let doc_id: Uuid = sqlx::query_scalar(
         "INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
-         VALUES ($1, 'test.txt', 'stored_test.txt', 'text/plain', 4, $2, 'Other')
+         VALUES ($1, 'test.txt', $3, 'text/plain', 4, $2, 'Other')
          RETURNING id",
     )
     .bind(txn_id)
     .bind(owner_id)
+    .bind(format!("{txn_id}/stored_test.txt"))
     .fetch_one(&pool)
     .await
     .unwrap();

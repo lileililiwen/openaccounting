@@ -19,6 +19,11 @@ path = "src/main.rs"
 # enables this feature via `required-features` below.
 default = []
 test-support = ["dep:postgres"]
+storage-s3 = [
+    "dep:aws-sdk-s3",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+]
 
 [profile.release]
 opt-level = "z"
@@ -110,6 +115,15 @@ tesseract-plumbing = { version = "0.11", optional = true }
 # The `test-support` feature above flips these on. They are
 # absent from the production binary.
 postgres = { version = "0.19", optional = true, default-features = false }
+
+# Optional S3 backend for the storage layer (`o6-s3-storage`).
+# Not compiled into the default binary; opt in with
+# `--features storage-s3`. The `aws-sdk-s3` and `aws-config`
+# crates pull in a lot of code, so this stays gated.
+aws-sdk-s3 = { version = "1.55", optional = true, default-features = false, features = ["behavior-version-latest", "rustls", "rt-tokio"] }
+aws-config = { version = "1.5", optional = true, default-features = false, features = ["behavior-version-latest", "rustls", "rt-tokio"] }
+aws-credential-types = { version = "1.2", optional = true }
+
 # Tempfile is used both by the scheduled-backup worker
 # (`o2-scheduled-backups`) and by the test-support module.
 tempfile = "3"

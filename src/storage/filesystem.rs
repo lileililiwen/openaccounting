@@ -1,4 +1,7 @@
-use crate::error::AppError;
+//! Filesystem-backed [`Storage`] implementation. Default backend.
+
+use super::{safe_stored_name, Storage, StorageError, StorageKey};
+use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use uuid::Uuid;
@@ -9,7 +12,7 @@ pub struct FilesystemStore {
 }
 
 impl FilesystemStore {
-    pub async fn new(root: impl Into<PathBuf>) -> Result<Self, AppError> {
+    pub async fn new(root: impl Into<PathBuf>) -> Result<Self, StorageError> {
         let root = root.into();
         fs::create_dir_all(&root).await?;
         Ok(Self { root })
@@ -19,36 +22,49 @@ impl FilesystemStore {
         &self.root
     }
 
-    /// Returns the absolute path where the file should be stored. The caller
-    /// is responsible for actually writing the bytes.
-    pub fn allocate_path(&self, transaction_id: Uuid, original: &str) -> Result<PathBuf, AppError> {
-        let safe = sanitize_filename::sanitize(original);
-        if safe.is_empty() {
-            return Err(AppError::Validation("invalid filename".into()));
-        }
-        let tx_dir = self.root.join(transaction_id.to_string());
-        let stored = format!("{}-{}", Uuid::new_v4(), safe);
-        Ok(tx_dir.join(stored))
-    }
-
-    pub async fn ensure_dir(&self, path: &Path) -> Result<(), AppError> {
+    pub async fn ensure_dir(&self, path: &Path) -> Result<(), StorageError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await?;
         }
         Ok(())
     }
+}
 
-    pub async fn read(&self, path: &Path) -> Result<Vec<u8>, AppError> {
+#[async_trait]
+impl Storage for FilesystemStore {
+    async fn allocate_path(
+        &self,
+        transaction_id: Uuid,
+        original: &str,
+    ) -> Result<StorageKey, StorageError> {
+        let stored = safe_stored_name(transaction_id, original)?;
+        let tx_dir = self.root.join(transaction_id.to_string());
+        Ok(StorageKey::Filesystem(tx_dir.join(stored)))
+    }
+
+    fn key_from_stored(&self, stored: &str) -> Result<StorageKey, StorageError> {
+        // Legacy: stored_filename is relative to the store root.
+        Ok(StorageKey::Filesystem(self.root.join(stored)))
+    }
+
+    fn root_for(&self) -> PathBuf {
+        self.root.clone()
+    }
+
+    async fn read(&self, key: &StorageKey) -> Result<Vec<u8>, StorageError> {
+        let path = key.as_filesystem().ok_or(StorageError::NotFound)?;
         Ok(fs::read(path).await?)
     }
 
-    pub async fn write(&self, path: &Path, bytes: &[u8]) -> Result<(), AppError> {
+    async fn write(&self, key: &StorageKey, bytes: &[u8]) -> Result<(), StorageError> {
+        let path = key.as_filesystem().ok_or(StorageError::NotFound)?;
         self.ensure_dir(path).await?;
         fs::write(path, bytes).await?;
         Ok(())
     }
 
-    pub async fn delete(&self, path: &Path) -> Result<(), AppError> {
+    async fn delete(&self, key: &StorageKey) -> Result<(), StorageError> {
+        let path = key.as_filesystem().ok_or(StorageError::NotFound)?;
         if path.exists() {
             fs::remove_file(path).await?;
             if let Some(parent) = path.parent() {
@@ -56,5 +72,19 @@ impl FilesystemStore {
             }
         }
         Ok(())
+    }
+
+    async fn signed_url(
+        &self,
+        _key: &StorageKey,
+        _ttl_secs: u32,
+    ) -> Result<Option<String>, StorageError> {
+        // Filesystem backend has no concept of presigned URLs;
+        // callers should stream the bytes themselves.
+        Ok(None)
+    }
+
+    fn backend_label(&self) -> &'static str {
+        "filesystem"
     }
 }

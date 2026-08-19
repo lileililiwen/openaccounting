@@ -52,7 +52,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_sessions_sqlx_store::PostgresStore;
 
 use auth::Backend;
-use storage::FilesystemStore;
+use storage::{FilesystemStore, SharedStorage};
 
 /// Serve `/static/sw.js` with the `Service-Worker-Allowed: /`
 /// header set. The worker can then intercept any path under
@@ -80,7 +80,7 @@ async fn serve_sw(path: std::path::PathBuf) -> Response {
 #[derive(Clone)]
 pub struct AppState {
     pub pool: sqlx::PgPool,
-    pub storage: FilesystemStore,
+    pub storage: std::sync::Arc<dyn storage::Storage>,
     /// Pre-derived TOTP cipher. Built once at startup from
     /// `APP_SECRET` via HKDF-SHA256(info="totp-secret-v1") so
     /// per-request handlers don't re-derive the key.
@@ -841,7 +841,23 @@ pub async fn run() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("audit chain backfill failed: {e}"))?;
 
-    let storage = FilesystemStore::new(&cfg.documents_dir).await?;
+    let storage: SharedStorage = match std::env::var("STORAGE_BACKEND").as_deref().unwrap_or("fs") {
+        #[cfg(feature = "storage-s3")]
+        "s3" => {
+            let cfg =
+                storage::s3::S3Config::from_env().map_err(|e| anyhow::anyhow!("S3 config: {e}"))?;
+            std::sync::Arc::new(
+                storage::s3::S3Store::new(cfg)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("S3 init: {e}"))?,
+            )
+        }
+        _ => std::sync::Arc::new(
+            FilesystemStore::new(&cfg.documents_dir)
+                .await
+                .map_err(|e| anyhow::anyhow!("filesystem init: {e}"))?,
+        ),
+    };
 
     // Session store has its own schema; install it before the
     // first request lands.

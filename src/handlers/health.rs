@@ -77,39 +77,59 @@ async fn check_readiness(state: &crate::AppState) -> Result<(), &'static str> {
 
     // Documents-dir writability. We open the directory in
     // append mode and write a one-byte probe; the FS removes
-    // any rights to drop the probe before unlink.
-    let probe_path = state.storage.root().join(".healthz-probe");
-    let write = tokio::time::timeout(PROBE_TIMEOUT, async {
-        use tokio::io::AsyncWriteExt;
-        let mut f = tokio::fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&probe_path)
-            .await
-            .map_err(|e| {
-                tracing::warn!("readyz: open probe failed: {e}");
-                e
-            })?;
-        f.write_all(b"x").await.map_err(|e| {
-            tracing::warn!("readyz: write probe failed: {e}");
-            e
-        })?;
-        f.sync_all().await.map_err(|e| {
-            tracing::warn!("readyz: sync probe failed: {e}");
-            e
-        })?;
-        tokio::fs::remove_file(&probe_path).await.map_err(|e| {
-            tracing::warn!("readyz: unlink probe failed: {e}");
-            e
-        })?;
-        Ok::<(), std::io::Error>(())
-    })
-    .await;
-    match write {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(_)) | Err(_) => Err("disk"),
+    // any rights to drop the probe before unlink. For non-FS
+    // backends (S3) we just attempt a tiny `put_object` to
+    // verify network reachability.
+    let backend = state.storage.backend_label();
+    let write: Result<(), &'static str> = if backend == "filesystem" {
+        // The FS implementation has a `root` accessor via
+        // `key_from_stored`. We probe a sentinel file in the
+        // root by allocating a key for an empty string and
+        // checking the parent dir is writable.
+        let key = state
+            .storage
+            .key_from_stored(".healthz-probe")
+            .map_err(|_| "storage")?;
+        let probe_path = match key {
+            crate::storage::StorageKey::Filesystem(p) => p,
+            _ => return Err("db"),
+        };
+        let result = tokio::time::timeout(PROBE_TIMEOUT, async {
+            use tokio::io::AsyncWriteExt;
+            let mut f = tokio::fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&probe_path)
+                .await
+                .map_err(|_| "storage")?;
+            f.write_all(b".").await.map_err(|_| "storage")?;
+            f.sync_all().await.map_err(|_| "storage")?;
+            Ok::<_, &'static str>(())
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("storage"),
+        }
+    } else {
+        // For S3: attempt a tiny upload as a reachability probe.
+        // Failure means the bucket is unreachable.
+        let key = state
+            .storage
+            .key_from_stored(".healthz-probe")
+            .map_err(|_| "storage")?;
+        let result = tokio::time::timeout(PROBE_TIMEOUT, state.storage.write(&key, b".")).await;
+        match result {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(_)) | Err(_) => Err("storage"),
+        }
+    };
+    if write.is_err() {
+        return Err("storage");
     }
+    Ok(())
 }
 
 #[cfg(test)]

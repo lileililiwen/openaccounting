@@ -111,9 +111,11 @@ async fn http_dispatcher_with_noop_does_not_call_external() {
     // Create a minimal AppState for dispatch (we use the DB pool directly).
     let state = openaccounting::AppState {
         pool: pool_clone,
-        storage: openaccounting::storage::FilesystemStore::new("/tmp/oa-test-noop-dispatch")
-            .await
-            .expect("fs"),
+        storage: std::sync::Arc::new(
+            openaccounting::storage::FilesystemStore::new("/tmp/oa-test-noop-dispatch")
+                .await
+                .expect("fs"),
+        ),
         totp_cipher: openaccounting::auth::totp::TotpCipher::from_app_secret(
             "test-secret-do-not-use-in-production-please-replace-with-64-random-chars",
         ),
@@ -176,9 +178,11 @@ async fn http_dispatcher_pushes_to_registered_devices() {
 
     let state = openaccounting::AppState {
         pool: pool.clone(),
-        storage: openaccounting::storage::FilesystemStore::new("/tmp/oa-test-dispatch-fanout")
-            .await
-            .expect("fs"),
+        storage: std::sync::Arc::new(
+            openaccounting::storage::FilesystemStore::new("/tmp/oa-test-dispatch-fanout")
+                .await
+                .expect("fs"),
+        ),
         totp_cipher: openaccounting::auth::totp::TotpCipher::from_app_secret(
             "test-secret-do-not-use-in-production-please-replace-with-64-random-chars",
         ),

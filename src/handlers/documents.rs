@@ -202,8 +202,7 @@ pub async fn upload(
             )));
         }
 
-        let path = state.storage.allocate_path(txn_id, &filename)?;
-        state.storage.ensure_dir(&path).await?;
+        let key = state.storage.allocate_path(txn_id, &filename).await?;
         let mut total: usize = 0;
         let mut buf: Vec<u8> = Vec::new();
         while let Some(chunk) = field
@@ -234,13 +233,20 @@ pub async fn upload(
             )));
         }
 
-        state.storage.write(&path, &buf).await?;
+        state.storage.write(&key, &buf).await?;
 
-        let stored = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("upload")
-            .to_string();
+        // Derive the relative path used by `documents.stored_filename`.
+        // We always store the full backend-relative path so
+        // `key_from_stored` can round-trip without needing to
+        // know which transaction this object belongs to.
+        let stored = match &key {
+            crate::storage::StorageKey::Filesystem(p) => p
+                .strip_prefix(&state.storage.root_for())
+                .unwrap_or(p)
+                .to_string_lossy()
+                .to_string(),
+            crate::storage::StorageKey::S3 { key, .. } => key.clone(),
+        };
 
         let doc_result = sqlx::query(
             r#"INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
@@ -329,12 +335,8 @@ pub async fn download(
     .await?
     .ok_or(AppError::NotFound)?;
 
-    let path = state
-        .storage
-        .root()
-        .join(doc.transaction_id.to_string())
-        .join(&doc.stored_filename);
-    let bytes = state.storage.read(&path).await?;
+    let key = state.storage.key_from_stored(&doc.stored_filename)?;
+    let bytes = state.storage.read(&key).await?;
     let safe_filename = sanitize_header_value(&doc.filename);
     let resp = Response::builder()
         .status(StatusCode::OK)

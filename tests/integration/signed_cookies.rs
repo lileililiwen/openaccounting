@@ -31,9 +31,11 @@ async fn spawn_with_signer(
         .unwrap_or(0);
     let dir = std::env::temp_dir().join(format!("oa-cookie-signer-{nanos}"));
     std::fs::create_dir_all(&dir).unwrap();
-    let storage = openaccounting::storage::FilesystemStore::new(dir.join("documents"))
-        .await
-        .expect("storage");
+    let storage = std::sync::Arc::new(
+        openaccounting::storage::FilesystemStore::new(dir.join("documents"))
+            .await
+            .expect("storage"),
+    );
     let state = AppState {
         pool,
         storage,

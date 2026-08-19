@@ -65,10 +65,11 @@ async fn http_session_cookie_secure_in_production() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
 
-    let storage =
+    let storage = std::sync::Arc::new(
         openaccounting::storage::FilesystemStore::new(server_db_storage_path(server.base_url()))
             .await
-            .expect("storage");
+            .expect("storage"),
+    );
 
     let state = AppState {
         pool,
@@ -145,10 +146,11 @@ async fn http_allow_insecure_cookies_override() {
     let server = TestServer::new().await;
     let pool = server.db().pool();
 
-    let storage =
+    let storage = std::sync::Arc::new(
         openaccounting::storage::FilesystemStore::new(server_db_storage_path(server.base_url()))
             .await
-            .expect("storage");
+            .expect("storage"),
+    );
 
     let state = AppState {
         pool,

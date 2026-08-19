@@ -35,9 +35,11 @@ async fn spawn_server_with_short_timeouts(
         .unwrap_or(0);
     let dir = std::env::temp_dir().join(format!("oa-session-timeout-{nanos}"));
     std::fs::create_dir_all(&dir).unwrap();
-    let storage = openaccounting::storage::FilesystemStore::new(dir.join("documents"))
-        .await
-        .expect("storage");
+    let storage = std::sync::Arc::new(
+        openaccounting::storage::FilesystemStore::new(dir.join("documents"))
+            .await
+            .expect("storage"),
+    );
 
     let state = AppState {
         pool,
