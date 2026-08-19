@@ -2,10 +2,22 @@
    - `Ledgers` — links to `/ledgers` (always)
    - `{Ledger Name}` — links to `/ledgers/{id}/dashboard` (only inside a ledger)
    - `{Section}` — the current top-level section, rendered as the current item
-     (not a link), with `aria-current="page"` #}
+     (not a link), with `aria-current="page"`
+
+   A "← Back to {Section}" link is prepended on pages that are NOT the
+   section's own list page (detail / new / edit views), computed from the
+   current URL so the user can jump back to the main area without using the
+   browser back button. #}
 <nav class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700"
      aria-label="Breadcrumb">
   <ol class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+    <li id="oa-back-item" hidden>
+      <a id="oa-back-link" href="#"
+         class="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:underline">
+        <span aria-hidden="true">←</span><span id="oa-back-label">Back</span>
+      </a>
+      <span aria-hidden="true" class="text-slate-300 dark:text-slate-600 mx-1">·</span>
+    </li>
     <li>
       <a href="/ledgers"
          class="hover:text-slate-900 dark:hover:text-white hover:underline">
@@ -64,3 +76,59 @@
     {% endif %}
   </ol>
 </nav>
+<script>
+// Show a "← Back to {Section}" link in the breadcrumb on any page
+// that is not the section's own list page (detail / new / edit
+// views). The target is the parent list URL, derived from the
+// current path, so users can jump back to the main area without
+// reaching for the browser back button.
+(function () {
+  'use strict';
+
+  function sectionLabel() {
+    var current = document.querySelector(
+      'nav[aria-label="Breadcrumb"] [aria-current="page"]'
+    );
+    return current ? current.textContent.trim() : '';
+  }
+
+  function computeBack() {
+    var p = location.pathname.replace(/\/+$/, '');
+    // Inside a ledger: /ledgers/{id}/{section}[/more…]
+    var m = p.match(/^\/ledgers\/([^/]+)(\/.*)?$/);
+    if (!m) return null;
+    var ledgerId = m[1];
+    var rest = (m[2] || '').replace(/^\/+/, '');
+    if (rest === '') {
+      // Ledger overview page → back to the ledgers list.
+      return { href: '/ledgers', label: 'Ledgers' };
+    }
+    var seg = rest.split('/');
+    var section = seg[0];
+    if (section === 'import' && seg[1] === 'wechat') section = 'import/wechat';
+    if (section === 'import' && seg[1] === 'alipay') section = 'import/alipay';
+    var listPath = '/ledgers/' + ledgerId + '/' + section;
+    if (p === listPath) return null; // already on the section list page
+    var label = sectionLabel() || section;
+    return { href: listPath, label: label };
+  }
+
+  function init() {
+    var item = document.getElementById('oa-back-item');
+    var link = document.getElementById('oa-back-link');
+    var label = document.getElementById('oa-back-label');
+    if (!item || !link || !label) return;
+    var back = computeBack();
+    if (!back) return;
+    link.href = back.href;
+    label.textContent = 'Back to ' + back.label;
+    item.hidden = false;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
