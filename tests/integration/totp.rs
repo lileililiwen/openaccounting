@@ -153,6 +153,16 @@ async fn http_2fa_login_requires_code() {
     let password = "correct horse battery staple";
     register_user(&server, email, password).await;
 
+    // Registration auto-logs the user in (`ux-onboarding-flow`),
+    // which would leave an authenticated session in the cookie jar.
+    // Sign out first so the 2FA flow below starts unauthenticated.
+    server
+        .client()
+        .post(format!("{}/logout", server.base_url()))
+        .send()
+        .await
+        .expect("logout");
+
     // Manually enroll via the DB.
     let pool = server.db().pool();
     let user_id: (uuid::Uuid,) = sqlx::query_as("SELECT id FROM users WHERE email = $1")

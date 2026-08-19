@@ -18,12 +18,18 @@
       <form method="post" action="/ledgers/{{ ledger.id }}/append_only"
             hx-post="/ledgers/{{ ledger.id }}/append_only" hx-swap="none"
             class="inline"
-            onsubmit="return confirm('Disable append-only? You will be able to edit and delete transactions again.')">
+            data-confirm-ledger="{{ ledger.name }}">
         <input type="hidden" name="enabled" value="false">
         <input type="hidden" name="redirect_to" value="/ledgers/{{ ledger.id }}">
-        <button type="submit" class="rounded-lg border border-amber-400 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200">
+        <button type="button" class="oa-confirm-trigger rounded-lg border border-amber-400 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200">
           Disable append-only
         </button>
+        <span class="oa-confirm-panel hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span class="text-xs text-slate-600">You will be able to edit and delete again. Type <strong>{{ ledger.name }}</strong> to confirm:</span>
+          <input type="text" class="oa-confirm-input rounded border border-slate-300 px-2 py-1 text-sm w-40" placeholder="{{ ledger.name }}" autocomplete="off">
+          <button type="submit" class="oa-confirm-submit rounded bg-amber-500 text-white px-3 py-1.5 text-sm disabled:opacity-40" disabled>Confirm</button>
+          <button type="button" class="oa-confirm-cancel text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+        </span>
       </form>
       {% endif %}
     {% else %}
@@ -31,12 +37,18 @@
       <form method="post" action="/ledgers/{{ ledger.id }}/append_only"
             hx-post="/ledgers/{{ ledger.id }}/append_only" hx-swap="none"
             class="inline"
-            onsubmit="return confirm('Enable append-only? After this, transactions and accounts can only be reversed, not edited.')">
+            data-confirm-ledger="{{ ledger.name }}">
         <input type="hidden" name="enabled" value="true">
         <input type="hidden" name="redirect_to" value="/ledgers/{{ ledger.id }}">
-        <button type="submit" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
+        <button type="button" class="oa-confirm-trigger rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
           Enable append-only
         </button>
+        <span class="oa-confirm-panel hidden items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+          <span class="text-xs text-slate-600">After this, transactions and accounts can only be reversed, not edited. Type <strong>{{ ledger.name }}</strong> to confirm:</span>
+          <input type="text" class="oa-confirm-input rounded border border-slate-300 px-2 py-1 text-sm w-40" placeholder="{{ ledger.name }}" autocomplete="off">
+          <button type="submit" class="oa-confirm-submit rounded bg-slate-900 text-white px-3 py-1.5 text-sm disabled:opacity-40" disabled>Confirm</button>
+          <button type="button" class="oa-confirm-cancel text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+        </span>
       </form>
       {% endif %}
     {% endif %}
@@ -56,4 +68,37 @@
     </a>
   </div>
 </main>
+<script>
+// `ux-onboarding-flow`: append-only toggling requires typing the
+// ledger name to confirm (no single-OK dialog).
+(function () {
+  document.querySelectorAll('form[data-confirm-ledger]').forEach(function (form) {
+    var name = form.getAttribute('data-confirm-ledger');
+    var trigger = form.querySelector('.oa-confirm-trigger');
+    var panel = form.querySelector('.oa-confirm-panel');
+    var input = form.querySelector('.oa-confirm-input');
+    var submit = form.querySelector('.oa-confirm-submit');
+    var cancel = form.querySelector('.oa-confirm-cancel');
+    if (!trigger || !panel) return;
+    trigger.addEventListener('click', function () {
+      panel.classList.remove('hidden');
+      panel.classList.add('inline-flex');
+      if (input) input.focus();
+    });
+    if (input && submit) {
+      input.addEventListener('input', function () {
+        submit.disabled = input.value.trim() !== name;
+      });
+    }
+    if (cancel) {
+      cancel.addEventListener('click', function () {
+        panel.classList.add('hidden');
+        panel.classList.remove('inline-flex');
+        if (input) input.value = '';
+        if (submit) submit.disabled = true;
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}

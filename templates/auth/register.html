@@ -13,6 +13,9 @@
       <div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
     {% endif %}
     <form method="post" action="/register" class="space-y-3 bg-white p-5 rounded-xl border border-slate-200">
+      {% if !next.is_empty() %}
+        <input type="hidden" name="next" value="{{ next }}" />
+      {% endif %}
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Username</span>
         <input name="username" required minlength="3" autofocus class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
@@ -23,8 +26,14 @@
       </label>
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Password</span>
-        <input type="password" name="password" required minlength="12" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        <input type="password" name="password" required minlength="12" id="reg-password" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
         <span class="block mt-1 text-xs text-slate-500">At least 12 characters; common passwords are rejected.</span>
+        <span id="pw-meter" hidden class="mt-2 block">
+          <span class="block h-1 rounded bg-slate-200 overflow-hidden">
+            <span id="pw-meter-bar" class="block h-1 rounded" style="width:0%"></span>
+          </span>
+          <span id="pw-meter-text" class="mt-1 block text-xs text-slate-500"></span>
+        </span>
       </label>
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Confirm password</span>
@@ -32,6 +41,40 @@
       </label>
       <button class="w-full rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">Create account</button>
     </form>
+    <script>
+    (function () {
+      var pw = document.getElementById('reg-password');
+      var meter = document.getElementById('pw-meter');
+      var bar = document.getElementById('pw-meter-bar');
+      var text = document.getElementById('pw-meter-text');
+      if (!pw || !meter || !bar || !text) return;
+      pw.addEventListener('input', function () {
+        var v = pw.value;
+        if (v.length === 0) { meter.hidden = true; return; }
+        meter.hidden = false;
+        var score = 0;
+        if (v.length >= 8) score++;
+        if (v.length >= 12) score++;
+        if (/[0-9]/.test(v)) score++;
+        if (/[^A-Za-z0-9]/.test(v)) score++;
+        if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
+        bar.style.width = Math.min(100, score * 20) + '%';
+        if (score <= 1) {
+          bar.className = 'block h-1 rounded bg-rose-500';
+          text.textContent = 'Weak — add length, a number, or a symbol.';
+          text.className = 'mt-1 block text-xs text-rose-600';
+        } else if (score <= 3) {
+          bar.className = 'block h-1 rounded bg-amber-500';
+          text.textContent = 'Fair — a bit stronger helps.';
+          text.className = 'mt-1 block text-xs text-amber-600';
+        } else {
+          bar.className = 'block h-1 rounded bg-emerald-500';
+          text.textContent = 'Strong';
+          text.className = 'mt-1 block text-xs text-emerald-600';
+        }
+      });
+    })();
+    </script>
     <p class="mt-4 text-center text-sm text-slate-500">
       Already have one? <a href="/login" class="text-slate-800 underline">Sign in</a>
     </p>

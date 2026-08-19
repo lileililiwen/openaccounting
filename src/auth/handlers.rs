@@ -48,12 +48,16 @@ pub fn router() -> Router<AppState> {
 pub struct LoginPage {
     pub error: String,
     pub next: String,
+    /// The email the user submitted, preserved on error so a typo
+    /// only needs re-entering the password (`ux-onboarding-flow`).
+    pub email: String,
 }
 
 #[derive(Template)]
 #[template(path = "auth/register.html")]
 pub struct RegisterPage {
     pub error: String,
+    pub next: String,
 }
 
 pub async fn login_page(
@@ -67,6 +71,7 @@ pub async fn login_page(
     Ok(render_response(LoginPage {
         error: error.to_string(),
         next: params.get("next").cloned().unwrap_or_default(),
+        email: String::new(),
     }))
 }
 
@@ -90,10 +95,11 @@ const GENERIC_LOGIN_ERROR: &str = "Invalid email or password";
 /// use 429 so the user sees the throttle signal — but the rendered
 /// HTML body is byte-equal so attackers cannot tell from the body
 /// whether the email is valid.
-fn login_error_page(next: &str, status: StatusCode) -> Response {
+fn login_error_page(next: &str, email: &str, status: StatusCode) -> Response {
     let page = LoginPage {
         error: GENERIC_LOGIN_ERROR.into(),
         next: next.to_string(),
+        email: email.to_string(),
     };
     match page.render() {
         Ok(body) => (
@@ -134,14 +140,14 @@ pub async fn login_submit(
         .map_err(AppError::Db)?;
     if account_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, email = %email_norm, "login throttled (account)");
-        return Ok(login_error_page(&next, StatusCode::TOO_MANY_REQUESTS));
+        return Ok(login_error_page(&next, &form.email, StatusCode::TOO_MANY_REQUESTS));
     }
     let ip_ok = rate_limit::check_ip(&state.pool, &ip, now)
         .await
         .map_err(AppError::Db)?;
     if ip_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, "login throttled (ip)");
-        return Ok(login_error_page(&next, StatusCode::TOO_MANY_REQUESTS));
+        return Ok(login_error_page(&next, &form.email, StatusCode::TOO_MANY_REQUESTS));
     }
 
     // ── Authentication ──────────────────────────────────────────────────────
@@ -159,7 +165,7 @@ pub async fn login_submit(
             rate_limit::record_attempt(&state.pool, &ip, &email_norm, false, now)
                 .await
                 .map_err(AppError::Db)?;
-            return Ok(login_error_page(&next, StatusCode::OK));
+            return Ok(login_error_page(&next, &form.email, StatusCode::OK));
         }
     };
 
@@ -299,9 +305,12 @@ pub async fn login_2fa_submit(
     Ok(axum::response::Redirect::to(&next).into_response())
 }
 
-pub async fn register_page() -> AppResult<Response> {
+pub async fn register_page(
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> AppResult<Response> {
     Ok(render_response(RegisterPage {
         error: String::new(),
+        next: params.get("next").cloned().unwrap_or_default(),
     }))
 }
 
@@ -311,15 +320,20 @@ pub struct RegisterForm {
     pub username: String,
     pub password: String,
     pub password_confirm: String,
+    pub next: Option<String>,
 }
 
 pub async fn register_submit(
+    mut auth: AuthSession<Backend>,
+    session: Session,
     State(state): State<AppState>,
     Form(form): Form<RegisterForm>,
 ) -> AppResult<Response> {
+    let next = form.next.clone().unwrap_or_else(|| "/ledgers/new".into());
     if form.password != form.password_confirm {
         return Ok(render_response(RegisterPage {
             error: "Passwords do not match".into(),
+            next,
         }));
     }
     if let Err(e) = password::validate_strength(&form.password) {
@@ -332,15 +346,23 @@ pub async fn register_submit(
         );
         return Ok(render_response(RegisterPage {
             error: e.message().into(),
+            next,
         }));
     }
-    create_user(&state.pool, &form.email, &form.username, &form.password)
+    let user = create_user(&state.pool, &form.email, &form.username, &form.password)
         .await
         .map_err(|e| match e {
             AppError::Conflict(m) => AppError::Conflict(m),
             other => other,
         })?;
-    Ok(axum::response::Redirect::to("/login?next=/ledgers/new").into_response())
+    // `ux-onboarding-flow`: sign the fresh user in immediately and
+    // send them straight to the next target instead of back to
+    // /login to re-enter credentials.
+    mark_authenticated(&session).await;
+    auth.login(&user)
+        .await
+        .map_err(|e| AppError::Internal(format!("auth: {e}")))?;
+    Ok(axum::response::Redirect::to(&next).into_response())
 }
 
 pub async fn logout(mut auth: AuthSession<Backend>) -> AppResult<axum::response::Redirect> {
