@@ -1,33 +1,54 @@
+{# Top navigation bar. `u11-menu-navigation`.
+   Requires the page struct to expose the standard auth + nav fields plus
+   `current_section` (set by the handler to one of: "", "dashboard",
+   "transactions", "accounts", "documents", "bank-feeds", "reports",
+   "import", "import-wechat", "import-alipay", "expenses", "approvals",
+   "admin", "ledgers").
+
+   The top nav is intentionally thin: it only carries the global,
+   cross-ledger links (`Ledgers`, `Admin`). The four per-ledger
+   clusters (Record / Plan / Analyze / Admin) live in the persistent
+   left sidebar — the spec's Requirement 6 — so duplicating them
+   in the top bar would be redundant. The active indicator still
+   applies: when the user is inside a ledger, the top nav highlights
+   nothing (the per-section indicator lives in the sidebar). #}
 {% if !username.is_empty() %}
-<nav class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
+<nav class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-700"
+     data-current-section="{{ current_section }}">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-3 h-14">
-    <a href="/" class="font-semibold text-slate-800 flex items-center gap-2">
+    {# Wordmark #}
+    <a href="/" class="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
       <span class="inline-block w-6 h-6 rounded bg-slate-900 text-white text-[10px] leading-6 text-center font-bold">OA</span>
       <span class="hidden sm:inline">OpenAccounting</span>
     </a>
-    <div class="hidden md:flex items-center gap-1 ml-4 text-sm">
-      <a href="/ledgers" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Ledgers</a>
-      {% if !ledger_name.is_empty() %}
-        <a href="/ledgers/{{ ledger_id }}/dashboard" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Dashboard</a>
-        <a href="/ledgers/{{ ledger_id }}/transactions" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Transactions</a>
-        <a href="/ledgers/{{ ledger_id }}/accounts" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Accounts</a>
-        <a href="/ledgers/{{ ledger_id }}/documents" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Documents</a>
-        <a href="/ledgers/{{ ledger_id }}/reports" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Reports</a>
-        <a href="/ledgers/{{ ledger_id }}/import" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Import</a>
-        <a href="/ledgers/{{ ledger_id }}/reimbursements" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Expenses</a>
-        <a href="/ledgers/{{ ledger_id }}/approval-policies" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Approvals</a>
-        <a href="/ledgers/{{ ledger_id }}/import/wechat" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">WeChat</a>
-        <a href="/ledgers/{{ ledger_id }}/import/alipay" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Alipay</a>
-        <a href="/ledgers/{{ ledger_id }}/bank-feeds" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Bank Feeds</a>
-      {% endif %}
+
+    {# Top-nav global links. The per-ledger clusters live in the
+       sidebar; only cross-ledger links (Ledgers, Admin) appear here.
+       The `nav-shell` wrapper is kept so the active-state indicator
+       CSS continues to work (the `Ledgers` link still gets
+       `is-active` on `/ledgers`). #}
+    <div class="nav-shell hidden md:flex items-center gap-1 ml-4 text-sm">
+      <a href="/ledgers"
+         data-section="ledgers"
+         class="nav-link {% if current_section == "ledgers" %}is-active{% endif %}">
+        Ledgers
+      </a>
+
+      {# Cluster: Admin — only for admin role. #}
       {% if user_role == "admin" %}
-        <a href="/admin" class="px-2 py-1 rounded text-slate-600 hover:bg-slate-100">Admin</a>
+        <a href="/admin"
+           data-section="admin"
+           class="nav-link ml-1 {% if current_section == "admin" %}is-active{% endif %}">
+          Admin
+        </a>
       {% endif %}
     </div>
+
+    {# Right-side cluster: user menu, theme toggle, logout. #}
     <div class="ml-auto flex items-center gap-2 text-sm">
       <a href="/account" class="hidden sm:inline text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">@{{ username }}</a>
       <form method="post" action="/account/theme" class="inline" id="theme-toggle-form">
-        <input type="hidden" name="next" value="/account" />
+        <input type="hidden" name="next" id="theme-next" value="/account" />
         <input type="hidden" name="theme" id="theme-input" value="" />
         <button type="submit"
                 class="rounded border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -50,6 +71,7 @@
       var form = document.getElementById('theme-toggle-form');
       if (!form) return;
       var input = document.getElementById('theme-input');
+      var nextInput = document.getElementById('theme-next');
       form.addEventListener('submit', function(e) {
         e.preventDefault();
         var cur;
@@ -62,26 +84,97 @@
         try { localStorage.setItem('oa-theme', next); } catch (_) {}
         input.value = next;
         document.documentElement.classList.toggle('dark', next === 'dark');
+        // Preserve the current URL so the user lands back on
+        // the page they were on (and the sidebar doesn't appear
+        // to "vanish" because we redirected to /account).
+        if (nextInput) {
+          // Strip any hash fragment; the server should still
+          // accept the path.
+          nextInput.value = window.location.pathname + window.location.search;
+        }
         form.submit();
+      });
+    })();
+    // ─── Active-state indicator positioning (u11-menu-navigation) ──────
+    // The CSS `.nav-shell::after` is the sliding indicator. After every
+    // full page paint (or on resize) we position it under the active
+    // `.is-active` link. CSS transitions handle the slide.
+    (function() {
+      function positionIndicator() {
+        var shell = document.querySelector('.nav-shell');
+        if (!shell) return;
+        // Remove any prior indicator
+        var old = shell.querySelector('.nav-indicator');
+        if (old) old.remove();
+        var active = shell.querySelector('a.is-active');
+        if (!active) return;
+        var sRect = shell.getBoundingClientRect();
+        var aRect = active.getBoundingClientRect();
+        var ind = document.createElement('span');
+        ind.className = 'nav-indicator';
+        ind.style.left = (aRect.left - sRect.left) + 'px';
+        ind.style.width = aRect.width + 'px';
+        shell.appendChild(ind);
+      }
+      // Defer one frame so layout is settled.
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          requestAnimationFrame(positionIndicator);
+        });
+      } else {
+        requestAnimationFrame(positionIndicator);
+      }
+      window.addEventListener('resize', positionIndicator);
+    })();
+    // ─── Skeleton transition on in-app navigation (u11-menu-navigation) ──
+    // Show a 150–200 ms skeleton overlay on click. Cancellable: clicking
+    // another nav link during the skeleton phase cancels the queued
+    // navigation by hiding the overlay immediately.
+    (function() {
+      var nav = document.querySelector('nav.sticky');
+      if (!nav) return;
+      var main = document.querySelector('main');
+      if (!main) return;
+      var skeleton = null;
+      var timer = null;
+      function showSkeleton() {
+        if (skeleton) return;
+        skeleton = document.createElement('div');
+        skeleton.className = 'nav-skeleton';
+        for (var i = 0; i < 4; i++) {
+          var row = document.createElement('div');
+          row.className = 'nav-skeleton-row';
+          skeleton.appendChild(row);
+        }
+        main.appendChild(skeleton);
+        timer = setTimeout(function() {
+          if (skeleton) {
+            skeleton.remove();
+            skeleton = null;
+            timer = null;
+          }
+        }, 180);
+      }
+      function hideSkeleton() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (skeleton) { skeleton.remove(); skeleton = null; }
+      }
+      nav.addEventListener('click', function(e) {
+        var a = e.target.closest('a.nav-link');
+        if (!a) return;
+        // Allow modifier-clicks (open in new tab) to pass through.
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        showSkeleton();
+      });
+      // Cancel the queued skeleton on any other in-app link click
+      // inside <main> so the latest click wins (Requirement 5).
+      main.addEventListener('click', function(e) {
+        if (e.target.closest('a.nav-link')) hideSkeleton();
       });
     })();
   </script>
   {% endraw %}
-  <!-- Mobile sub-nav -->
-  {% if !ledger_name.is_empty() %}
-  <div class="md:hidden border-t border-slate-200 px-2 py-1 overflow-x-auto whitespace-nowrap text-sm">
-    <a href="/ledgers/{{ ledger_id }}/dashboard" class="inline-block px-2 py-1 text-slate-600">Dashboard</a>
-    <a href="/ledgers/{{ ledger_id }}/transactions" class="inline-block px-2 py-1 text-slate-600">Transactions</a>
-    <a href="/ledgers/{{ ledger_id }}/accounts" class="inline-block px-2 py-1 text-slate-600">Accounts</a>
-    <a href="/ledgers/{{ ledger_id }}/documents" class="inline-block px-2 py-1 text-slate-600">Documents</a>
-    <a href="/ledgers/{{ ledger_id }}/reports" class="inline-block px-2 py-1 text-slate-600">Reports</a>
-    <a href="/ledgers/{{ ledger_id }}/import" class="inline-block px-2 py-1 text-slate-600">Import</a>
-    <a href="/ledgers/{{ ledger_id }}/reimbursements" class="inline-block px-2 py-1 text-slate-600">Expenses</a>
-    <a href="/ledgers/{{ ledger_id }}/approval-policies" class="inline-block px-2 py-1 text-slate-600">Approvals</a>
-    <a href="/ledgers/{{ ledger_id }}/import/wechat" class="inline-block px-2 py-1 text-slate-600">WeChat</a>
-    <a href="/ledgers/{{ ledger_id }}/import/alipay" class="inline-block px-2 py-1 text-slate-600">Alipay</a>
-    <a href="/ledgers/{{ ledger_id }}/bank-feeds" class="inline-block px-2 py-1 text-slate-600">Bank Feeds</a>
-  </div>
-  {% endif %}
 </nav>
+{% include "partials/_breadcrumb.html" %}
+{% include "partials/_sidebar.html" %}
 {% endif %}

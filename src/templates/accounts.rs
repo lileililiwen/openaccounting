@@ -12,6 +12,7 @@ pub struct AccountList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub groups: Vec<AccountGroup>,
     pub balances: std::collections::HashMap<Uuid, Decimal>,
 }
@@ -30,6 +31,7 @@ pub struct AccountNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub account_types: Vec<crate::domain::AccountType>,
     pub error: String,
 }

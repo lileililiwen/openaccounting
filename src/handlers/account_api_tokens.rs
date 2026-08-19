@@ -50,6 +50,7 @@ async fn page(auth: AuthSession<Backend>, State(state): State<AppState>) -> AppR
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         tokens,
         plaintext: None,
     }))
@@ -76,6 +77,7 @@ async fn create(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         tokens,
         plaintext: Some(issued.plaintext),
         plaintext_name: Some(form.name),

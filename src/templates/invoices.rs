@@ -11,6 +11,7 @@ pub struct InvoiceList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub invoices: Vec<(Invoice, String)>,
     pub kind_filter: String,
 }
@@ -23,6 +24,7 @@ pub struct InvoiceNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub contacts: Vec<Contact>,
     pub error: String,
 }

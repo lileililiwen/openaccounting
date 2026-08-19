@@ -66,6 +66,7 @@ pub async fn upload_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import".to_string(),
         error: String::new(),
     }))
 }
@@ -110,6 +111,7 @@ pub async fn upload(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "import".to_string(),
             error: "No file provided".into(),
         }));
     }
@@ -201,6 +203,7 @@ pub async fn upload(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import".to_string(),
         filename,
         format: format.as_str().to_string(),
         headers,

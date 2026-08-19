@@ -41,6 +41,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "approvals".to_string(),
         policies: rows,
         error: String::new(),
     }))
@@ -59,6 +60,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "approvals".to_string(),
         error: String::new(),
     }))
 }
@@ -86,6 +88,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "approvals".to_string(),
             error: "name is required".into(),
         })
         .into_response());
@@ -97,6 +100,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "approvals".to_string(),
             error: "level must be >= 1".into(),
         })
         .into_response());
@@ -108,6 +112,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "approvals".to_string(),
             error: "min_amount must be >= 0".into(),
         })
         .into_response());
@@ -119,6 +124,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "approvals".to_string(),
             error: "approver_role must be Admin or Accountant".into(),
         })
         .into_response());

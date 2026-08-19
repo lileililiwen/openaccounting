@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Make the top-nav and per-ledger sidebar feel like a single,
+      persistent surface — animated active state, breadcrumb, icons,
+      grouped clusters, dark-mode parity — without ever re-parenting
+      the active item on a child view.

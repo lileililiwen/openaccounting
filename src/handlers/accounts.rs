@@ -65,6 +65,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "accounts".to_string(),
         groups,
         balances,
     }))
@@ -114,6 +115,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "accounts".to_string(),
         account_types: vec![
             AccountType::Asset,
             AccountType::Liability,
@@ -155,6 +157,7 @@ pub async fn create(
                 user_role: user.role.clone(),
                 ledger_id,
                 ledger_name: ledger.name.clone(),
+                current_section: "accounts".to_string(),
                 account_types: vec![],
                 error: format!("Invalid account type: {}", other),
             }));
@@ -169,6 +172,7 @@ pub async fn create(
                 user_role: user.role.clone(),
                 ledger_id,
                 ledger_name: ledger.name.clone(),
+                current_section: "accounts".to_string(),
                 account_types: vec![],
                 error: format!("Invalid account subtype: {}", form.account_subtype),
             }));
@@ -182,6 +186,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name.clone(),
+            current_section: "accounts".to_string(),
             account_types: vec![],
             error: format!(
                 "Subtype {} is not valid for account type {}",
@@ -198,6 +203,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name.clone(),
+            current_section: "accounts".to_string(),
             account_types: vec![],
             error: "Name is required".into(),
         }));

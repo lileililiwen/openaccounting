@@ -1,0 +1,223 @@
+{# Persistent left sidebar. Rendered inside a ledger. `u11-menu-navigation`
+   Requirement 6: four clusters (Record / Plan / Analyze / Admin), sticky
+   positioning, collapsible to icon-only rail. Hidden on `<md` (mobile
+   uses a drawer triggered from the top nav — see `_nav.html`).
+
+   The collapse state is held in a `data-sidebar-collapsed` attribute on
+   the `<aside>` and toggled by the button. CSS reads the attribute. The
+   icon column uses vendored SVGs at `/static/icons/nav/{name}.svg`.
+
+   Each link carries a `data-tooltip` attribute. When the sidebar is
+   collapsed, CSS surfaces the tooltip on hover/focus as a dark pill
+   anchored to the right of the rail — this is the affordance for the
+   icon-only mode (the label is hidden but still reachable). #}
+{% if !ledger_name.is_empty() %}
+<aside class="app-sidebar hidden md:block bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 overflow-y-auto scrollbar-thin"
+       data-sidebar-collapsed="false"
+       aria-label="Sections">
+  <div class="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700">
+    <span class="sidebar-label text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">Sections</span>
+    <button type="button"
+            class="sidebar-toggle text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 rounded p-1"
+            aria-label="Collapse sidebar"
+            aria-expanded="true"
+            data-sidebar-toggle>
+      <span aria-hidden="true">⟨</span>
+    </button>
+  </div>
+
+  <nav class="py-2 px-2 text-sm">
+    {# Cluster: Record #}
+    <div class="sidebar-cluster mb-3">
+      <div class="sidebar-cluster-label text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 px-2 py-1 tracking-wider">
+        Record
+      </div>
+      <a href="/ledgers/{{ ledger_id }}/transactions"
+         data-section="transactions"
+         data-tooltip="Transactions"
+         class="sidebar-link {% if current_section == "transactions" %}is-active{% endif %}">
+        <img src="/static/icons/nav/transactions.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Transactions</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/documents"
+         data-section="documents"
+         data-tooltip="Documents"
+         class="sidebar-link {% if current_section == "documents" %}is-active{% endif %}">
+        <img src="/static/icons/nav/documents.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Documents</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/bank-feeds"
+         data-section="bank-feeds"
+         data-tooltip="Bank Feeds"
+         class="sidebar-link {% if current_section == "bank-feeds" %}is-active{% endif %}">
+        <img src="/static/icons/nav/bank_feeds.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Bank Feeds</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/import"
+         data-section="import"
+         data-tooltip="Import"
+         class="sidebar-link {% if current_section == "import" %}is-active{% endif %}">
+        <img src="/static/icons/nav/import.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Import</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/import/wechat"
+         data-section="import-wechat"
+         data-tooltip="WeChat Import"
+         class="sidebar-link {% if current_section == "import-wechat" %}is-active{% endif %}">
+        <img src="/static/icons/nav/import.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">WeChat</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/import/alipay"
+         data-section="import-alipay"
+         data-tooltip="Alipay Import"
+         class="sidebar-link {% if current_section == "import-alipay" %}is-active{% endif %}">
+        <img src="/static/icons/nav/import.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Alipay</span>
+      </a>
+    </div>
+
+    {# Cluster: Plan #}
+    <div class="sidebar-cluster mb-3">
+      <div class="sidebar-cluster-label text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 px-2 py-1 tracking-wider">
+        Plan
+      </div>
+      <a href="/ledgers/{{ ledger_id }}/accounts"
+         data-section="accounts"
+         data-tooltip="Accounts"
+         class="sidebar-link {% if current_section == "accounts" %}is-active{% endif %}">
+        <img src="/static/icons/nav/accounts.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Accounts</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/approval-policies"
+         data-section="approvals"
+         data-tooltip="Approval Policies"
+         class="sidebar-link {% if current_section == "approvals" %}is-active{% endif %}">
+        <img src="/static/icons/nav/approvals.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Approvals</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/reimbursements"
+         data-section="expenses"
+         data-tooltip="Expenses"
+         class="sidebar-link {% if current_section == "expenses" %}is-active{% endif %}">
+        <img src="/static/icons/nav/expenses.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Expenses</span>
+      </a>
+    </div>
+
+    {# Cluster: Analyze #}
+    <div class="sidebar-cluster mb-3">
+      <div class="sidebar-cluster-label text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 px-2 py-1 tracking-wider">
+        Analyze
+      </div>
+      <a href="/ledgers/{{ ledger_id }}/reports"
+         data-section="reports"
+         data-tooltip="Reports"
+         class="sidebar-link {% if current_section == "reports" %}is-active{% endif %}">
+        <img src="/static/icons/nav/reports.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Reports</span>
+      </a>
+      <a href="/ledgers/{{ ledger_id }}/dashboard"
+         data-section="dashboard"
+         data-tooltip="Dashboard"
+         class="sidebar-link {% if current_section == "dashboard" %}is-active{% endif %}">
+        <img src="/static/icons/nav/dashboard.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+        <span class="sidebar-link-label">Dashboard</span>
+      </a>
+    </div>
+
+    {# Cluster: Admin #}
+    {% if user_role == "admin" %}
+      <div class="sidebar-cluster mb-3">
+        <div class="sidebar-cluster-label text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 px-2 py-1 tracking-wider">
+          Admin
+        </div>
+        <a href="/admin"
+           data-section="admin"
+           data-tooltip="Admin"
+           class="sidebar-link {% if current_section == "admin" %}is-active{% endif %}">
+          <img src="/static/icons/nav/admin.svg" alt="" aria-hidden="true" class="w-4 h-4" />
+          <span class="sidebar-link-label">Admin</span>
+        </a>
+      </div>
+    {% endif %}
+  </nav>
+</aside>
+
+{% raw %}
+<script>
+  // Sidebar collapse toggle (u11-menu-navigation Requirement 6).
+  (function() {
+    var aside = document.querySelector('aside.app-sidebar');
+    if (!aside) return;
+    var btn = aside.querySelector('[data-sidebar-toggle]');
+    if (!btn) return;
+    // Persist the user's choice across navigations so the rail
+    // doesn't snap back open on every page change.
+    var STORAGE_KEY = 'oa-sidebar-collapsed';
+    function applyState(collapsed) {
+      aside.setAttribute('data-sidebar-collapsed', collapsed ? 'true' : 'false');
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      btn.querySelector('span').textContent = collapsed ? '⟩' : '⟨';
+    }
+    try {
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === 'true') applyState(true);
+    } catch (_) { /* localStorage blocked — start expanded */ }
+    btn.addEventListener('click', function() {
+      var collapsed = aside.getAttribute('data-sidebar-collapsed') === 'true';
+      applyState(!collapsed);
+      try { localStorage.setItem(STORAGE_KEY, !collapsed ? 'true' : 'false'); } catch (_) {}
+    });
+  })();
+
+  // Tooltip on the collapsed sidebar (`u11-menu-navigation`
+  // Requirement 6, accessibility). The CSS `::after` tooltip
+  // doesn't work here because the aside uses `overflow-y: auto`
+  // to scroll the link list, and `overflow-y: auto` implicitly
+  // sets `overflow-x: auto`, which clips the `::after` that
+  // extends to the right of the rail. We instead use a real
+  // DOM element parented to <body> and positioned with
+  // `position: fixed` — which escapes all overflow contexts.
+  // Show / hide the tooltip on hover/focus of any `.sidebar-link`
+  // that carries a `data-tooltip` attribute.
+  (function() {
+    var aside = document.querySelector('aside.app-sidebar');
+    if (!aside) return;
+    // Create a single tooltip element we'll move around.
+    var tip = document.createElement('div');
+    tip.className = 'app-sidebar-tooltip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+
+    function showTip(link) {
+      tip.textContent = link.getAttribute('data-tooltip') || '';
+      // Position the tooltip to the right of the link, vertically
+      // centered. Use getBoundingClientRect which returns coords
+      // relative to the viewport (since the tooltip is fixed).
+      var r = link.getBoundingClientRect();
+      tip.style.left = (r.right + 8) + 'px';
+      tip.style.top = (r.top + r.height / 2) + 'px';
+      // Use translateY(-50%) so the vertical center of the
+      // tooltip aligns with the vertical center of the link.
+      tip.style.transform = 'translateY(-50%)';
+      tip.classList.add('is-visible');
+    }
+    function hideTip() {
+      tip.classList.remove('is-visible');
+    }
+
+    // Wire up hover/focus/blur on every sidebar-link.
+    var links = aside.querySelectorAll('.sidebar-link[data-tooltip]');
+    for (var i = 0; i < links.length; i++) {
+      (function(link) {
+        link.addEventListener('mouseenter', function() { showTip(link); });
+        link.addEventListener('mouseleave', hideTip);
+        link.addEventListener('focus', function() { showTip(link); });
+        link.addEventListener('blur', hideTip);
+      })(links[i]);
+    }
+  })();
+</script>
+{% endraw %}
+{% endif %}

@@ -47,6 +47,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "admin".to_string(),
         backups,
     }))
 }
@@ -322,6 +323,7 @@ pub async fn integrity_check(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "admin".to_string(),
         passed: issues.is_empty(),
         txn_count,
         posting_count,

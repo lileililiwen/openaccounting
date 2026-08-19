@@ -10,6 +10,7 @@ mod common;
 mod api;
 mod approval_routing;
 mod audit_chain;
+mod menu_navigation;
 mod bank_feeds;
 mod bank_statement_imports;
 mod cash_basis;

@@ -10,6 +10,7 @@ pub struct TaxList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub rates: Vec<TaxRateRow>,
     pub error: String,
 }
@@ -22,6 +23,7 @@ pub struct TaxForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub accounts: Vec<(Uuid, String, String)>,
     pub name: String,
     pub rate: String,
@@ -38,6 +40,7 @@ pub struct TaxReport {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub from: String,
     pub to: String,
     pub summary: Vec<(Uuid, String, String, Decimal, Decimal, i64)>,

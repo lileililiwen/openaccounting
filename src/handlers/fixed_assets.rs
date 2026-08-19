@@ -53,6 +53,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         assets,
     }))
 }
@@ -80,6 +81,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         accounts,
         name: String::new(),
         description: String::new(),
@@ -193,6 +195,7 @@ pub async fn show(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         asset,
     }))
 }

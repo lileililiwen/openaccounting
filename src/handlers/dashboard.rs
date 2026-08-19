@@ -246,6 +246,7 @@ pub async fn show(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "dashboard".to_string(),
         currency: ledger.base_currency.clone(),
         total_assets: format_money(bs.total_assets, &ledger.base_currency),
         total_liabilities: format_money(bs.total_liabilities, &ledger.base_currency),

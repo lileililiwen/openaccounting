@@ -38,6 +38,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         contacts,
     }))
 }
@@ -55,6 +56,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         error: String::new(),
     }))
 }
@@ -84,6 +86,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name.clone(),
+            current_section: "transactions".to_string(),
             error: "Name is required".into(),
         }));
     }
@@ -97,6 +100,7 @@ pub async fn create(
                 user_role: user.role.clone(),
                 ledger_id,
                 ledger_name: ledger.name.clone(),
+                current_section: "transactions".to_string(),
                 error: "Invalid contact kind".into(),
             }));
         }

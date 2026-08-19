@@ -41,6 +41,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: _ledger.name,
+        current_section: "approvals".to_string(),
         rules: rows,
         error: String::new(),
     }))
@@ -59,6 +60,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "approvals".to_string(),
         error: String::new(),
     }))
 }
@@ -96,6 +98,7 @@ pub async fn create(
             user.role.clone(),
             ledger_id,
             _ledger.name,
+            "approvals".to_string(),
             "name is required".into(),
         )
         .await);
@@ -198,6 +201,7 @@ async fn render_rule_new_with_error(
     user_role: String,
     ledger_id: Uuid,
     ledger_name: String,
+    current_section: String,
     error: String,
 ) -> Response {
     render_response(RuleNew {
@@ -206,6 +210,7 @@ async fn render_rule_new_with_error(
         user_role,
         ledger_id,
         ledger_name,
+        current_section,
         error,
     })
     .into_response()

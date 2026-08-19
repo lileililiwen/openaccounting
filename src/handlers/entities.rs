@@ -59,6 +59,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         entities,
     }))
 }
@@ -71,6 +72,7 @@ pub async fn new_page(auth: AuthSession<Backend>) -> AppResult<Response> {
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         name: String::new(),
         legal_name: String::new(),
         tax_id: String::new(),
@@ -190,6 +192,7 @@ pub async fn consolidated(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         entity_id,
         entity_name: entity.0,
         legal_name: entity.1,

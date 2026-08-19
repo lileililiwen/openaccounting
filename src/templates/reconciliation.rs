@@ -11,6 +11,7 @@ pub struct ReconPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub account_id: Uuid,
     pub unmatched_lines: Vec<ReconStatementLine>,
     pub candidate_txns: Vec<ReconTxn>,
@@ -28,6 +29,7 @@ pub struct ReconHistory {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub account_id: Uuid,
     pub history: Vec<(NaiveDate, Decimal, Decimal, Decimal, DateTime<Utc>)>,
 }

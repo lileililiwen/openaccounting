@@ -11,6 +11,7 @@ pub struct TemplateList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub templates: Vec<TemplateRow>,
     pub error: String,
 }
@@ -23,6 +24,7 @@ pub struct TemplateNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub accounts: Vec<(Uuid, String, String)>,
     pub description: String,
     pub payee: String,
@@ -40,6 +42,7 @@ pub struct TemplateShow {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub template: TemplateRow,
     pub postings: Vec<(Uuid, String, String, String, Decimal, Option<String>)>,
 }

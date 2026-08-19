@@ -59,24 +59,34 @@ form submits a full HTML response, and the response is a full page
 
 ### Requirement: Navigation
 
-A sticky top navigation bar SHALL appear on every authenticated page,
-showing:
+A sticky top navigation bar SHALL appear on every authenticated
+page, showing the "OA" wordmark (links to `/`), the per-ledger
+links described below, and the username plus a "Log out" button
+(form POST to `/logout`) on the right.
 
-- The "OA" wordmark (links to `/`).
-- On `md+` viewports: links to Dashboard, Transactions, Accounts,
-  Documents, Reports (when a ledger is selected).
-- On `<md` viewports: a horizontally scrollable sub-bar with the
-  same links.
-- The username and a "Log out" button (form POST to `/logout`) on
-  the right.
+When the user is inside a ledger (the URL matches
+`/ledgers/{id}/...`), the navigation SHALL additionally show the
+per-ledger links to Dashboard, Transactions, Accounts, Documents,
+and Reports on `md+` viewports, and a horizontally scrollable
+sub-bar with the same links on `<md` viewports.
 
 The navigation MUST hide entirely on `/login` and `/register`.
+
+The full behaviour (active-state indicator, section grouping,
+icons, breadcrumb, skeleton transition, persistent sidebar inside
+a ledger, dark-mode parity, and stable navigation context across
+child views) is specified in the `menu-navigation` spec.
 
 #### Scenario: Mobile sub-nav scrolls horizontally
 
 - **WHEN** the user opens a dashboard on a phone
 - **THEN** the sub-nav is a thin strip below the main nav, with
   links that scroll horizontally without truncating.
+
+#### Scenario: Top nav hides on auth pages
+
+- **WHEN** the user navigates to `/login` or `/register`
+- **THEN** the top nav is not rendered.
 
 ### Requirement: Accessibility Baseline
 

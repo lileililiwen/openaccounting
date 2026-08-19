@@ -57,6 +57,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         ledgers: shares,
         flash: String::new(),
         pending_invitations,
@@ -71,6 +72,7 @@ pub async fn new_page(auth: AuthSession<Backend>) -> AppResult<Response> {
         user_role: user.role.clone(),
         ledger_id: Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "".to_string(),
         error: String::new(),
     }))
 }
@@ -102,6 +104,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: "".to_string(),
             error: "Name is required".into(),
         }));
     }
@@ -113,6 +116,7 @@ pub async fn create(
             user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: "".to_string(),
             error: "Currency must be a 3-letter code (e.g. USD, EUR)".into(),
         }));
     }
@@ -213,6 +217,7 @@ pub async fn show(
         user_role: user.role.clone(),
         ledger_id: ledger.id,
         ledger_name: ledger.name.clone(),
+        current_section: "".to_string(),
         ledger,
         account_count,
         txn_count,

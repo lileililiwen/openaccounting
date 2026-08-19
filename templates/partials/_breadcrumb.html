@@ -1,0 +1,66 @@
+{# Breadcrumb. Rendered immediately below the top nav. `u11-menu-navigation`:
+   - `Ledgers` — links to `/ledgers` (always)
+   - `{Ledger Name}` — links to `/ledgers/{id}/dashboard` (only inside a ledger)
+   - `{Section}` — the current top-level section, rendered as the current item
+     (not a link), with `aria-current="page"` #}
+<nav class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700"
+     aria-label="Breadcrumb">
+  <ol class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+    <li>
+      <a href="/ledgers"
+         class="hover:text-slate-900 dark:hover:text-white hover:underline">
+        Ledgers
+      </a>
+    </li>
+    {% if !ledger_name.is_empty() %}
+      <li aria-hidden="true" class="text-slate-400">›</li>
+      <li>
+        <a href="/ledgers/{{ ledger_id }}/dashboard"
+           class="hover:text-slate-900 dark:hover:text-white hover:underline">
+          {{ ledger_name }}
+        </a>
+      </li>
+      {% if !current_section.is_empty() %}
+        <li aria-hidden="true" class="text-slate-400">›</li>
+        <li>
+          <span aria-current="page" class="text-slate-900 dark:text-white font-medium">
+            {% match current_section.as_str() %}
+              {% when "dashboard" %}Dashboard
+              {% when "transactions" %}Transactions
+              {% when "accounts" %}Accounts
+              {% when "documents" %}Documents
+              {% when "bank-feeds" %}Bank Feeds
+              {% when "reports" %}Reports
+              {% when "import" %}Import
+              {% when "import-wechat" %}WeChat
+              {% when "import-alipay" %}Alipay
+              {% when "expenses" %}Expenses
+              {% when "approvals" %}Approvals
+              {% when "admin" %}Admin
+              {% when "ledgers" %}Ledgers
+              {% when "" %}{% else %}{{ current_section }}
+            {% endmatch %}
+          </span>
+        </li>
+      {% endif %}
+    {% else %}
+      {% if !current_section.is_empty() %}
+        <li aria-hidden="true" class="text-slate-400">›</li>
+        <li>
+          <span aria-current="page" class="text-slate-900 dark:text-white font-medium">
+            {% match current_section.as_str() %}
+              {% when "admin" %}Admin
+              {% when "ledgers" %}Ledgers
+              {% when "" %}{% else %}{{ current_section }}
+            {% endmatch %}
+          </span>
+        </li>
+      {% else %}
+        <li aria-hidden="true" class="text-slate-400">›</li>
+        <li>
+          <span aria-current="page" class="text-slate-900 dark:text-white font-medium">Account</span>
+        </li>
+      {% endif %}
+    {% endif %}
+  </ol>
+</nav>

@@ -10,6 +10,7 @@ pub struct DashboardPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub currency: String,
     pub total_assets: String,
     pub total_liabilities: String,

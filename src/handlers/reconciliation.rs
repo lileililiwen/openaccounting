@@ -84,6 +84,7 @@ pub async fn page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         account_id,
         unmatched_lines,
         candidate_txns,
@@ -354,6 +355,7 @@ pub async fn history(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         account_id,
         history: history.iter().map(|r| (r.0, r.1, r.2, r.3, r.4)).collect(),
     }))

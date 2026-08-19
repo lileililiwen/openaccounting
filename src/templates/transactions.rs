@@ -13,6 +13,7 @@ pub struct TransactionList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub transactions: Vec<TransactionRow>,
     pub filter: TransactionFilter,
     /// The original raw query string (e.g.
@@ -51,6 +52,7 @@ pub struct TransactionNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub currency: String,
     pub accounts: Vec<Account>,
     pub error: String,
@@ -97,6 +99,7 @@ pub struct TransactionShow {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub txn_id: Uuid,
     pub date: NaiveDate,
     pub description: String,

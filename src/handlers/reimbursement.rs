@@ -49,6 +49,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "expenses".to_string(),
         claims: rows,
         error: String::new(),
     }))
@@ -67,6 +68,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "expenses".to_string(),
         error: String::new(),
     }))
 }
@@ -217,6 +219,7 @@ pub async fn show(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "expenses".to_string(),
         claim,
         lines,
         total,

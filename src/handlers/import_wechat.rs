@@ -37,6 +37,7 @@ pub async fn upload_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import-wechat".to_string(),
         error: String::new(),
     }))
 }
@@ -81,6 +82,7 @@ pub async fn preview(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "import-wechat".to_string(),
             error: "No file provided".into(),
         }));
     }
@@ -94,6 +96,7 @@ pub async fn preview(
         user,
         ledger_id,
         ledger.name,
+        "import-wechat".to_string(),
         &filename,
         &bytes,
         options,
@@ -108,6 +111,7 @@ pub(crate) async fn render_wechat_preview(
     user: &crate::auth::User,
     ledger_id: Uuid,
     ledger_name: String,
+    current_section: String,
     filename: &str,
     bytes: &[u8],
     options: ParseOptions,
@@ -148,6 +152,7 @@ pub(crate) async fn render_wechat_preview(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name,
+        current_section: "import-wechat".to_string(),
         filename: filename.to_string(),
         format: "wechat".to_string(),
         rows,

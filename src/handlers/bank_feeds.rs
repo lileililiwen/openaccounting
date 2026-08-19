@@ -80,6 +80,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "bank-feeds".to_string(),
         links,
     }))
 }
@@ -107,6 +108,7 @@ pub async fn link_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "bank-feeds".to_string(),
         accounts,
     }))
 }

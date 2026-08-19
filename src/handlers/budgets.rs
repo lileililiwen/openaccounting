@@ -53,6 +53,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         budgets,
         error: String::new(),
     }))
@@ -80,6 +81,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         accounts,
         period: "monthly".to_string(),
         amount: String::new(),
@@ -259,6 +261,7 @@ pub async fn report(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         from: from_date.to_string(),
         to: to_date.to_string(),
         rows: report_rows,

@@ -19,6 +19,7 @@ pub struct PolicyList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub policies: Vec<PolicyRow>,
     pub error: String,
 }
@@ -31,5 +32,6 @@ pub struct PolicyNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }

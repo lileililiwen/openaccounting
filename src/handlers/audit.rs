@@ -58,6 +58,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: _ledger.name,
+        current_section: "".to_string(),
         entries: entries_with_names,
         offset,
         limit,

@@ -4,14 +4,44 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Compact scrollbar for tables on small screens */
-.scrollbar-thin::-webkit-scrollbar { height: 6px; }
+/* Compact scrollbar utility.
+   Applies to any element that opts in via the `scrollbar-thin`
+   class (e.g. the persistent left sidebar). The scrollbar only
+   appears when the content overflows (overflow: auto semantics)
+   and is styled thinly so it doesn't dominate the chrome.
+
+   WebKit (Chrome, Edge, Safari) — custom ::-webkit-scrollbar
+   pseudo-elements.
+   Firefox — scrollbar-width + scrollbar-color. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(148, 163, 184, 0.5);
   border-radius: 3px;
 }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+.scrollbar-thin::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.dark .scrollbar-thin {
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
 .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: rgba(148, 163, 184, 0.35);
+}
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(203, 213, 225, 0.55);
 }
 
 /* Dark variant of the HTMX indicator. */
@@ -22,8 +52,10 @@
 /* ─── Print styles (`u10-printable-views`) ────────────────────────────── */
 
 @media print {
-  /* Hidden chrome: nav, footer, primary CTAs. */
+  /* Hidden chrome: nav, breadcrumb, footer, sidebar, primary CTAs. */
   nav,
+  nav[aria-label="Breadcrumb"],
+  aside,
   footer,
   .no-print,
   .print-button-row,
@@ -95,4 +127,31 @@
 /* Hide the print-only header on screen. */
 .print-only-header {
   display: none;
+}
+
+/* Dark-mode form control defaults.
+   Browsers default `<input>`, `<textarea>`, and `<select>` to
+   white backgrounds with black text. In dark mode the body is
+   `bg-slate-900` (near-black) and these defaults produce
+   high-contrast white pills that don't fit the theme. We
+   apply a consistent dark surface to every form control that
+   doesn't already carry an explicit background colour.
+
+   The `:where(...)` keeps specificity at 0 so a template that
+   sets e.g. `bg-slate-100` or `bg-white` explicitly still wins. */
+:where(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]) {
+  background-color: rgb(255 255 255);
+  color: rgb(15 23 42);
+  border-color: rgb(203 213 225);
+}
+.dark :where(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]) {
+  background-color: rgb(15 23 42);     /* slate-900 */
+  color: rgb(241 245 249);            /* slate-100 */
+  border-color: rgb(51 65 85);        /* slate-700 */
+}
+:where(input, textarea, select)::placeholder {
+  color: rgb(148 163 184);            /* slate-400 */
+}
+.dark :where(input, textarea, select)::placeholder {
+  color: rgb(100 116 139);            /* slate-500 */
 }

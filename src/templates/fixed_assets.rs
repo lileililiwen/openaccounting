@@ -11,6 +11,7 @@ pub struct FixedAssetList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub assets: Vec<FixedAssetRow>,
 }
 
@@ -22,6 +23,7 @@ pub struct FixedAssetForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub accounts: Vec<(Uuid, String, String)>,
     pub name: String,
     pub description: String,
@@ -41,6 +43,7 @@ pub struct FixedAssetShow {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub asset: FixedAssetRow,
 }
 

@@ -58,6 +58,7 @@ pub async fn list(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         unapplied,
         error: String::new(),
     }))
@@ -93,6 +94,7 @@ pub async fn new_page(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         contacts,
         invoices,
         amount: String::new(),
@@ -377,6 +379,7 @@ pub async fn register(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
         payments,
     }))
 }

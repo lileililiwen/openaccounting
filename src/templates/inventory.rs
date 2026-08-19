@@ -10,6 +10,7 @@ pub struct InventoryList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub items: Vec<InventoryItem>,
 }
 
@@ -21,6 +22,7 @@ pub struct InventoryForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub accounts: Vec<(Uuid, String, String)>,
     pub name: String,
     pub sku: String,
@@ -36,6 +38,7 @@ pub struct InventoryValuation {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub items: Vec<InventoryItem>,
     pub total_value: Decimal,
 }

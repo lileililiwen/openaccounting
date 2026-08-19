@@ -10,6 +10,7 @@ pub struct SharePage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub members: Vec<(Uuid, String, String, DateTime<Utc>)>,
     pub invitations: Vec<(String, String, DateTime<Utc>)>,
     pub error: String,

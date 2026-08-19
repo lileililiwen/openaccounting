@@ -17,6 +17,7 @@ pub struct ApiTokenListPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub tokens: Vec<ApiTokenSummary>,
     pub plaintext: Option<String>,
 }
@@ -29,6 +30,7 @@ pub struct ApiTokenShowPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub tokens: Vec<ApiTokenSummary>,
     pub plaintext: Option<String>,
     pub plaintext_name: Option<String>,

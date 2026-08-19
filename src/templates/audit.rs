@@ -11,6 +11,7 @@ pub struct AuditLogPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub entries: Vec<(AuditEntry, String)>,
     pub offset: i64,
     pub limit: i64,

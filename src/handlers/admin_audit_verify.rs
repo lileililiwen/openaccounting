@@ -28,6 +28,7 @@ pub async fn verify_chain(
         user_role: user.role.clone(),
         ledger_id: uuid::Uuid::nil(),
         ledger_name: String::new(),
+        current_section: "admin".to_string(),
         intact: breaks.is_empty(),
         entries_count,
         tail_hash: tail.unwrap_or_default(),

@@ -10,6 +10,7 @@ pub struct EntityList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub entities: Vec<EntityRow>,
 }
 
@@ -21,6 +22,7 @@ pub struct EntityForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub name: String,
     pub legal_name: String,
     pub tax_id: String,
@@ -35,6 +37,7 @@ pub struct ConsolidatedBalanceSheet {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub entity_id: Uuid,
     pub entity_name: String,
     pub legal_name: String,

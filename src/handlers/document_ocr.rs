@@ -87,6 +87,7 @@ pub async fn show(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "documents".to_string(),
         document_id: doc_id,
         filename,
         result,

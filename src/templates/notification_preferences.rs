@@ -14,6 +14,7 @@ pub struct PreferencesPage {
     /// ledger-scoped links.
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     /// One row per event, in display order.
     pub rows: Vec<PreferencesRow>,
 }
@@ -65,6 +66,7 @@ impl PreferencesPage {
             user_role,
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: String::new(),
             rows,
         }
     }

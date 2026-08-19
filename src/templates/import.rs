@@ -14,6 +14,7 @@ pub struct ImportUpload {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }
 
@@ -25,6 +26,7 @@ pub struct ImportPreview {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub filename: String,
     /// "csv", "ofx", "qif", or "mt940". Shown in the preview
     /// header so the user knows which parser produced the
@@ -45,6 +47,7 @@ pub struct WizardMapPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub headers: Vec<String>,
     pub map: ColumnMap,
     pub csv_content: String,
@@ -60,6 +63,7 @@ pub struct WizardPreviewPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub headers: Vec<String>,
     pub map: ColumnMap,
     pub csv_content: String,

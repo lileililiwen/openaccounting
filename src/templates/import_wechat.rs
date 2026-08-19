@@ -12,6 +12,7 @@ pub struct WechatUpload {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }
 
@@ -23,6 +24,7 @@ pub struct WechatPreview {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub filename: String,
     /// "wechat" — shown in the preview header.
     pub format: String,

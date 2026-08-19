@@ -52,6 +52,7 @@ pub async fn show_upload(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import".to_string(),
         error: String::new(),
     }))
 }
@@ -200,6 +201,7 @@ pub async fn handle_upload(
             user_role: user.role.clone(),
             ledger_id,
             ledger_name: ledger.name,
+            current_section: "import".to_string(),
             error: "No file provided".into(),
         }));
     }
@@ -228,6 +230,7 @@ pub async fn handle_upload(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import".to_string(),
         headers,
         map,
         csv_content,
@@ -297,6 +300,7 @@ pub async fn handle_preview(
         user_role: user.role.clone(),
         ledger_id,
         ledger_name: ledger.name,
+        current_section: "import".to_string(),
         headers,
         map,
         csv_content: form.csv_content,

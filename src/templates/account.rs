@@ -22,6 +22,7 @@ pub struct SecurityPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
 }
 
 impl SecurityPage {
@@ -39,6 +40,7 @@ impl SecurityPage {
             user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: String::new(),
         }
     }
 
@@ -61,6 +63,7 @@ impl SecurityPage {
             user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: String::new(),
         }
     }
 
@@ -82,6 +85,7 @@ pub struct AccountPage {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub user: User,
     pub created_at_display: String,
     pub updated_at_display: String,
@@ -117,6 +121,7 @@ impl AccountPage {
             user_role: user.role.clone(),
             ledger_id: Uuid::nil(),
             ledger_name: String::new(),
+            current_section: String::new(),
             created_at_display,
             updated_at_display,
             user,

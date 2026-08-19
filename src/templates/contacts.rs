@@ -11,6 +11,7 @@ pub struct ContactList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub contacts: Vec<Contact>,
 }
 
@@ -22,5 +23,6 @@ pub struct ContactNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }

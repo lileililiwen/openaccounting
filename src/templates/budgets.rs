@@ -11,6 +11,7 @@ pub struct BudgetList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub budgets: Vec<BudgetRow>,
     pub error: String,
 }
@@ -23,6 +24,7 @@ pub struct BudgetForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub accounts: Vec<(Uuid, String, String)>,
     pub period: String,
     pub amount: String,
@@ -40,6 +42,7 @@ pub struct BudgetReport {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub from: String,
     pub to: String,
     pub rows: Vec<BudgetVsActual>,

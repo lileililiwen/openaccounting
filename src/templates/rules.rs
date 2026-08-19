@@ -18,6 +18,7 @@ pub struct RuleList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub rules: Vec<RuleRow>,
     pub error: String,
 }
@@ -30,5 +31,6 @@ pub struct RuleNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }

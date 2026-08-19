@@ -11,6 +11,7 @@ pub struct PaymentList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub unapplied: Vec<PaymentRow>,
     pub error: String,
 }
@@ -23,6 +24,7 @@ pub struct PaymentForm {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub contacts: Vec<(Uuid, String)>,
     pub invoices: Vec<(Uuid, String, Decimal)>,
     pub amount: String,
@@ -43,6 +45,7 @@ pub struct PaymentRegister {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub payments: Vec<PaymentRow>,
 }
 

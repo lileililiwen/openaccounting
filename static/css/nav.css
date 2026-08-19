@@ -1,0 +1,302 @@
+/* OpenAccounting — menu-navigation styles
+   (`u11-menu-navigation`)
+
+   Provides:
+   - `.nav-shell` / `.nav-indicator`: the sliding active-state indicator
+     under the active top-nav link
+   - `.is-active`: the active top-nav link background + left border bar
+   - `.app-sidebar` / `.sidebar-link` / `[data-sidebar-collapsed="true"]`:
+     persistent left rail inside a ledger, collapsible to icon-only
+   - `.nav-skeleton`: 150–200 ms placeholder during in-app navigation
+   - Dark-mode parity for every new style (`dark:` variants on every
+     active / hover / cluster background)
+
+   The CSS is layered on top of `app.css`. The Tailwind Play CDN handles
+   utility classes; this file handles the transitions and the
+   non-utility state classes. */
+
+:root {
+  --oa-nav-indicator-bg: #0f172a;            /* slate-900 */
+  --oa-nav-indicator-bg-dark: #e2e8f0;       /* slate-200 */
+  --oa-nav-link-active-bg: rgba(15, 23, 42, 0.08);
+  --oa-nav-link-active-bg-dark: rgba(226, 232, 240, 0.12);
+  --oa-nav-link-active-border: #0f172a;
+  --oa-nav-link-active-border-dark: #e2e8f0;
+  --oa-sidebar-width: 14rem;
+  --oa-sidebar-width-collapsed: 3.25rem;
+  --oa-sidebar-gap: 1rem;                /* gap between the
+                                              sidebar and <main>
+                                              so content doesn't
+                                              kiss the rail. */
+  --oa-sidebar-active-bg: rgba(15, 23, 42, 0.08);
+  --oa-sidebar-active-bg-dark: rgba(226, 232, 240, 0.12);
+  --oa-sidebar-active-bar: #0f172a;
+  --oa-sidebar-active-bar-dark: #e2e8f0;
+}
+
+/* ── Top-nav container + sliding indicator ──────────────────────── */
+.nav-shell {
+  position: relative;
+}
+
+.nav-shell .nav-link {
+  position: relative;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.375rem;
+  color: rgb(71 85 105);            /* slate-600 */
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-shell .nav-link:hover {
+  background: rgb(241 245 249);      /* slate-100 */
+}
+.nav-shell .nav-link.is-active {
+  background: var(--oa-nav-link-active-bg);
+  color: rgb(15 23 42);              /* slate-900 */
+  font-weight: 500;
+}
+/* The sliding indicator. JS sets `left` and `width` after each
+   full-page paint. CSS transitions handle the slide. */
+.nav-shell .nav-indicator {
+  position: absolute;
+  bottom: -0.5rem;                   /* sits on the nav's bottom edge */
+  height: 2px;
+  background: var(--oa-nav-indicator-bg);
+  border-radius: 1px;
+  transition: left 180ms ease-out, width 180ms ease-out, background-color 180ms ease-out;
+  will-change: left, width;
+  pointer-events: none;
+}
+
+.dark .nav-shell .nav-link { color: rgb(203 213 225); }  /* slate-300 */
+.dark .nav-shell .nav-link:hover { background: rgb(30 41 59); } /* slate-800 */
+.dark .nav-shell .nav-link.is-active {
+  background: var(--oa-nav-link-active-bg-dark);
+  color: rgb(255 255 255);
+}
+.dark .nav-shell .nav-indicator {
+  background: var(--oa-nav-indicator-bg-dark);
+}
+
+/* Visual separator between clusters. Barely visible. */
+.nav-shell .nav-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding-left: 0.5rem;
+  margin-left: 0.25rem;
+  border-left: 1px solid rgb(226 232 240);    /* slate-200 */
+}
+.dark .nav-shell .nav-cluster { border-left-color: rgb(51 65 85); } /* slate-700 */
+
+/* ── Persistent sidebar (≥md viewports) ──────────────────────────── */
+.app-sidebar {
+  position: fixed;
+  top: 3.5rem;            /* matches the top nav's h-14 */
+  left: 0;
+  height: calc(100vh - 3.5rem);
+  width: var(--oa-sidebar-width);
+  overflow-y: auto;
+  transition: width 200ms ease-out, left 200ms ease-out;
+  z-index: 10;
+}
+.app-sidebar[data-sidebar-collapsed="true"] {
+  width: var(--oa-sidebar-width-collapsed);
+}
+.app-sidebar[data-sidebar-collapsed="true"] .sidebar-link-label,
+.app-sidebar[data-sidebar-collapsed="true"] .sidebar-cluster-label,
+.app-sidebar[data-sidebar-collapsed="true"] > div > .sidebar-label {
+  display: none;
+}
+.app-sidebar[data-sidebar-collapsed="true"] .sidebar-link {
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* The sidebar's scroll container is the <aside> itself (not
+   the inner <nav>), so the tooltip `::after` can overflow the
+   link's bounding box to the right without being clipped. We
+   keep `overflow-x: visible` explicit on the inner nav in
+   case a future revision reintroduces an inner scroll. */
+.app-sidebar > nav {
+  overflow-x: visible;
+}
+
+/* ── Tooltip on the collapsed rail ─────────────────────────────────
+   When the sidebar is collapsed, each link shows only its icon.
+   A real DOM element (`.app-sidebar-tooltip`, parented to
+   <body>) is positioned with `position: fixed` and shown on
+   hover/focus of a `.sidebar-link[data-tooltip]`. Using
+   `position: fixed` escapes all overflow contexts (the aside
+   has `overflow-y: auto` which would clip a CSS `::after`).
+   The element is created once per page load by the script
+   in `templates/partials/_sidebar.html`. */
+.app-sidebar-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: rgb(15 23 42);          /* slate-900 */
+  color: rgb(255 255 255);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease-out;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.app-sidebar-tooltip.is-visible {
+  opacity: 1;
+}
+.dark .app-sidebar-tooltip {
+  background: rgb(226 232 240);      /* slate-200 */
+  color: rgb(15 23 42);
+}
+
+/* Reserve space on <main> for the fixed sidebar. The sidebar
+   is `position: fixed` so it doesn't take up flow space; this
+   padding-left shifts <main> to the right of the sidebar on
+   `md+` viewports. The total offset is the sidebar's width
+   plus a small visual gap (1rem) so the main content doesn't
+   visually "kiss" the rail. On `<md` the sidebar is `hidden`
+   (display: none) and this padding is reset.
+
+   We target <main> as a sibling of <aside.app-sidebar>. The
+   `~` general-sibling combinator handles the case where the
+   sidebar is rendered before main in the DOM. */
+@media (min-width: 768px) {
+  body:has(> aside.app-sidebar) main {
+    padding-left: calc(var(--oa-sidebar-width) + var(--oa-sidebar-gap));
+    transition: padding-left 200ms ease-out;
+  }
+  body:has(> aside.app-sidebar[data-sidebar-collapsed="true"]) main {
+    padding-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap));
+  }
+}
+
+/* The breadcrumb nav is rendered before <main> but is also
+   affected by the fixed sidebar. Without adjustment the
+   breadcrumb text would be hidden behind the sidebar (the
+   sidebar covers x=0 to x=224px on `md+` viewports, and the
+   breadcrumb's `mx-auto` container starts at x=0). We shift
+   the breadcrumb's centered content rightward by adding the
+   same left padding on `md+` viewports.
+
+   We add the padding to the breadcrumb's `<ol>` rather than
+   the outer `<nav>` so the nav's full-width background
+   strip still spans the entire viewport. The padding only
+   affects the inner content's alignment with the main column.
+
+   We also override the OL's `mx-auto` by setting
+   `margin-inline: auto` to preserve centering, but the
+   resulting layout is: the OL is positioned at
+   `(viewport - max-w-7xl) / 2 + padding-left`, so on a
+   1280px viewport (where `max-w-7xl = 1280px` and the
+   OL starts at x=0), the text starts at
+   `padding-left = 240px + 16px = 256px`, which is past
+   the 224px-wide sidebar. */
+@media (min-width: 768px) {
+  body:has(> aside.app-sidebar) nav[aria-label="Breadcrumb"] > ol {
+    padding-left: calc(var(--oa-sidebar-width) + var(--oa-sidebar-gap) + 0.25rem);
+    transition: padding-left 200ms ease-out;
+  }
+  body:has(> aside.app-sidebar[data-sidebar-collapsed="true"]) nav[aria-label="Breadcrumb"] > ol {
+    padding-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap) + 0.25rem);
+  }
+}
+}
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4rem 0.6rem;
+  margin: 1px 0;
+  border-radius: 0.375rem;
+  color: rgb(71 85 105);            /* slate-600 */
+  text-decoration: none;
+}
+.sidebar-link:hover {
+  background: rgb(241 245 249);     /* slate-100 */
+  color: rgb(15 23 42);
+}
+.sidebar-link.is-active {
+  background: var(--oa-sidebar-active-bg);
+  color: rgb(15 23 42);
+  font-weight: 500;
+}
+.sidebar-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--oa-sidebar-active-bar);
+}
+
+.dark .sidebar-link { color: rgb(203 213 225); }
+.dark .sidebar-link:hover { background: rgb(30 41 59); color: rgb(255 255 255); }
+.dark .sidebar-link.is-active {
+  background: var(--oa-sidebar-active-bg-dark);
+  color: rgb(255 255 255);
+}
+.dark .sidebar-link.is-active::before {
+  background: var(--oa-sidebar-active-bar-dark);
+}
+
+/* ── Skeleton transition on in-app navigation ───────────────────── */
+.nav-skeleton {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  pointer-events: none;
+  z-index: 5;
+  animation: nav-skeleton-fade-in 120ms ease-out;
+}
+.dark .nav-skeleton { background: rgba(15, 23, 42, 0.85); }
+.nav-skeleton-row {
+  height: 1rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(90deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(148, 163, 184, 0.32) 50%,
+    rgba(148, 163, 184, 0.18) 100%);
+  background-size: 200% 100%;
+  animation: nav-skeleton-shimmer 800ms linear infinite;
+}
+@keyframes nav-skeleton-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes nav-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ── Layout: shift <main> next to the sidebar on ≥md ────────────── */
+@media (min-width: 768px) {
+  body:has(> aside.app-sidebar) main {
+    margin-left: 0;
+  }
+}
+
+/* ── Print: hide the nav, breadcrumb, and sidebar ─────────────── */
+@media print {
+  nav.sticky,
+  nav[aria-label="Breadcrumb"],
+  aside.app-sidebar {
+    display: none !important;
+  }
+}

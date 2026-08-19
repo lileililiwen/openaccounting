@@ -24,6 +24,7 @@ pub struct ClaimList {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub claims: Vec<ClaimListRow>,
     pub error: String,
 }
@@ -36,6 +37,7 @@ pub struct ClaimNew {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }
 
@@ -66,6 +68,7 @@ pub struct ClaimShow {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub claim: Claim,
     pub lines: Vec<ClaimShowLine>,
     pub total: Decimal,

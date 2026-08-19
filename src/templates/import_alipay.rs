@@ -12,6 +12,7 @@ pub struct AlipayUpload {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub error: String,
 }
 
@@ -23,6 +24,7 @@ pub struct AlipayPreview {
     pub user_role: String,
     pub ledger_id: Uuid,
     pub ledger_name: String,
+    pub current_section: String,
     pub filename: String,
     /// "alipay_mobile" or "alipay_web".
     pub format: String,
