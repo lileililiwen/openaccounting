@@ -209,7 +209,6 @@
     padding-left: calc(var(--oa-sidebar-width-collapsed) + var(--oa-sidebar-gap) + 0.25rem);
   }
 }
-}
 
 .sidebar-link {
   position: relative;
