@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dt-rust/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - run: cargo fmt -- --check
+      - run: cargo clippy --features test-support --all-targets -- -D warnings
+      - run: cargo clippy --features test-support,storage-s3 --lib -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
+      RUST_LOG: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dt-rust/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - run: cargo test --features test-support --lib
+      - run: cargo test --features test-support --test integration
+
+  migrations-reversible:
+    # Proves the `-- !DOWN` blocks for every migration are correct:
+    # apply all, revert all, apply all again.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dt-rust/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --version ^0.8 --no-default-features --features rustls,postgres,sqlite
+      - name: Apply all migrations
+        run: |
+          set -euo pipefail
+          sqlx database create
+          sqlx migrate run --source migrations
+      - name: Revert all migrations
+        run: |
+          set -euo pipefail
+          safety=200
+          while [ "$safety" -gt 0 ]; do
+            if sqlx migrate revert --source migrations; then
+              safety=$((safety-1))
+            else
+              break
+            fi
+          done
+      - name: Re-apply all migrations
+        run: |
+          set -euo pipefail
+          sqlx migrate run --source migrations
+      - name: Verify every migration has a DOWN block
+        run: |
+          set -euo pipefail
+          for f in migrations/*.sql; do
+            if ! grep -q "^-- Reversible:" "$f"; then
+              echo "FAIL: $f has no Reversible header"
+              exit 1
+            fi
+            if ! grep -q "^-- !DOWN" "$f" && ! grep -q "Reversible: no" "$f"; then
+              echo "FAIL: $f has no DOWN block and isn't marked irreversible"
+              exit 1
+            fi
+          done
+          echo "OK: $(ls migrations/*.sql | wc -l) migrations verified"
