@@ -659,7 +659,7 @@ pub async fn show(
         .collect();
 
     let documents = sqlx::query_as::<_, crate::domain::Document>(
-        r#"SELECT id, transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at, category
+        r#"SELECT id, transaction_id, ledger_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at, category
            FROM documents WHERE transaction_id = $1 ORDER BY uploaded_at"#,
     )
     .bind(txn_id)

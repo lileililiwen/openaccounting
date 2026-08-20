@@ -38,7 +38,7 @@ impl From<DocWithTxn> for DocumentWithTxn {
             mime_type: row.doc.mime_type,
             size_bytes: row.doc.size_bytes,
             uploaded_at: row.doc.uploaded_at,
-            transaction_id: row.doc.transaction_id,
+            transaction_id: row.doc.transaction_id.unwrap_or_default(),
             transaction_date: row.transaction_date,
             transaction_description: row.transaction_description,
             ocr_status: row.ocr_status,
@@ -97,7 +97,7 @@ pub async fn list(
     let to_date = NaiveDate::parse_from_str(&to_str, "%Y-%m-%d").ok();
 
     let rows = sqlx::query_as::<_, DocWithTxn>(
-        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at,
+        r#"SELECT d.id, d.transaction_id, d.ledger_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at,
                   t.txn_date AS transaction_date, t.description AS transaction_description,
                   COALESCE(
                       CASE
@@ -249,11 +249,12 @@ pub async fn upload(
         };
 
         let doc_result = sqlx::query(
-            r#"INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+            r#"INSERT INTO documents (transaction_id, ledger_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING id"#,
         )
         .bind(txn_id)
+        .bind(ledger_id)
         .bind(&filename)
         .bind(&stored)
         .bind(&mime)
@@ -349,11 +350,12 @@ pub(crate) async fn save_inline_document(
     };
 
     let doc_id: Uuid = sqlx::query_scalar(
-        r#"INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
-           VALUES ($1, $2, $3, $4, $5, $6, 'Other')
+        r#"INSERT INTO documents (transaction_id, ledger_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'Other')
            RETURNING id"#,
     )
     .bind(txn_id)
+    .bind(ledger_id)
     .bind(filename)
     .bind(&stored)
     .bind(&mime)
@@ -394,7 +396,7 @@ pub async fn download(
     // avoid revealing the document's existence.
     let _ = ensure_doc_access(&state, user, ledger_id).await?;
     let doc = sqlx::query_as::<_, Document>(
-        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
+        r#"SELECT d.id, d.transaction_id, d.ledger_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
            JOIN transactions t ON t.id = d.transaction_id
            WHERE d.id = $1 AND t.ledger_id = $2"#,
@@ -431,7 +433,7 @@ pub async fn delete(
     let _ = ensure_doc_mutation_access(&state, user, ledger_id).await?;
 
     let doc = sqlx::query_as::<_, Document>(
-        r#"SELECT d.id, d.transaction_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
+        r#"SELECT d.id, d.transaction_id, d.ledger_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
            JOIN transactions t ON t.id = d.transaction_id
            WHERE d.id = $1 AND t.ledger_id = $2"#,

@@ -404,7 +404,6 @@
     });
     if (simpleType) {
       simpleType.addEventListener('change', onSimpleTypeChange);
-      onSimpleTypeChange();
     }
     if (simpleAmount) {
       simpleAmount.addEventListener('input', updateSimpleStatus);
@@ -412,9 +411,27 @@
     [simpleAccount, simpleCategory, simpleFrom, simpleTo].forEach(function (el) {
       if (el) el.addEventListener('change', updateSimpleStatus);
     });
-    // Simple is the default view: keep the advanced rows disabled so
-    // they don't submit alongside the simple-built lines.
-    toggleRowsDisabled(true);
+
+    // Sync the UI to the template's initial state. The multi-leg
+    // editor is the default (`a13-document-inbox`); when Simple is
+    // active its posting rows must be disabled so they don't submit
+    // alongside the simple-built lines.
+    var initialSimple = isSimpleMode();
+    toggleRowsDisabled(initialSimple);
+    modeButtons.forEach(function (b) {
+      var active = b.getAttribute('data-entry-mode') === (initialSimple ? 'simple' : 'advanced');
+      b.classList.toggle('is-active', active);
+      b.classList.toggle('bg-slate-900', active);
+      b.classList.toggle('text-white', active);
+      b.classList.toggle('bg-white', !active);
+      b.classList.toggle('text-slate-600', !active);
+    });
+    if (initialSimple) {
+      onSimpleTypeChange();
+      updateSimpleStatus();
+    } else {
+      recompute();
+    }
   }
 
   // Build hidden `lines[N]` inputs from the simple fields; returns

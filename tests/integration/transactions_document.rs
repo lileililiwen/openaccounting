@@ -281,3 +281,28 @@ async fn http_urlencoded_create_still_works() {
         "urlencoded create path must keep working"
     );
 }
+
+#[tokio::test]
+async fn http_multileg_editor_is_default() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, _, _) = setup(&server, "multileg").await;
+
+    let resp = client
+        .get(format!(
+            "{}/ledgers/{ledger_id}/transactions/new",
+            server.base_url()
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains(r#"id="advanced-entry">"#),
+        "the multi-leg editor must be visible by default"
+    );
+    assert!(
+        body.contains(r#"id="simple-entry" hidden"#),
+        "the two-leg simple view must be hidden by default"
+    );
+}

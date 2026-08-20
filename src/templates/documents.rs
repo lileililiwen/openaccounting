@@ -37,7 +37,7 @@ impl From<(Document, chrono::NaiveDate, String)> for DocumentWithTxn {
             mime_type: d.mime_type,
             size_bytes: d.size_bytes,
             uploaded_at: d.uploaded_at,
-            transaction_id: d.transaction_id,
+            transaction_id: d.transaction_id.unwrap_or_default(),
             transaction_date: date,
             transaction_description: desc,
             ocr_status: String::new(),
