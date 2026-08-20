@@ -247,4 +247,263 @@
     rs[rs.length - 1].setAttribute('data-balancer', 'true');
   }
   recompute();
+
+  // ---- Simple / Advanced mode -------------------------------------
+  // (`a12-transaction-entry-ease` transaction-simple-entry)
+  var simplePanel = document.getElementById('simple-entry');
+  var advancedPanel = document.getElementById('advanced-entry');
+  var modeButtons = document.querySelectorAll('[data-entry-mode]');
+  var simpleType = document.getElementById('simple-type');
+  var simpleAmount = document.getElementById('simple-amount');
+  var simpleAccount = document.getElementById('simple-account');
+  var simpleCategory = document.getElementById('simple-category');
+  var simpleFrom = document.getElementById('simple-from');
+  var simpleTo = document.getElementById('simple-to');
+  var simpleCategoryRow = document.getElementById('simple-category-row');
+  var simpleTransferRow = document.getElementById('simple-transfer-row');
+  var simplePayLabelText = document.getElementById('simple-pay-label-text');
+
+  function isSimpleMode() {
+    return simplePanel && simplePanel.hidden === false;
+  }
+
+  function onSimpleTypeChange() {
+    var t = simpleType.value;
+    var isTransfer = t === 'transfer';
+    if (simpleTransferRow) simpleTransferRow.hidden = !isTransfer;
+    if (simpleCategoryRow) simpleCategoryRow.hidden = isTransfer;
+    if (simplePayLabelText) {
+      simplePayLabelText.textContent = t === 'income' ? 'Received into' : 'Paid from';
+    }
+    var want = t === 'income' ? 'INCOME' : 'EXPENSE';
+    if (simpleCategory) {
+      simpleCategory.querySelectorAll('option[data-account-type]').forEach(function (o) {
+        o.disabled = o.getAttribute('data-account-type') !== want;
+      });
+    }
+    simpleAmount.required = true;
+    if (simpleCategory) simpleCategory.required = !isTransfer;
+    if (simpleAccount) simpleAccount.required = !isTransfer;
+    if (simpleFrom) simpleFrom.required = isTransfer;
+    if (simpleTo) simpleTo.required = isTransfer;
+    updateSimpleStatus();
+  }
+
+  function toggleRowsDisabled(disabled) {
+    rows().forEach(function (r) {
+      r.querySelectorAll('input, select').forEach(function (el) {
+        el.disabled = disabled;
+      });
+    });
+  }
+
+  function setRow(r, account, dir) {
+    var acc = q(r, 'select[name$="[account_id]"]');
+    var d = q(r, 'select[name$="[direction]"]');
+    var a = q(r, 'input[name$="[amount]"]');
+    if (acc) acc.value = account;
+    if (d) d.value = dir;
+    if (a) a.value = simpleAmount ? simpleAmount.value : '';
+  }
+
+  // Simple fields → the two advanced lines (Advanced view).
+  function preserveToAdvanced() {
+    if (!simpleAmount || !simpleAmount.value) return;
+    if (rows().length < 2) return;
+    var t = simpleType.value;
+    if (t === 'transfer') {
+      if (!simpleFrom.value || !simpleTo.value) return;
+      setRow(rows()[0], simpleTo.value, 'DEBIT');
+      setRow(rows()[1], simpleFrom.value, 'CREDIT');
+    } else if (t === 'income') {
+      if (!simpleCategory.value || !simpleAccount.value) return;
+      setRow(rows()[0], simpleAccount.value, 'DEBIT');
+      setRow(rows()[1], simpleCategory.value, 'CREDIT');
+    } else {
+      if (!simpleCategory.value || !simpleAccount.value) return;
+      setRow(rows()[0], simpleCategory.value, 'DEBIT');
+      setRow(rows()[1], simpleAccount.value, 'CREDIT');
+    }
+  }
+
+  // First two advanced lines → simple fields (Simple view).
+  function preserveToSimple() {
+    if (!simpleAmount || !simpleType) return;
+    var rs = rows();
+    if (rs.length < 2) return;
+    var a0 = q(rs[0], 'select[name$="[account_id]"]');
+    var a1 = q(rs[1], 'select[name$="[account_id]"]');
+    var amt0 = q(rs[0], 'input[name$="[amount]"]');
+    if (!a0 || !a1 || !amt0) return;
+    if (!a0.value || !a1.value || !amt0.value) return;
+    simpleAmount.value = amt0.value;
+    var d0 = q(rs[0], 'select[name$="[direction]"]');
+    if (d0 && d0.value === 'DEBIT') {
+      simpleType.value = 'expense';
+      if (simpleCategory) simpleCategory.value = a0.value;
+      if (simpleAccount) simpleAccount.value = a1.value;
+    } else {
+      simpleType.value = 'income';
+      if (simpleAccount) simpleAccount.value = a0.value;
+      if (simpleCategory) simpleCategory.value = a1.value;
+    }
+    onSimpleTypeChange();
+  }
+
+  function updateSimpleStatus() {
+    var big = document.getElementById('balance-status');
+    if (!big) return;
+    var amt = simpleAmount && simpleAmount.value;
+    if (!amt) {
+      big.textContent = '—';
+      big.className = 'text-xs text-slate-500';
+      return;
+    }
+    var t = simpleType.value;
+    var ok = t === 'transfer'
+      ? (simpleFrom.value && simpleTo.value)
+      : (simpleCategory.value && simpleAccount.value);
+    if (ok) {
+      big.textContent = '✓ balanced — ready to save';
+      big.className = 'text-xs font-medium text-emerald-600';
+    } else {
+      big.textContent = 'pick both accounts to finish';
+      big.className = 'text-xs font-medium text-amber-600';
+    }
+  }
+
+  function setMode(mode) {
+    if (!simplePanel || !advancedPanel) return;
+    var simple = mode === 'simple';
+    if (simple) {
+      preserveToSimple();
+      toggleRowsDisabled(true);
+    } else {
+      preserveToAdvanced();
+      toggleRowsDisabled(false);
+      recompute();
+    }
+    simplePanel.hidden = !simple;
+    advancedPanel.hidden = simple;
+    modeButtons.forEach(function (b) {
+      var active = b.getAttribute('data-entry-mode') === mode;
+      b.classList.toggle('is-active', active);
+      b.classList.toggle('bg-slate-900', active);
+      b.classList.toggle('text-white', active);
+      b.classList.toggle('bg-white', !active);
+      b.classList.toggle('text-slate-600', !active);
+    });
+    if (simple) updateSimpleStatus();
+  }
+
+  if (simplePanel && advancedPanel) {
+    modeButtons.forEach(function (b) {
+      b.addEventListener('click', function () {
+        setMode(b.getAttribute('data-entry-mode'));
+      });
+    });
+    if (simpleType) {
+      simpleType.addEventListener('change', onSimpleTypeChange);
+      onSimpleTypeChange();
+    }
+    if (simpleAmount) {
+      simpleAmount.addEventListener('input', updateSimpleStatus);
+    }
+    [simpleAccount, simpleCategory, simpleFrom, simpleTo].forEach(function (el) {
+      if (el) el.addEventListener('change', updateSimpleStatus);
+    });
+    // Simple is the default view: keep the advanced rows disabled so
+    // they don't submit alongside the simple-built lines.
+    toggleRowsDisabled(true);
+  }
+
+  // Build hidden `lines[N]` inputs from the simple fields; returns
+  // the effective lines [[account, direction, amount], …] or null.
+  function buildSimpleLines() {
+    var t = simpleType.value;
+    var amt = simpleAmount.value;
+    var cat = simpleCategory.value;
+    var pay = simpleAccount.value;
+    var from = simpleFrom.value;
+    var to = simpleTo.value;
+    var lines;
+    if (t === 'transfer') {
+      if (!from || !to || !amt) return null;
+      lines = [[to, 'DEBIT'], [from, 'CREDIT']];
+    } else if (t === 'income') {
+      if (!cat || !pay || !amt) return null;
+      lines = [[pay, 'DEBIT'], [cat, 'CREDIT']];
+    } else {
+      if (!cat || !pay || !amt) return null;
+      lines = [[cat, 'DEBIT'], [pay, 'CREDIT']];
+    }
+    form.querySelectorAll('input[name^="lines["]').forEach(function (el) {
+      if (el.type === 'hidden') el.remove();
+    });
+    lines.forEach(function (ln, i) {
+      [['account_id', ln[0]], ['direction', ln[1]], ['amount', amt]].forEach(function (pair) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'lines[' + i + '][' + pair[0] + ']';
+        inp.value = pair[1];
+        form.appendChild(inp);
+      });
+    });
+    return lines;
+  }
+
+  // Submit: build simple lines, then guard same-account and
+  // far-future dates (`ux-transaction-entry`).
+  if (form) {
+    form.addEventListener('submit', function (ev) {
+      var effective;
+      if (isSimpleMode()) {
+        effective = buildSimpleLines();
+        if (!effective) {
+          ev.preventDefault();
+          window.alert('Please fill in the amount and both accounts.');
+          return;
+        }
+      } else {
+        effective = rows().map(function (r) {
+          var acc = q(r, 'select[name$="[account_id]"]');
+          var dir = q(r, 'select[name$="[direction]"]');
+          var amt = q(r, 'input[name$="[amount]"]');
+          return [acc ? acc.value : '', dir ? dir.value : '', amt ? amt.value : ''];
+        });
+      }
+
+      var byAccount = {};
+      effective.forEach(function (ln) {
+        if (!ln[0]) return;
+        if (!byAccount[ln[0]]) byAccount[ln[0]] = { d: false, c: false };
+        if (ln[1] === 'DEBIT') byAccount[ln[0]].d = true;
+        else if (ln[1] === 'CREDIT') byAccount[ln[0]].c = true;
+      });
+      var badId = null;
+      Object.keys(byAccount).forEach(function (id) {
+        if (byAccount[id].d && byAccount[id].c) badId = id;
+      });
+      if (badId) {
+        var opt = container.querySelector('option[value="' + badId + '"]');
+        var label = opt ? opt.textContent : 'this account';
+        ev.preventDefault();
+        window.alert('This entry moves money within "' + label + '" (the same account on both sides) — pick a different account for one of the lines.');
+        return;
+      }
+
+      var dateEl = form.querySelector('input[name="date"]');
+      if (dateEl && dateEl.value) {
+        var d = new Date(dateEl.value + 'T00:00:00');
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var days = Math.round((d - today) / 86400000);
+        if (days > 30) {
+          if (!window.confirm('You are recording a transaction dated ' + dateEl.value + ' (' + days + ' days in the future) — is that intentional?')) {
+            ev.preventDefault();
+          }
+        }
+      }
+    });
+  }
 })();
