@@ -58,6 +58,10 @@ pub struct TransactionNew {
     /// (`ux-transaction-entry`). Each entry is `(type label, accounts)`.
     pub account_groups: Vec<(String, Vec<Account>)>,
     pub error: String,
+    /// When the bind page linked here with `?bind_doc=<id>`, the
+    /// created transaction is bound to that unbound document
+    /// (`a13-document-inbox`).
+    pub bind_doc: String,
     pub form: TransactionForm,
 }
 

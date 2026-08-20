@@ -381,6 +381,10 @@ fn build_router_inner(
             post(handlers::documents::delete),
         )
         .route(
+            "/ledgers/{id}/documents/{doc_id}/bind",
+            get(handlers::documents::bind_page).post(handlers::documents::bind),
+        )
+        .route(
             "/ledgers/{id}/documents/{doc_id}/ocr",
             get(handlers::document_ocr::show).post(handlers::document_ocr::run),
         )

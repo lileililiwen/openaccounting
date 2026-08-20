@@ -164,6 +164,7 @@ pub async fn new_page(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path(ledger_id): Path<Uuid>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
@@ -185,6 +186,7 @@ pub async fn new_page(
         currency: ledger.base_currency.clone(),
         account_groups: group_accounts(accounts),
         error: String::new(),
+        bind_doc: params.get("bind_doc").cloned().unwrap_or_default(),
         form: TransactionForm::empty(),
     }))
 }
@@ -381,6 +383,7 @@ pub async fn create(
         reference: raw.get("reference").cloned(),
         extra: raw,
     };
+    let bind_doc = form.extra.get("bind_doc").cloned().unwrap_or_default();
 
     let make_error = |msg: String| TransactionNew {
         user_id: user.id,
@@ -392,6 +395,7 @@ pub async fn create(
         currency: ledger.base_currency.clone(),
         account_groups: group_accounts(accounts.clone()),
         error: msg,
+        bind_doc: bind_doc.clone(),
         form: TransactionForm {
             date: form.date.clone(),
             description: form.description.clone(),
@@ -610,6 +614,18 @@ pub async fn create(
         .await
         {
             tracing::warn!(txn_id = %created.id, error = %e, "inline document attach failed");
+        }
+    }
+
+    // `a13-document-inbox`: when the form was opened from the bind
+    // page (?bind_doc=<id>), attach that unbound document to the
+    // newly created transaction.
+    if let Ok(doc_id) = bind_doc.parse::<Uuid>() {
+        if let Err(e) =
+            crate::handlers::documents::bind_document(&state, ledger_id, doc_id, created.id, user)
+                .await
+        {
+            tracing::warn!(txn_id = %created.id, doc_id = %doc_id, error = %e, "bind-from-create failed");
         }
     }
 

@@ -2,11 +2,13 @@ use crate::templates::render_response;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::{
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{Form, Multipart, Path, Query, State},
     http::{header, StatusCode},
 };
 use axum_login::AuthSession;
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
+use serde::Deserialize;
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -16,7 +18,7 @@ use crate::{
     domain::Document,
     error::{AppError, AppResult},
     handlers::{document_ocr, ledgers},
-    templates::documents::{DocumentList, DocumentWithTxn},
+    templates::documents::{DocumentBindPage, DocumentList, DocumentWithTxn},
     upload, AppState,
 };
 
@@ -424,6 +426,178 @@ pub async fn upload_unbound(
     Ok(Redirect::to(&format!("/ledgers/{}/documents", ledger_id)))
 }
 
+/// Form body for binding an unbound document to a transaction.
+#[derive(Deserialize)]
+pub struct BindForm {
+    pub transaction_id: Uuid,
+}
+
+/// Search query for the bind page.
+#[derive(Deserialize, Default)]
+pub struct BindSearch {
+    pub q: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub amount: Option<String>,
+}
+
+/// Render `/ledgers/{id}/documents/{doc_id}/bind` — the inbox bind
+/// page (`a13-document-inbox`): document info, a transaction search
+/// (description / date / amount), and a link to create a transaction.
+pub async fn bind_page(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
+    Query(search): Query<BindSearch>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+
+    let doc = sqlx::query_as::<_, Document>(
+        r#"SELECT id, transaction_id, ledger_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at, category
+           FROM documents
+           WHERE id = $1 AND ledger_id = $2 AND transaction_id IS NULL"#,
+    )
+    .bind(doc_id)
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    // Search transactions in the ledger.
+    let amount: Option<Decimal> = search
+        .amount
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse().ok());
+    let from = search
+        .from
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    let to = search
+        .to
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+
+    #[derive(sqlx::FromRow)]
+    struct TxnRow {
+        id: Uuid,
+        date: NaiveDate,
+        description: String,
+        total: Decimal,
+    }
+    let results = sqlx::query_as::<_, TxnRow>(
+        r#"SELECT * FROM (
+               SELECT t.id, t.txn_date AS date, t.description,
+                      COALESCE((SELECT SUM(p.amount) FROM postings p
+                                WHERE p.transaction_id = t.id AND p.direction = 'DEBIT'), 0) AS total
+               FROM transactions t
+               WHERE t.ledger_id = $1
+           ) s
+           WHERE ($2::text IS NULL OR s.description ILIKE '%' || $2 || '%')
+             AND ($3::date IS NULL OR s.date = $3)
+             AND ($4::date IS NULL OR s.date <= $4)
+             AND ($5::numeric IS NULL OR ABS(s.total - $5) < 0.005)
+           ORDER BY s.date DESC, s.id
+           LIMIT 50"#,
+    )
+    .bind(ledger_id)
+    .bind(search.q.as_deref().filter(|s| !s.is_empty()))
+    .bind(from)
+    .bind(to)
+    .bind(amount)
+    .fetch_all(&state.pool)
+    .await?;
+
+    let page = DocumentBindPage::new(
+        user.clone(),
+        ledger_id,
+        ledger.name.clone(),
+        doc_id,
+        doc.filename.clone(),
+        crate::templates::documents::BindSearchState {
+            q: search.q.unwrap_or_default(),
+            from: search.from.unwrap_or_default(),
+            to: search.to.unwrap_or_default(),
+            amount: search.amount.unwrap_or_default(),
+        },
+        results
+            .into_iter()
+            .map(|r| crate::templates::documents::BindTransactionRow {
+                id: r.id,
+                date: r.date,
+                description: r.description,
+                total: r.total,
+            })
+            .collect(),
+    );
+    Ok(render_response(page))
+}
+
+/// Bind an unbound document to a transaction (`a13-document-inbox`).
+/// Shared by the bind handler and the create-from-bind flow.
+pub(crate) async fn bind_document(
+    state: &AppState,
+    ledger_id: Uuid,
+    doc_id: Uuid,
+    transaction_id: Uuid,
+    actor: &User,
+) -> AppResult<()> {
+    // The document must be unbound and belong to this ledger.
+    let _: (Uuid,) = sqlx::query_as(
+        "SELECT id FROM documents WHERE id = $1 AND ledger_id = $2 AND transaction_id IS NULL",
+    )
+    .bind(doc_id)
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    // The transaction must belong to this ledger.
+    let _: (Uuid,) = sqlx::query_as("SELECT id FROM transactions WHERE id = $1 AND ledger_id = $2")
+        .bind(transaction_id)
+        .bind(ledger_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    sqlx::query("UPDATE documents SET transaction_id = $1 WHERE id = $2")
+        .bind(transaction_id)
+        .bind(doc_id)
+        .execute(&state.pool)
+        .await?;
+
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        actor.id,
+        "bind",
+        "document",
+        Some(doc_id),
+        Some(serde_json::json!({ "transaction_id": null })),
+        Some(serde_json::json!({ "transaction_id": transaction_id })),
+    )
+    .await;
+
+    Ok(())
+}
+
+/// Bind an unbound document to a transaction (`a13-document-inbox`).
+/// Writer-only; sets `transaction_id` and audit-logs the bind.
+pub async fn bind(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path((ledger_id, doc_id)): Path<(Uuid, Uuid)>,
+    Form(form): Form<BindForm>,
+) -> AppResult<Redirect> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let _ = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    bind_document(&state, ledger_id, doc_id, form.transaction_id, user).await?;
+    Ok(Redirect::to(&format!("/ledgers/{}/documents", ledger_id)))
+}
+
 /// Save a document attached inline during transaction creation
 /// (`a12-transaction-entry-ease`). Reuses the upload MIME validation,
 /// storage path, quota warning, and audit logging so the inline
@@ -502,20 +676,26 @@ pub async fn download(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     // Download accepts any ledger role (owner / editor / viewer)
-    // OR an admin user. Cross-ledger access returns 404 to
-    // avoid revealing the document's existence.
-    let _ = ensure_doc_access(&state, user, ledger_id).await?;
+    // OR an admin user — for bound documents. Unbound documents
+    // (the inbox) are restricted to writers. Cross-ledger or
+    // unknown users get 404 to avoid revealing existence.
     let doc = sqlx::query_as::<_, Document>(
         r#"SELECT d.id, d.transaction_id, d.ledger_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
-           JOIN transactions t ON t.id = d.transaction_id
-           WHERE d.id = $1 AND t.ledger_id = $2"#,
+           LEFT JOIN transactions t ON t.id = d.transaction_id
+           WHERE d.id = $1 AND (t.ledger_id = $2 OR d.ledger_id = $2)"#,
     )
     .bind(doc_id)
     .bind(ledger_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
+    if doc.transaction_id.is_none() {
+        // Unbound document: only ledger writers may download.
+        let _ = ensure_doc_mutation_access(&state, user, ledger_id).await?;
+    } else {
+        let _ = ensure_doc_access(&state, user, ledger_id).await?;
+    }
 
     let key = state.storage.key_from_stored(&doc.stored_filename)?;
     let bytes = state.storage.read(&key).await?;
@@ -545,8 +725,8 @@ pub async fn delete(
     let doc = sqlx::query_as::<_, Document>(
         r#"SELECT d.id, d.transaction_id, d.ledger_id, d.filename, d.stored_filename, d.mime_type, d.size_bytes, d.uploaded_by, d.uploaded_at, d.category
            FROM documents d
-           JOIN transactions t ON t.id = d.transaction_id
-           WHERE d.id = $1 AND t.ledger_id = $2"#,
+           LEFT JOIN transactions t ON t.id = d.transaction_id
+           WHERE d.id = $1 AND (t.ledger_id = $2 OR d.ledger_id = $2)"#,
     )
     .bind(doc_id)
     .bind(ledger_id)

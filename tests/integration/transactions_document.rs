@@ -433,3 +433,273 @@ async fn http_inbox_lists_unbound() {
         "bind action present for unbound documents"
     );
 }
+
+async fn upload_unbound(
+    server: &TestServer,
+    client: &reqwest::Client,
+    ledger_id: Uuid,
+    name: &str,
+) -> Uuid {
+    let name = name.to_string();
+    let form = reqwest::multipart::Form::new().part(
+        "files",
+        reqwest::multipart::Part::bytes(format!("{name} bytes").into_bytes())
+            .file_name(name.clone())
+            .mime_str("text/plain")
+            .unwrap(),
+    );
+    client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents",
+            server.base_url()
+        ))
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    let pool = server.db().pool();
+    let id: (Uuid,) = sqlx::query_as("SELECT id FROM documents WHERE filename = $1")
+        .bind(name)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    id.0
+}
+
+async fn create_txn(
+    client: &reqwest::Client,
+    server: &TestServer,
+    ledger_id: Uuid,
+    debit: Uuid,
+    credit: Uuid,
+    desc: &str,
+) -> Uuid {
+    let resp = client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/transactions/new",
+            server.base_url()
+        ))
+        .form(&[
+            ("date", "2026-08-20"),
+            ("description", desc),
+            ("action", "save"),
+            ("lines[0][account_id]", debit.to_string().as_str()),
+            ("lines[0][direction]", "DEBIT"),
+            ("lines[0][amount]", "2.00"),
+            ("lines[1][account_id]", credit.to_string().as_str()),
+            ("lines[1][direction]", "CREDIT"),
+            ("lines[1][amount]", "2.00"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 303, "create must redirect");
+    let pool = server.db().pool();
+    let id: (Uuid,) = sqlx::query_as("SELECT id FROM transactions WHERE description = $1")
+        .bind(desc)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    id.0
+}
+
+#[tokio::test]
+async fn http_bind_document_to_transaction() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, debit, credit) = setup(&server, "bind-to-txn").await;
+
+    let doc_id = upload_unbound(&server, &client, ledger_id, "bind-me.txt").await;
+    let txn_id = create_txn(&client, &server, ledger_id, debit, credit, "bind target").await;
+
+    let resp = client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents/{doc_id}/bind",
+            server.base_url()
+        ))
+        .form(&[("transaction_id", txn_id.to_string())])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 303, "bind must redirect");
+
+    let bound: (Option<Uuid>,) =
+        sqlx::query_as("SELECT transaction_id FROM documents WHERE id = $1")
+            .bind(doc_id)
+            .fetch_one(&server.db().pool())
+            .await
+            .unwrap();
+    assert_eq!(bound.0, Some(txn_id), "document bound to the transaction");
+
+    let audit: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT entity_id FROM audit_entries WHERE action = 'bind' AND entity_type = 'document' AND entity_id = $1",
+    )
+    .bind(doc_id)
+    .fetch_optional(&server.db().pool())
+    .await
+    .unwrap();
+    assert!(audit.is_some(), "bind must be audit-logged");
+}
+
+#[tokio::test]
+async fn http_bind_by_creating_transaction() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, debit, credit) = setup(&server, "bind-create").await;
+
+    let doc_id = upload_unbound(&server, &client, ledger_id, "create-and-bind.txt").await;
+
+    // Open the new-transaction form with ?bind_doc, then create.
+    let form = client
+        .get(format!(
+            "{}/ledgers/{ledger_id}/transactions/new?bind_doc={doc_id}",
+            server.base_url()
+        ))
+        .send()
+        .await
+        .unwrap();
+    let html = form.text().await.unwrap();
+    assert!(
+        html.contains("bind_doc"),
+        "form must carry the bind_doc hint"
+    );
+
+    // Create the transaction with the bind_doc hidden field.
+    let resp = client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/transactions/new",
+            server.base_url()
+        ))
+        .form(&[
+            ("date", "2026-08-20"),
+            ("description", "create and bind"),
+            ("action", "save"),
+            ("bind_doc", doc_id.to_string().as_str()),
+            ("lines[0][account_id]", debit.to_string().as_str()),
+            ("lines[0][direction]", "DEBIT"),
+            ("lines[0][amount]", "2.00"),
+            ("lines[1][account_id]", credit.to_string().as_str()),
+            ("lines[1][direction]", "CREDIT"),
+            ("lines[1][amount]", "2.00"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 303, "create with bind_doc must redirect");
+    let bound: (Option<Uuid>,) =
+        sqlx::query_as("SELECT transaction_id FROM documents WHERE id = $1")
+            .bind(doc_id)
+            .fetch_one(&server.db().pool())
+            .await
+            .unwrap();
+    assert!(
+        bound.0.is_some(),
+        "new transaction bound to the unbound document"
+    );
+}
+
+#[tokio::test]
+async fn http_bind_requires_writer() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, debit, credit) = setup(&server, "bind-writer").await;
+    let doc_id = upload_unbound(&server, &client, ledger_id, "bind-guard.txt").await;
+    let txn_id = create_txn(&client, &server, ledger_id, debit, credit, "bind guard txn").await;
+
+    let intruder = make_client();
+    let email = "bind-intruder@example.com";
+    intruder
+        .post(format!("{}/register", server.base_url()))
+        .form(&[
+            ("email", email),
+            ("username", "bind-intruder"),
+            ("password", PASSWORD),
+            ("password_confirm", PASSWORD),
+        ])
+        .send()
+        .await
+        .unwrap();
+    intruder
+        .post(format!("{}/login", server.base_url()))
+        .form(&[("email", email), ("password", PASSWORD), ("next", "/")])
+        .send()
+        .await
+        .unwrap();
+
+    let resp = intruder
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents/{doc_id}/bind",
+            server.base_url()
+        ))
+        .form(&[("transaction_id", txn_id.to_string())])
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        resp.status() == 403 || resp.status() == 404,
+        "non-writer must be blocked from binding (got {})",
+        resp.status()
+    );
+    let still: (Option<Uuid>,) =
+        sqlx::query_as("SELECT transaction_id FROM documents WHERE id = $1")
+            .bind(doc_id)
+            .fetch_one(&server.db().pool())
+            .await
+            .unwrap();
+    assert_eq!(still.0, None, "blocked bind must not change the document");
+}
+
+#[tokio::test]
+async fn http_unbound_document_download_authorization() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, _, _) = setup(&server, "unbound-dl").await;
+    let doc_id = upload_unbound(&server, &client, ledger_id, "unbound-dl.txt").await;
+
+    // Writer can download.
+    let writer = client
+        .get(format!(
+            "{}/ledgers/{ledger_id}/documents/{doc_id}/download",
+            server.base_url()
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        writer.status(),
+        200,
+        "writer can download an unbound document"
+    );
+    let body = writer.bytes().await.unwrap();
+    assert_eq!(body.as_ref(), b"unbound-dl.txt bytes");
+
+    // Non-member gets 404.
+    let intruder = make_client();
+    let email = "unbound-intruder@example.com";
+    intruder
+        .post(format!("{}/register", server.base_url()))
+        .form(&[
+            ("email", email),
+            ("username", "unbound-intruder"),
+            ("password", PASSWORD),
+            ("password_confirm", PASSWORD),
+        ])
+        .send()
+        .await
+        .unwrap();
+    intruder
+        .post(format!("{}/login", server.base_url()))
+        .form(&[("email", email), ("password", PASSWORD), ("next", "/")])
+        .send()
+        .await
+        .unwrap();
+    let resp = intruder
+        .get(format!(
+            "{}/ledgers/{ledger_id}/documents/{doc_id}/download",
+            server.base_url()
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        404,
+        "non-member cannot download an unbound document"
+    );
+}

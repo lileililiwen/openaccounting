@@ -48,3 +48,55 @@ impl From<(Document, chrono::NaiveDate, String)> for DocumentWithTxn {
         }
     }
 }
+
+#[derive(Template)]
+#[template(path = "documents/bind.html")]
+pub struct DocumentBindPage {
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub current_section: String,
+    pub doc_id: Uuid,
+    pub doc_filename: String,
+    pub search: BindSearchState,
+    pub results: Vec<BindTransactionRow>,
+}
+
+pub struct BindSearchState {
+    pub q: String,
+    pub from: String,
+    pub to: String,
+    pub amount: String,
+}
+
+pub struct BindTransactionRow {
+    pub id: Uuid,
+    pub date: chrono::NaiveDate,
+    pub description: String,
+    pub total: rust_decimal::Decimal,
+}
+
+impl DocumentBindPage {
+    pub fn new(
+        user: crate::auth::User,
+        ledger_id: Uuid,
+        ledger_name: String,
+        doc_id: Uuid,
+        doc_filename: String,
+        search: BindSearchState,
+        results: Vec<BindTransactionRow>,
+    ) -> Self {
+        Self {
+            username: user.username,
+            user_role: user.role,
+            ledger_id,
+            ledger_name,
+            current_section: "documents".to_string(),
+            doc_id,
+            doc_filename,
+            search,
+            results,
+        }
+    }
+}

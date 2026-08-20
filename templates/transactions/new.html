@@ -13,6 +13,10 @@
   {% endif %}
 
   <form method="post" action="/ledgers/{{ ledger_id }}/transactions/new" id="txn-form" enctype="multipart/form-data" class="space-y-4 bg-white p-5 rounded-xl border border-slate-200">
+    {% if !bind_doc.is_empty() %}
+      <input type="hidden" name="bind_doc" value="{{ bind_doc }}">
+      <p class="text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">This transaction will be attached to the document you selected on the bind page.</p>
+    {% endif %}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Date</span>
