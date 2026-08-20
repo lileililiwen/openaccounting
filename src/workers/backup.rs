@@ -241,7 +241,7 @@ pub async fn run_backup_with_pool(
     let db_sql = tmp.path().join("db.sql");
     let docs_tar = tmp.path().join("documents.tar");
 
-    dump_database(&cfg.pg_dump_bin, &db_sql)
+    dump_database(pool, &cfg.pg_dump_bin, &db_sql)
         .await
         .map_err(BackupError::PgDump)?;
     tar_directory(&documents_dir, &docs_tar)
@@ -285,16 +285,22 @@ pub async fn run_backup_with_pool(
 }
 
 /// Shell out to `pg_dump` and capture the SQL into `out`.
-async fn dump_database(pg_dump_bin: &str, out: &Path) -> Result<(), String> {
+///
+/// The binary is resolved via [`resolve_pg_dump`] so it matches the
+/// server's major version.
+async fn dump_database(pool: &PgPool, configured: &str, out: &Path) -> Result<(), String> {
     let url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL is not set".to_string())?;
-    let mut child = tokio::process::Command::new(pg_dump_bin)
+    let pg_dump = resolve_pg_dump(pool, configured)
+        .await
+        .map_err(|e| format!("resolving pg_dump: {e}"))?;
+    let mut child = tokio::process::Command::new(&pg_dump)
         .arg("--no-owner")
         .arg("--no-privileges")
         .arg(&url)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("spawning {pg_dump_bin}: {e}"))?;
+        .map_err(|e| format!("spawning {pg_dump}: {e}"))?;
     let mut stdout = child
         .stdout
         .take()
@@ -320,6 +326,48 @@ async fn dump_database(pg_dump_bin: &str, out: &Path) -> Result<(), String> {
         return Err(format!("pg_dump exited with status {status}: {err_buf}"));
     }
     Ok(())
+}
+
+/// Major version of the PostgreSQL server behind `pool` (e.g. `16` for
+/// 16.14). Uses `server_version_num`, which is `major * 10000 + minor`.
+async fn server_major_version(pool: &PgPool) -> sqlx::Result<u32> {
+    let version_num: i32 = sqlx::query_scalar(
+        "SELECT current_setting('server_version_num')::integer",
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok((version_num / 10000) as u32)
+}
+
+/// Pick a `pg_dump` binary whose major version matches the server.
+///
+/// `pg_dump` refuses to dump a server with a different major version, so on
+/// hosts where an older client is first on PATH the backup fails with a
+/// version-mismatch error. When `PG_DUMP_BIN` was explicitly configured it is
+/// used verbatim; otherwise we query the server's major version and prefer the
+/// matching client from the standard Debian/Ubuntu PGDG layout
+/// (`/usr/lib/postgresql/<major>/bin/pg_dump`), falling back to `pg_dump` on
+/// PATH when no version-matched client is installed.
+async fn resolve_pg_dump(pool: &PgPool, configured: &str) -> Result<String, String> {
+    if !configured.is_empty() && configured != "pg_dump" {
+        return Ok(configured.to_string());
+    }
+
+    let major = match server_major_version(pool).await {
+        Ok(m) => m,
+        Err(_) => return Ok(configured.to_string()),
+    };
+
+    let candidates = [
+        format!("/usr/lib/postgresql/{major}/bin/pg_dump"),
+        "/usr/local/bin/pg_dump".to_string(),
+    ];
+    for candidate in candidates {
+        if Path::new(&candidate).exists() {
+            return Ok(candidate);
+        }
+    }
+    Ok(configured.to_string())
 }
 
 /// Tar the documents directory into `out`. If the documents dir
