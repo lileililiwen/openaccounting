@@ -35,7 +35,9 @@
       <tbody class="divide-y divide-slate-100">
         {% for (inv, contact_name) in invoices %}
           <tr>
-            <td class="px-4 py-2 font-medium text-slate-800">{{ inv.invoice_number.as_deref().unwrap_or("—") }}</td>
+            <td class="px-4 py-2 font-medium text-slate-800">
+              <a href="/ledgers/{{ ledger_id }}/invoices/{{ inv.id }}" class="hover:underline">{{ inv.invoice_number.as_deref().unwrap_or("—") }}</a>
+            </td>
             <td class="px-4 py-2 text-slate-600">{{ contact_name }}</td>
             <td class="px-4 py-2">
               {% if inv.kind == "receivable" %}
@@ -52,7 +54,9 @@
             <td class="px-4 py-2">
               {% if inv.status == "paid" %}
                 <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">paid</span>
-              {% elif inv.status == "overdue" %}
+              {% elif inv.status == "void" %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">void</span>
+              {% elif inv.status == "open" && inv.due_date < today && inv.total != inv.amount_paid %}
                 <span class="text-xs px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">overdue</span>
               {% else %}
                 <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{{ inv.status }}</span>

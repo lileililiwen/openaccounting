@@ -488,6 +488,18 @@ fn build_router_inner(
             get(handlers::invoices::new_page).post(handlers::invoices::create),
         )
         .route(
+            "/ledgers/{id}/invoices/{invoice_id}",
+            get(handlers::invoices::show),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/mark-paid",
+            post(handlers::invoices::mark_paid),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/void",
+            post(handlers::invoices::void),
+        )
+        .route(
             "/ledgers/{id}/reports/ar-aging",
             get(handlers::aging::ar_aging),
         )

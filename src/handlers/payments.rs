@@ -68,6 +68,7 @@ pub async fn new_page(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path(ledger_id): Path<Uuid>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
@@ -79,14 +80,20 @@ pub async fn new_page(
     .fetch_all(&state.pool)
     .await?;
 
+    // `a18-invoicing-upgrade`: the column is `invoice_number`, not
+    // `number` (this query previously 500'd whenever the page loaded).
     let invoices = sqlx::query_as::<_, (Uuid, String, Decimal)>(
-        r#"SELECT id, number, total FROM invoices
+        r#"SELECT id, invoice_number, total FROM invoices
            WHERE ledger_id = $1 AND status NOT IN ('paid', 'void')
-           ORDER BY number DESC"#,
+           ORDER BY invoice_number DESC"#,
     )
     .bind(ledger_id)
     .fetch_all(&state.pool)
     .await?;
+
+    // `a18-invoicing-upgrade`: allow the invoice detail page to
+    // pre-open the payment form for a specific invoice.
+    let invoice_id = q.get("invoice_id").cloned().unwrap_or_default();
 
     Ok(render_response(PaymentForm {
         user_id: user.id,
@@ -103,7 +110,7 @@ pub async fn new_page(
         reference: String::new(),
         kind: "received".to_string(),
         contact_id: String::new(),
-        invoice_id: String::new(),
+        invoice_id,
         error: String::new(),
     }))
 }

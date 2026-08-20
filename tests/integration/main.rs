@@ -33,6 +33,7 @@ mod health;
 mod import_alipay;
 mod import_wechat;
 mod investment_lots;
+mod invoices_upgrade;
 mod keyboard_shortcuts;
 mod localization;
 mod login_throttle;
