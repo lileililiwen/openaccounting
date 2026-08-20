@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Setup — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/dashboard" class="text-sm text-slate-500 hover:text-slate-800">← Back to dashboard</a>
+    <h1 class="text-2xl font-semibold mt-1">Set up {{ ledger_name }}</h1>
+    <p class="text-sm text-slate-500">
+      {% if status.complete %}
+        All {{ status.total }} steps are done — your books are ready for daily use.
+      {% else %}
+        {{ status.done }} of {{ status.total }} steps done. Each step links to the page that completes it.
+      {% endif %}
+    </p>
+  </header>
+
+  <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <ol class="divide-y divide-slate-100">
+      {% for step in status.steps %}
+        <li class="px-4 py-3 flex items-start gap-3">
+          <span class="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0
+                       {% if step.done %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+            {% if step.done %}✓{% else %}{{ loop.index }}{% endif %}
+          </span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-slate-800">{{ step.label }}</div>
+            <div class="text-xs text-slate-500">{{ step.description }}</div>
+          </div>
+          <a href="{{ step.href }}" class="text-sm text-indigo-600 hover:underline shrink-0">
+            {% if step.done %}Review{% else %}Start{% endif %}
+          </a>
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</main>
+{% endblock %}

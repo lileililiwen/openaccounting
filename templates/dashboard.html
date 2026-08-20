@@ -14,6 +14,24 @@
     </div>
   </header>
 
+  {% if let Some(setup) = setup %}
+  <section data-widget-id="setup" class="rounded-xl bg-slate-900 text-white p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="text-sm font-semibold">Get your books set up — {{ setup.done }} of {{ setup.total }} steps done</div>
+        <div class="mt-1 text-xs text-slate-300 flex flex-wrap gap-x-4 gap-y-1">
+          {% for step in setup.steps %}
+            {% if !step.done %}
+              <span>· {{ step.label }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <a href="/ledgers/{{ ledger_id }}/setup" class="rounded-lg bg-white text-slate-900 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">Continue setup</a>
+    </div>
+  </section>
+  {% endif %}
+
   <!-- Layout controls (`u5-dashboard-widgets`) -->
   <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 flex flex-wrap items-center justify-between gap-2 text-sm">
     <form method="post" action="/ledgers/{{ ledger_id }}/dashboard/layout" class="flex flex-wrap items-center gap-2">

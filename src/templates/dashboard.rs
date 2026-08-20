@@ -45,4 +45,7 @@ pub struct DashboardPage {
     /// Top-10 account balances for the `account_balances`
     /// widget.
     pub account_balances: Vec<crate::handlers::dashboard_layout::AccountBalanceRow>,
+    /// Setup checklist card (`a16-onboarding-quickstart`). `Some` while
+    /// any milestone is pending; `None` once setup is complete.
+    pub setup: Option<crate::templates::onboarding::SetupStatus>,
 }

@@ -240,6 +240,17 @@ pub async fn show(
         .await
         .unwrap_or_default();
 
+    // Setup checklist (`a16-onboarding-quickstart`): show the card only
+    // while milestones are still pending.
+    let setup = crate::handlers::onboarding::compute_setup_status(
+        &state.pool,
+        ledger_id,
+        user.id,
+    )
+    .await
+    .ok()
+    .filter(|s| !s.complete);
+
     Ok(render_response(DashboardPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -278,6 +289,7 @@ pub async fn show(
         layout,
         budget_burn,
         account_balances,
+        setup,
     }))
 }
 

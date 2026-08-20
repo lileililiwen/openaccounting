@@ -40,6 +40,7 @@ mod menu_navigation;
 mod metrics;
 mod notification_preferences;
 mod notifications;
+mod onboarding;
 mod ocr_feedback;
 mod password_strength;
 mod policies;

@@ -25,6 +25,7 @@ pub mod inventory;
 pub mod invoices;
 pub mod ledgers;
 pub mod notification_preferences;
+pub mod onboarding;
 pub mod payments;
 pub mod reconciliation;
 pub mod reimbursement;

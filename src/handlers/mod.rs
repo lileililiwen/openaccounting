@@ -35,6 +35,7 @@ pub mod ledgers;
 pub mod not_found;
 pub mod notification_preferences;
 pub mod notifications;
+pub mod onboarding;
 pub mod payments;
 pub mod reconciliation;
 pub mod reimbursement;

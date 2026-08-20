@@ -315,6 +315,7 @@ fn build_router_inner(
             post(handlers::ledgers::toggle_append_only),
         )
         .route("/ledgers/{id}/dashboard", get(handlers::dashboard::show))
+        .route("/ledgers/{id}/setup", get(handlers::onboarding::setup_page))
         .route(
             "/ledgers/{id}/dashboard/layout",
             post(handlers::dashboard_layout::set_layout),
