@@ -331,11 +331,10 @@ async fn dump_database(pool: &PgPool, configured: &str, out: &Path) -> Result<()
 /// Major version of the PostgreSQL server behind `pool` (e.g. `16` for
 /// 16.14). Uses `server_version_num`, which is `major * 10000 + minor`.
 async fn server_major_version(pool: &PgPool) -> sqlx::Result<u32> {
-    let version_num: i32 = sqlx::query_scalar(
-        "SELECT current_setting('server_version_num')::integer",
-    )
-    .fetch_one(pool)
-    .await?;
+    let version_num: i32 =
+        sqlx::query_scalar("SELECT current_setting('server_version_num')::integer")
+            .fetch_one(pool)
+            .await?;
     Ok((version_num / 10000) as u32)
 }
 
