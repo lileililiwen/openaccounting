@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-20
+goal: Turn the admin area into a management console: audit user activity across ledgers and manage accounts.
