@@ -86,6 +86,7 @@ balance sheet; double-entry can, automatically.
   hledger-style CSV, both as `openaccounting export` /
   `openaccounting import` subcommands for scripted round-trips
   (see below).
+- **Onboarding setup checklist** — a data-driven five-step guide (opening balances, first transaction, a document, a bank feed, an invite) shown on the dashboard and at `/ledgers/{id}/setup`, so a new user knows exactly what to do first.
 - **Single binary**, no JS build step, no Node.js required.
 
 ## Plain-text CLI
