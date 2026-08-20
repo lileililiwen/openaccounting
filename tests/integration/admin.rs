@@ -542,3 +542,42 @@ async fn admin_audit_log_pagination() {
         "the oldest seed row appears on page 2"
     );
 }
+
+#[tokio::test]
+async fn admin_dashboard_stats_and_feed() {
+    let server = TestServer::new().await;
+
+    let (admin, _) = register_user(&server, "dash-admin").await;
+    promote_and_relogin(&server, &admin, "dash-admin@example.com").await;
+
+    // A normal user creates a ledger so the feed has an entry.
+    let (user, _) = register_user(&server, "dash-user").await;
+    user.post(format!("{}/ledgers/new", server.base_url()))
+        .form(&[
+            ("name", "dash-books"),
+            ("base_currency", "USD"),
+            ("timezone", "UTC"),
+            ("basis", "accrual"),
+        ])
+        .send()
+        .await
+        .unwrap();
+
+    let resp = admin
+        .get(format!("{}/admin", server.base_url()))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "dashboard must render");
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("Inactive users"), "inactive-users stat shown");
+    assert!(body.contains("Actions / 24h"), "24h activity stat shown");
+    assert!(body.contains("Documents"), "documents stat shown");
+    assert!(body.contains("Recent Activity"), "activity feed present");
+    assert!(body.contains("dash-user"), "feed shows the acting user");
+    assert!(body.contains("dash-books"), "feed shows the ledger name");
+    // Quick links.
+    for link in ["Audit Log", "Users", "Backups", "Integrity"] {
+        assert!(body.contains(link), "quick link {link} present");
+    }
+}

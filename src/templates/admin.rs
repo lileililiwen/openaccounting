@@ -33,7 +33,11 @@ pub struct AdminDashboardPage {
     pub total_users: i64,
     pub total_ledgers: i64,
     pub total_transactions: i64,
+    pub inactive_users: i64,
+    pub total_documents: i64,
+    pub activity_24h: i64,
     pub recent_users: Vec<RecentUserRow>,
+    pub recent_activity: Vec<AuditLogRow>,
 }
 
 #[derive(Template)]
@@ -149,7 +153,11 @@ impl AdminDashboardPage {
         total_users: i64,
         total_ledgers: i64,
         total_transactions: i64,
+        inactive_users: i64,
+        total_documents: i64,
+        activity_24h: i64,
         recent_users: Vec<RecentUserRow>,
+        recent_activity: Vec<AuditLogRow>,
     ) -> Self {
         Self {
             username: user.username,
@@ -160,7 +168,11 @@ impl AdminDashboardPage {
             total_users,
             total_ledgers,
             total_transactions,
+            inactive_users,
+            total_documents,
+            activity_24h,
             recent_users,
+            recent_activity,
         }
     }
 }

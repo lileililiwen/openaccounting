@@ -73,6 +73,21 @@ pub async fn dashboard(
         .fetch_one(&state.pool)
         .await?;
 
+    let inactive_users: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM users WHERE is_active = FALSE")
+            .fetch_one(&state.pool)
+            .await?;
+
+    let total_documents: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents")
+        .fetch_one(&state.pool)
+        .await?;
+
+    let activity_24h: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM audit_entries WHERE created_at >= now() - interval '24 hours'",
+    )
+    .fetch_one(&state.pool)
+    .await?;
+
     #[derive(sqlx::FromRow)]
     struct RecentUser {
         username: String,
@@ -87,11 +102,55 @@ pub async fn dashboard(
     .fetch_all(&state.pool)
     .await?;
 
+    // Latest activity across all users for the dashboard feed.
+    let activity =
+        crate::audit::list(&state.pool, None, None, None, None, None, None, 10, 0).await?;
+    let actor_ids: Vec<Uuid> = activity.iter().map(|e| e.actor_id).collect();
+    let ledger_ids: Vec<Uuid> = activity.iter().filter_map(|e| e.ledger_id).collect();
+    let actor_names: std::collections::HashMap<Uuid, String> = if actor_ids.is_empty() {
+        Default::default()
+    } else {
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, username FROM users WHERE id = ANY($1)")
+            .bind(&actor_ids)
+            .fetch_all(&state.pool)
+            .await?
+            .into_iter()
+            .collect()
+    };
+    let ledger_names: std::collections::HashMap<Uuid, String> = if ledger_ids.is_empty() {
+        Default::default()
+    } else {
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, name FROM ledgers WHERE id = ANY($1)")
+            .bind(&ledger_ids)
+            .fetch_all(&state.pool)
+            .await?
+            .into_iter()
+            .collect()
+    };
+    let recent_activity = activity
+        .into_iter()
+        .map(|e| crate::templates::admin::AuditLogRow {
+            created_display: e.created_at.format("%Y-%m-%d %H:%M").to_string(),
+            actor_username: actor_names.get(&e.actor_id).cloned().unwrap_or_default(),
+            ledger_name: e
+                .ledger_id
+                .and_then(|id| ledger_names.get(&id).cloned())
+                .unwrap_or_default(),
+            action: e.action,
+            entity_type: e.entity_type,
+            entity_id: e.entity_id.unwrap_or_default().to_string(),
+            summary: value_summary(e.old_value.as_ref(), e.new_value.as_ref()),
+        })
+        .collect();
+
     let page = AdminDashboardPage::new(
         user.clone(),
         total_users.0,
         total_ledgers.0,
         total_transactions.0,
+        inactive_users.0,
+        total_documents.0,
+        activity_24h.0,
         recent_users
             .into_iter()
             .map(|u| RecentUserRow {
@@ -101,6 +160,7 @@ pub async fn dashboard(
                 created_at_display: crate::templates::account::fmt_date(&u.created_at),
             })
             .collect(),
+        recent_activity,
     );
 
     Ok(render_response(page))

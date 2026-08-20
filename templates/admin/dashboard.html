@@ -2,17 +2,29 @@
 {% block title %}Admin Dashboard — OpenAccounting{% endblock %}
 {% block body %}
 {% include "partials/_nav.html" %}
-<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-  <header>
-    <h1 class="text-2xl font-semibold">Admin Dashboard</h1>
-    <p class="text-slate-500 text-sm">System-wide overview of OpenAccounting.</p>
+<main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Admin Dashboard</h1>
+      <p class="text-slate-500 text-sm">System-wide overview of OpenAccounting.</p>
+    </div>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="/admin/users" class="rounded border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50">Users</a>
+      <a href="/admin/audit" class="rounded border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50">Audit Log</a>
+      <a href="/admin/backups" class="rounded border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50">Backups</a>
+      <a href="/admin/integrity" class="rounded border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50">Integrity</a>
+    </div>
   </header>
 
   <!-- Stats -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
     <div class="rounded-xl bg-white border border-slate-200 p-5 text-center">
       <p class="text-3xl font-bold text-slate-800">{{ total_users }}</p>
       <p class="text-sm text-slate-500 mt-1">Users</p>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-5 text-center">
+      <p class="text-3xl font-bold text-slate-800">{{ inactive_users }}</p>
+      <p class="text-sm text-slate-500 mt-1">Inactive users</p>
     </div>
     <div class="rounded-xl bg-white border border-slate-200 p-5 text-center">
       <p class="text-3xl font-bold text-slate-800">{{ total_ledgers }}</p>
@@ -22,11 +34,58 @@
       <p class="text-3xl font-bold text-slate-800">{{ total_transactions }}</p>
       <p class="text-sm text-slate-500 mt-1">Transactions</p>
     </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-5 text-center">
+      <p class="text-3xl font-bold text-slate-800">{{ total_documents }}</p>
+      <p class="text-sm text-slate-500 mt-1">Documents</p>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-5 text-center">
+      <p class="text-3xl font-bold text-slate-800">{{ activity_24h }}</p>
+      <p class="text-sm text-slate-500 mt-1">Actions / 24h</p>
+    </div>
   </div>
+
+  <!-- Recent activity feed -->
+  <section class="rounded-xl bg-white border border-slate-200 p-5 space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-700">Recent Activity</h2>
+      <a href="/admin/audit" class="text-xs text-slate-500 hover:text-slate-800 hover:underline">View full audit log →</a>
+    </div>
+    {% if recent_activity.is_empty() %}
+      <p class="text-sm text-slate-500">No activity recorded yet.</p>
+    {% else %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+              <th class="py-2 pr-4">When</th>
+              <th class="py-2 pr-4">Actor</th>
+              <th class="py-2 pr-4">Ledger</th>
+              <th class="py-2 pr-4">Action</th>
+              <th class="py-2">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent_activity %}
+            <tr class="border-b border-slate-100 last:border-0 align-top">
+              <td class="py-2 pr-4 text-slate-500 tabular whitespace-nowrap">{{ r.created_display }}</td>
+              <td class="py-2 pr-4 text-slate-800">{{ r.actor_username }}</td>
+              <td class="py-2 pr-4 text-slate-600">{{ r.ledger_name }}</td>
+              <td class="py-2 pr-4 text-slate-800">{{ r.action }}</td>
+              <td class="py-2 text-slate-500 text-xs">{{ r.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
 
   <!-- Recent users -->
   <section class="rounded-xl bg-white border border-slate-200 p-5 space-y-3">
-    <h2 class="text-sm font-semibold text-slate-700">Recent Users</h2>
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-700">Recent Users</h2>
+      <a href="/admin/users" class="text-xs text-slate-500 hover:text-slate-800 hover:underline">Manage users →</a>
+    </div>
     {% if recent_users.is_empty() %}
       <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
         <p class="font-medium text-slate-700">No users yet</p>
