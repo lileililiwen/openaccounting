@@ -55,10 +55,15 @@ pub struct RecentUserRow {
 }
 
 pub struct UserRow {
+    pub id: Uuid,
     pub username: String,
     pub email: String,
     pub role: String,
     pub is_active: bool,
+    /// `true` for the currently signed-in admin — the UI disables
+    /// self-suspend / self-demote controls for that row
+    /// (`a11-admin-console`).
+    pub is_self: bool,
     pub created_at_display: String,
 }
 

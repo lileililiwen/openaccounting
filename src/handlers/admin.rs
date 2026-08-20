@@ -1,12 +1,15 @@
 use axum::{
-    extract::State,
+    extract::{Form, Path, State},
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Redirect, Response},
     Router,
 };
 use axum_login::AuthSession;
+use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::{
+    audit,
     auth::Backend,
     error::{AppError, AppResult},
     templates::{
@@ -34,6 +37,11 @@ pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/admin", axum::routing::get(dashboard))
         .route("/admin/users", axum::routing::get(users))
+        .route(
+            "/admin/users/{id}/status",
+            axum::routing::post(set_user_status),
+        )
+        .route("/admin/users/{id}/role", axum::routing::post(set_user_role))
         .route(
             "/admin/ocr-corpus.json",
             axum::routing::get(crate::handlers::document_ocr_feedback::export_corpus),
@@ -104,6 +112,7 @@ pub async fn users(
 
     #[derive(sqlx::FromRow)]
     struct UserRowDb {
+        id: Uuid,
         username: String,
         email: String,
         role: String,
@@ -112,7 +121,7 @@ pub async fn users(
     }
 
     let rows = sqlx::query_as::<_, UserRowDb>(
-        "SELECT username, email, role, is_active, created_at FROM users ORDER BY created_at DESC",
+        "SELECT id, username, email, role, is_active, created_at FROM users ORDER BY created_at DESC",
     )
     .fetch_all(&state.pool)
     .await?;
@@ -121,16 +130,157 @@ pub async fn users(
         user.clone(),
         rows.into_iter()
             .map(|r| UserRow {
+                id: r.id,
                 username: r.username,
                 email: r.email,
                 role: r.role,
                 is_active: r.is_active,
+                is_self: r.id == user.id,
                 created_at_display: crate::templates::account::fmt_date(&r.created_at),
             })
             .collect(),
     );
 
     Ok(render_response(page))
+}
+
+/// Form body for `POST /admin/users/{id}/status` — the target's
+/// desired `is_active` value.
+#[derive(Deserialize)]
+pub struct UserStatusForm {
+    pub is_active: bool,
+}
+
+/// Suspend or activate a user (`a11-admin-console`). Suspension is
+/// enforced at login (`src/auth/mod.rs`); the toggle is audit-logged.
+pub async fn set_user_status(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+    Form(form): Form<UserStatusForm>,
+) -> AppResult<Redirect> {
+    let admin = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+
+    // Guard rail: an admin must not be able to suspend their own
+    // account (`a11-admin-console` Self-Protection).
+    if user_id == admin.id && !form.is_active {
+        return Err(AppError::Unprocessable(
+            "You cannot suspend your own account.".into(),
+        ));
+    }
+
+    let current: Option<(String, bool)> =
+        sqlx::query_as("SELECT email, is_active FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_optional(&state.pool)
+            .await?;
+    let Some((email, was_active)) = current else {
+        return Err(AppError::NotFound);
+    };
+    let _ = email;
+    if was_active == form.is_active {
+        // No-op: redirect without writing an audit row.
+        return Ok(Redirect::to("/admin/users"));
+    }
+
+    sqlx::query("UPDATE users SET is_active = $1 WHERE id = $2")
+        .bind(form.is_active)
+        .bind(user_id)
+        .execute(&state.pool)
+        .await?;
+
+    audit::log(
+        &state.pool,
+        None,
+        admin.id,
+        "set_status",
+        "user",
+        Some(user_id),
+        Some(serde_json::json!({ "is_active": was_active })),
+        Some(serde_json::json!({ "is_active": form.is_active })),
+    )
+    .await?;
+
+    Ok(Redirect::to("/admin/users"))
+}
+
+/// Form body for `POST /admin/users/{id}/role` — the target's
+/// desired role (`admin` or `user`).
+#[derive(Deserialize)]
+pub struct UserRoleForm {
+    pub role: String,
+}
+
+/// Promote or demote a user (`a11-admin-console`). The audit log
+/// records the change.
+pub async fn set_user_role(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+    Form(form): Form<UserRoleForm>,
+) -> AppResult<Redirect> {
+    let admin = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+
+    if form.role != "admin" && form.role != "user" {
+        return Err(AppError::Unprocessable(format!(
+            "Invalid role: {}",
+            form.role
+        )));
+    }
+    // Guard rail: an admin must not change their own role
+    // (`a11-admin-console` Self-Protection).
+    if user_id == admin.id {
+        return Err(AppError::Unprocessable(
+            "You cannot change your own role.".into(),
+        ));
+    }
+
+    let current: Option<(String,)> = sqlx::query_as("SELECT role FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await?;
+    let Some((old_role,)) = current else {
+        return Err(AppError::NotFound);
+    };
+    if old_role == form.role {
+        return Ok(Redirect::to("/admin/users"));
+    }
+
+    // Guard rail: never leave the system without an active admin
+    // (`a11-admin-console` Self-Protection). Refuse any admin
+    // demotion while exactly one active admin remains (the acting
+    // admin themselves), since it could drop the count to zero.
+    if form.role != "admin" && old_role == "admin" {
+        let active_admins: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = TRUE")
+                .fetch_one(&state.pool)
+                .await?;
+        if active_admins.0 <= 1 {
+            return Err(AppError::Unprocessable(
+                "Cannot demote the last active admin.".into(),
+            ));
+        }
+    }
+
+    sqlx::query("UPDATE users SET role = $1 WHERE id = $2")
+        .bind(&form.role)
+        .bind(user_id)
+        .execute(&state.pool)
+        .await?;
+
+    audit::log(
+        &state.pool,
+        None,
+        admin.id,
+        "set_role",
+        "user",
+        Some(user_id),
+        Some(serde_json::json!({ "role": old_role })),
+        Some(serde_json::json!({ "role": form.role })),
+    )
+    .await?;
+
+    Ok(Redirect::to("/admin/users"))
 }
 
 #[cfg(test)]

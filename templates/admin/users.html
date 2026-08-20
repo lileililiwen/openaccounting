@@ -20,7 +20,8 @@
               <th class="py-2 pr-4">Email</th>
               <th class="py-2 pr-4">Role</th>
               <th class="py-2 pr-4">Status</th>
-              <th class="py-2">Joined</th>
+              <th class="py-2 pr-4">Joined</th>
+              <th class="py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -43,6 +44,44 @@
                 {% endif %}
               </td>
               <td class="py-2 text-slate-600 tabular">{{ u.created_at_display }}</td>
+              <td class="py-2">
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  {% if u.is_active %}
+                    <form method="post" action="/admin/users/{{ u.id }}/status" class="inline">
+                      <input type="hidden" name="is_active" value="false">
+                      <button type="submit" {% if u.is_self %}disabled title="You cannot suspend your own account"{% endif %}
+                              class="text-xs rounded border border-rose-200 text-rose-600 px-2 py-0.5 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                        Suspend
+                      </button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="/admin/users/{{ u.id }}/status" class="inline">
+                      <input type="hidden" name="is_active" value="true">
+                      <button type="submit"
+                              class="text-xs rounded border border-emerald-200 text-emerald-700 px-2 py-0.5 hover:bg-emerald-50">
+                        Activate
+                      </button>
+                    </form>
+                  {% endif %}
+                  {% if u.role == "admin" %}
+                    <form method="post" action="/admin/users/{{ u.id }}/role" class="inline">
+                      <input type="hidden" name="role" value="user">
+                      <button type="submit" {% if u.is_self %}disabled title="You cannot change your own role"{% endif %}
+                              class="text-xs rounded border border-slate-200 text-slate-500 px-2 py-0.5 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                        Demote
+                      </button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="/admin/users/{{ u.id }}/role" class="inline">
+                      <input type="hidden" name="role" value="admin">
+                      <button type="submit"
+                              class="text-xs rounded border border-indigo-200 text-indigo-600 px-2 py-0.5 hover:bg-indigo-50">
+                        Promote
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>

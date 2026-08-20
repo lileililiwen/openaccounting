@@ -7,12 +7,12 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod admin;
 mod amortization;
 mod api;
 mod append_only;
 mod approval_routing;
 mod audit_chain;
-mod menu_navigation;
 mod bank_feeds;
 mod bank_statement_imports;
 mod cash_basis;
@@ -31,9 +31,11 @@ mod export;
 mod health;
 mod import_alipay;
 mod import_wechat;
+mod investment_lots;
 mod keyboard_shortcuts;
 mod localization;
 mod login_throttle;
+mod menu_navigation;
 mod metrics;
 mod notification_preferences;
 mod notifications;
@@ -54,11 +56,10 @@ mod session_timeout;
 mod signed_cookies;
 mod smoke;
 mod totp;
+mod transaction_number;
 mod transactions_bulk;
 mod transactions_draft;
 mod transactions_edit;
 mod transactions_split;
-mod transaction_number;
-mod investment_lots;
 mod transfers;
 mod upload_validation;
