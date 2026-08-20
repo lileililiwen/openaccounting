@@ -50,7 +50,7 @@
   {% if documents.is_empty() %}
     <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">No documents match.</div>
   {% else %}
-    <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <div class="hidden md:block rounded-xl bg-white border border-slate-200 overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
@@ -90,7 +90,7 @@
                 <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                   <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline text-xs">Open</a>
                   {% if d.is_unbound %}
-                    <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" class="text-indigo-600 hover:underline text-xs">Bind to transaction</a>
+                    <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" title="Bind to transaction" class="text-indigo-600 hover:underline text-xs">Bind</a>
                   {% else %}
                     <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="text-sky-600 hover:underline text-xs">OCR</a>
                   {% endif %}
