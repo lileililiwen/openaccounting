@@ -59,6 +59,10 @@ balance sheet; double-entry can, automatically.
 - **Chart of Accounts** — five account types (Asset, Liability, Equity, Income, Expense); default chart seeded.
 - **Transactions** — dated, described, with 2+ postings. Multi-leg splits supported.
 - **Document upload** — attach receipts, invoices, payment slips (images + PDFs) to any transaction.
+- **Tax on transactions** — define tax rates per ledger (sales/purchase),
+  attach a rate to any posting line, and the tax leg is posted to the
+  rate's account automatically. The tax report shows net / tax / gross
+  per rate.
 - **Reports**
   - General Ledger
   - Trial Balance
