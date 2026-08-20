@@ -46,6 +46,8 @@
               <td class="py-2 text-slate-600 tabular">{{ u.created_at_display }}</td>
               <td class="py-2">
                 <div class="flex flex-wrap gap-1.5 items-center">
+                  <a href="/admin/users/{{ u.id }}"
+                     class="text-xs text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline">View</a>
                   {% if u.is_active %}
                     <form method="post" action="/admin/users/{{ u.id }}/status" class="inline">
                       <input type="hidden" name="is_active" value="false">

@@ -356,3 +356,52 @@ async fn admin_last_admin_demote_422() {
         "demoting an admin while only one active admin remains must be refused"
     );
 }
+
+#[tokio::test]
+async fn admin_user_detail_shows_ledgers_and_activity() {
+    let server = TestServer::new().await;
+
+    let (admin, _) = register_user(&server, "detail-admin").await;
+    promote_and_relogin(&server, &admin, "detail-admin@example.com").await;
+
+    // Target user with a ledger (its creation is audit-logged).
+    let (target, target_id) = register_user(&server, "detail-target").await;
+    let resp = target
+        .post(format!("{}/ledgers/new", server.base_url()))
+        .form(&[
+            ("name", "detail-books"),
+            ("base_currency", "USD"),
+            ("timezone", "UTC"),
+            ("basis", "accrual"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    assert!(resp.status().is_redirection(), "ledger create redirect");
+
+    // Find the ledger id from the Location header.
+    let loc = resp
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let ledger_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
+    let _ = ledger_id;
+
+    // The audit log records the ledger creation (actor = target).
+    let resp = admin
+        .get(format!("{}/admin/users/{target_id}", server.base_url()))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "user detail must render");
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("detail-target"), "username shown");
+    assert!(body.contains("detail-books"), "owned ledger shown");
+    assert!(
+        body.contains("Recent activity") && body.contains("ledger"),
+        "activity section rendered"
+    );
+}

@@ -67,6 +67,43 @@ pub struct UserRow {
     pub created_at_display: String,
 }
 
+#[derive(Template)]
+#[template(path = "admin/users_detail.html")]
+pub struct AdminUserDetailPage {
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub current_section: String,
+    pub target: UserDetailHeader,
+    pub ledgers: Vec<UserLedgerRow>,
+    pub activity: Vec<AuditActivityRow>,
+}
+
+pub struct UserDetailHeader {
+    pub username: String,
+    pub email: String,
+    pub role: String,
+    pub is_active: bool,
+    pub joined_display: String,
+}
+
+pub struct UserLedgerRow {
+    pub id: Uuid,
+    pub name: String,
+    pub base_currency: String,
+    pub created_display: String,
+}
+
+pub struct AuditActivityRow {
+    pub action: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub ledger_name: String,
+    pub summary: String,
+    pub created_display: String,
+}
+
 impl AdminDashboardPage {
     pub fn new(
         user: User,
@@ -98,6 +135,26 @@ impl AdminUsersPage {
             ledger_name: String::new(),
             current_section: "admin".to_string(),
             users,
+        }
+    }
+}
+
+impl AdminUserDetailPage {
+    pub fn new(
+        user: User,
+        target: UserDetailHeader,
+        ledgers: Vec<UserLedgerRow>,
+        activity: Vec<AuditActivityRow>,
+    ) -> Self {
+        Self {
+            username: user.username,
+            user_role: user.role,
+            ledger_id: Uuid::nil(),
+            ledger_name: String::new(),
+            current_section: "admin".to_string(),
+            target,
+            ledgers,
+            activity,
         }
     }
 }

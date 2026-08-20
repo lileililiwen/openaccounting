@@ -37,6 +37,7 @@ pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/admin", axum::routing::get(dashboard))
         .route("/admin/users", axum::routing::get(users))
+        .route("/admin/users/{id}", axum::routing::get(user_detail))
         .route(
             "/admin/users/{id}/status",
             axum::routing::post(set_user_status),
@@ -281,6 +282,142 @@ pub async fn set_user_role(
     .await?;
 
     Ok(Redirect::to("/admin/users"))
+}
+
+/// Render a readable `old → new` summary for an audit entry's
+/// JSONB values (e.g. `role: user → admin`).
+fn value_summary(old: Option<&serde_json::Value>, new: Option<&serde_json::Value>) -> String {
+    let flatten = |v: Option<&serde_json::Value>| -> Vec<(String, String)> {
+        match v {
+            Some(serde_json::Value::Object(map)) => map
+                .iter()
+                .map(|(k, val)| (k.clone(), val.to_string()))
+                .collect(),
+            Some(v) => vec![("value".to_string(), v.to_string())],
+            None => vec![],
+        }
+    };
+    let o = flatten(old);
+    let n = flatten(new);
+    let mut out: Vec<String> = Vec::new();
+    for (k, ov) in &o {
+        match n.iter().find(|(nk, _)| nk == k) {
+            Some((_, nv)) => out.push(format!("{k}: {ov} → {nv}")),
+            None => out.push(format!("{k}: {ov} → —")),
+        }
+    }
+    for (k, nv) in &n {
+        if !o.iter().any(|(ok, _)| ok == k) {
+            out.push(format!("{k}: — → {nv}"));
+        }
+    }
+    out.join(", ")
+}
+
+/// Render `/admin/users/{id}` — a user's profile, their ledgers,
+/// and their recent activity (`a11-admin-console` User Detail Page).
+pub async fn user_detail(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    let admin = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+
+    #[derive(sqlx::FromRow)]
+    struct UserDb {
+        username: String,
+        email: String,
+        role: String,
+        is_active: bool,
+        created_at: time::OffsetDateTime,
+    }
+
+    let user_row = sqlx::query_as::<_, UserDb>(
+        "SELECT username, email, role, is_active, created_at FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    #[derive(sqlx::FromRow)]
+    struct LedgerRow {
+        id: Uuid,
+        name: String,
+        base_currency: String,
+        created_at: time::OffsetDateTime,
+    }
+
+    let ledgers = sqlx::query_as::<_, LedgerRow>(
+        "SELECT id, name, base_currency, created_at FROM ledgers
+         WHERE owner_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(user_id)
+    .fetch_all(&state.pool)
+    .await?;
+
+    // The user's most recent audit activity across every ledger.
+    let activity = crate::audit::list(
+        &state.pool,
+        None,
+        Some(user_id),
+        None,
+        None,
+        None,
+        None,
+        10,
+        0,
+    )
+    .await?;
+
+    // Batch-resolve ledger names for the activity rows.
+    let ledger_ids: Vec<Uuid> = activity.iter().filter_map(|e| e.ledger_id).collect();
+    let ledger_names: std::collections::HashMap<Uuid, String> = if ledger_ids.is_empty() {
+        Default::default()
+    } else {
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, name FROM ledgers WHERE id = ANY($1)")
+            .bind(&ledger_ids)
+            .fetch_all(&state.pool)
+            .await?
+            .into_iter()
+            .collect()
+    };
+
+    let page = crate::templates::admin::AdminUserDetailPage::new(
+        admin.clone(),
+        crate::templates::admin::UserDetailHeader {
+            username: user_row.username,
+            email: user_row.email,
+            role: user_row.role,
+            is_active: user_row.is_active,
+            joined_display: crate::templates::account::fmt_date(&user_row.created_at),
+        },
+        ledgers
+            .into_iter()
+            .map(|l| crate::templates::admin::UserLedgerRow {
+                id: l.id,
+                name: l.name,
+                base_currency: l.base_currency,
+                created_display: crate::templates::account::fmt_date(&l.created_at),
+            })
+            .collect(),
+        activity
+            .into_iter()
+            .map(|e| crate::templates::admin::AuditActivityRow {
+                action: e.action,
+                entity_type: e.entity_type,
+                entity_id: e.entity_id.unwrap_or_default().to_string(),
+                ledger_name: e
+                    .ledger_id
+                    .and_then(|id| ledger_names.get(&id).cloned())
+                    .unwrap_or_default(),
+                summary: value_summary(e.old_value.as_ref(), e.new_value.as_ref()),
+                created_display: e.created_at.format("%Y-%m-%d %H:%M").to_string(),
+            })
+            .collect(),
+    );
+
+    Ok(render_response(page))
 }
 
 #[cfg(test)]
