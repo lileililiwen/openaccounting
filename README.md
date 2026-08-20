@@ -63,12 +63,7 @@ balance sheet; double-entry can, automatically.
   attach a rate to any posting line, and the tax leg is posted to the
   rate's account automatically. The tax report shows net / tax / gross
   per rate.
-- **Reports**
-  - General Ledger
-  - Trial Balance
-  - Balance Sheet (point-in-time)
-  - Income Statement (period, **accrual or cash basis**)
-  - Cash Flow (period)
+- **Reports** — every rendered report is discoverable from the report index (trial balance, balance sheet, income statement, cash flow, general ledger, AR/AP aging, cash-flow forecast, budget vs actual, tax summary, amortization), and closed fiscal periods show a "FY… is closed — these figures are final." banner.
 - **Cash-basis toggle** — each ledger is created as either
   accrual or cash. The income-statement and cash-flow reports
   accept `?basis=…`; the cash variant only counts postings
