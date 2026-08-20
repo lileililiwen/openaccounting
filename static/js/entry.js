@@ -452,15 +452,24 @@
     return lines;
   }
 
-  // Submit: build simple lines, then guard same-account and
-  // far-future dates (`ux-transaction-entry`).
+  // Submit: build simple lines, guard same-account and far-future
+  // dates (`ux-transaction-entry`), then POST via fetch so the
+  // multipart body can carry the CSRF header
+  // (`a12-transaction-entry-ease` inline documents).
   if (form) {
+    var submitAction = 'save';
+    form.querySelectorAll('button[name="action"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        submitAction = b.value;
+      });
+    });
+
     form.addEventListener('submit', function (ev) {
+      ev.preventDefault(); // we always submit via fetch
       var effective;
       if (isSimpleMode()) {
         effective = buildSimpleLines();
         if (!effective) {
-          ev.preventDefault();
           window.alert('Please fill in the amount and both accounts.');
           return;
         }
@@ -487,7 +496,6 @@
       if (badId) {
         var opt = container.querySelector('option[value="' + badId + '"]');
         var label = opt ? opt.textContent : 'this account';
-        ev.preventDefault();
         window.alert('This entry moves money within "' + label + '" (the same account on both sides) — pick a different account for one of the lines.');
         return;
       }
@@ -500,10 +508,37 @@
         var days = Math.round((d - today) / 86400000);
         if (days > 30) {
           if (!window.confirm('You are recording a transaction dated ' + dateEl.value + ' (' + days + ' days in the future) — is that intentional?')) {
-            ev.preventDefault();
+            return;
           }
         }
       }
+
+      var fd = new FormData(form);
+      fd.append('action', submitAction);
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      var headers = {};
+      if (meta) headers['X-CSRF-Token'] = meta.getAttribute('content');
+      // Use getAttribute('action'): `form.action` is shadowed by the
+      // buttons named "action" (named-property access) and would
+      // resolve to [object RadioNodeList].
+      fetch(form.getAttribute('action'), { method: 'POST', headers: headers, body: fd })
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          // The server replies with the transaction show page
+          // (success) or the re-rendered form (error); replace the
+          // document so the user sees either.
+          document.open();
+          document.write(html);
+          document.close();
+          // Fix the address bar to the show page when saved.
+          var m = html.match(/\/ledgers\/([0-9a-f-]+)\/transactions\/([0-9a-f-]+)\/documents/);
+          if (m && html.indexOf('id="txn-form"') === -1) {
+            history.replaceState(null, '', '/ledgers/' + m[1] + '/transactions/' + m[2]);
+          }
+        })
+        .catch(function () {
+          window.alert('Save failed — please try again.');
+        });
     });
   }
 })();

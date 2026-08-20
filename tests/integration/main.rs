@@ -58,6 +58,7 @@ mod smoke;
 mod totp;
 mod transaction_number;
 mod transactions_bulk;
+mod transactions_document;
 mod transactions_draft;
 mod transactions_edit;
 mod transactions_split;

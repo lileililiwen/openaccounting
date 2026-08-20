@@ -2643,6 +2643,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "mime",
+ "multer",
  "once_cell",
  "postgres",
  "qrcodegen",

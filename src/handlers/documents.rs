@@ -313,6 +313,76 @@ pub async fn upload(
     Ok(Redirect::to(&format!("/ledgers/{}/transactions/{}", ledger_id, txn_id)).into_response())
 }
 
+/// Save a document attached inline during transaction creation
+/// (`a12-transaction-entry-ease`). Reuses the upload MIME validation,
+/// storage path, quota warning, and audit logging so the inline
+/// attach is indistinguishable from a post-create upload.
+pub(crate) async fn save_inline_document(
+    state: &AppState,
+    ledger_id: Uuid,
+    txn_id: Uuid,
+    user: &User,
+    filename: &str,
+    declared: &str,
+    bytes: &[u8],
+) -> AppResult<Uuid> {
+    // `s10-upload-validation`: sniff vs declared MIME.
+    let mime = upload::validate(declared, Some(filename), bytes)
+        .map_err(|e| AppError::Validation(e.message()))?
+        .to_string();
+    if !ALLOWED_MIME.contains(&mime.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Unsupported file type: {}",
+            mime
+        )));
+    }
+
+    let key = state.storage.allocate_path(txn_id, filename).await?;
+    state.storage.write(&key, bytes).await?;
+    let stored = match &key {
+        crate::storage::StorageKey::Filesystem(p) => p
+            .strip_prefix(&state.storage.root_for())
+            .unwrap_or(p)
+            .to_string_lossy()
+            .to_string(),
+        crate::storage::StorageKey::S3 { key, .. } => key.clone(),
+    };
+
+    let doc_id: Uuid = sqlx::query_scalar(
+        r#"INSERT INTO documents (transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, category)
+           VALUES ($1, $2, $3, $4, $5, $6, 'Other')
+           RETURNING id"#,
+    )
+    .bind(txn_id)
+    .bind(filename)
+    .bind(&stored)
+    .bind(&mime)
+    .bind(bytes.len() as i64)
+    .bind(user.id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    upload::maybe_warn_quota(&state.pool, user.id, bytes.len() as i64).await;
+
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "create",
+        "document",
+        Some(doc_id),
+        None,
+        Some(serde_json::json!({
+            "filename": filename,
+            "transaction_id": txn_id,
+            "inline": true,
+        })),
+    )
+    .await;
+
+    Ok(doc_id)
+}
+
 pub async fn download(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,

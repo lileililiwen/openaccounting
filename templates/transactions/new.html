@@ -12,7 +12,7 @@
     <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
   {% endif %}
 
-  <form method="post" action="/ledgers/{{ ledger_id }}/transactions/new" id="txn-form" class="space-y-4 bg-white p-5 rounded-xl border border-slate-200">
+  <form method="post" action="/ledgers/{{ ledger_id }}/transactions/new" id="txn-form" enctype="multipart/form-data" class="space-y-4 bg-white p-5 rounded-xl border border-slate-200">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <label class="block">
         <span class="text-sm font-medium text-slate-700">Date</span>
@@ -164,8 +164,12 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
-      <span id="balance-status" class="text-xs text-slate-500">—</span>
+      <label class="flex items-center gap-2 text-sm text-slate-600">
+        <input type="file" name="files" multiple accept="image/*,application/pdf,text/plain,.csv" class="text-sm" />
+        <span class="text-xs text-slate-400">Attach a receipt or invoice</span>
+      </label>
       <span class="flex-1"></span>
+      <span id="balance-status" class="text-xs text-slate-500">—</span>
       <button name="action" value="save"
               class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
         Save transaction

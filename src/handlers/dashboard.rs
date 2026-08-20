@@ -59,7 +59,7 @@ pub async fn show(
 
     let recent: Vec<TransactionRow> = sqlx::query_as::<_, TransactionRow>(
         r#"
-        SELECT t.id, t.txn_date AS date, t.description, t.payee, t.currency,
+        SELECT t.id, t.txn_date AS date, t.description, COALESCE(t.payee, '') AS payee, t.currency, t.kind,
                COALESCE((SELECT SUM(p.amount) FROM postings p WHERE p.transaction_id=t.id AND p.direction='DEBIT'), 0) AS total,
                (SELECT COUNT(*) FROM documents d WHERE d.transaction_id = t.id) AS doc_count,
                COALESCE((SELECT array_agg(tg.name)

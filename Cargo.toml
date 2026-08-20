@@ -50,6 +50,7 @@ tokio = { version = "1.43.0", features = ["full"] }
 tower = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "fs", "limit"] }
 hyper = "1.6.0"
+multer = "3.1"
 http = "1.3.1"
 
 sqlx = { version = "0.8.3", features = [

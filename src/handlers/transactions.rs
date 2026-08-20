@@ -1,5 +1,5 @@
 use crate::templates::render_response;
-use axum::extract::{Path, RawForm, State};
+use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_login::AuthSession;
 use chrono::{Datelike, NaiveDate};
@@ -249,11 +249,94 @@ pub fn parse_lines_for_edit(raw: &std::collections::HashMap<String, String>) -> 
     parse_lines(raw)
 }
 
+/// Upper bound for the create-request body. The request-body layer
+/// already caps uploads (`upload_max_bytes`); this is a defensive
+/// ceiling for the in-memory read.
+const MAX_CREATE_BODY: usize = 96 * 1024 * 1024;
+
+/// A file extracted from a multipart create request
+/// (`a12-transaction-entry-ease`).
+pub struct PendingUpload {
+    pub filename: String,
+    pub declared: String,
+    pub bytes: Vec<u8>,
+}
+
+/// Parse a `multipart/form-data` create body into form fields plus
+/// the uploaded document files.
+async fn parse_multipart_create(
+    bytes: &[u8],
+    content_type: &str,
+) -> AppResult<(
+    std::collections::HashMap<String, String>,
+    Vec<PendingUpload>,
+)> {
+    let boundary = content_type
+        .split("boundary=")
+        .nth(1)
+        .unwrap_or("")
+        .trim_matches('"')
+        .to_string();
+    if boundary.is_empty() {
+        return Err(AppError::Validation("Invalid multipart boundary".into()));
+    }
+    let mut mp = multer::Multipart::new(
+        futures::stream::once(futures::future::ready(Ok::<_, std::convert::Infallible>(
+            axum::body::Bytes::copy_from_slice(bytes),
+        ))),
+        boundary,
+    );
+    let mut fields: std::collections::HashMap<String, String> = Default::default();
+    let mut files: Vec<PendingUpload> = Vec::new();
+    while let Some(mut field) = mp
+        .next_field()
+        .await
+        .map_err(|e| AppError::Multipart(e.to_string()))?
+    {
+        let name = field.name().unwrap_or("").to_string();
+        if field.file_name().is_some() {
+            let filename = field.file_name().unwrap_or("upload").to_string();
+            let declared = field
+                .content_type()
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "application/octet-stream".to_string());
+            let mut buf: Vec<u8> = Vec::new();
+            let mut total = 0usize;
+            while let Some(chunk) = field
+                .chunk()
+                .await
+                .map_err(|e| AppError::Multipart(e.to_string()))?
+            {
+                total += chunk.len();
+                if total > crate::upload::DEFAULT_MAX_BYTES {
+                    return Err(AppError::Validation(format!(
+                        "File too large (max {} bytes)",
+                        crate::upload::DEFAULT_MAX_BYTES
+                    )));
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            files.push(PendingUpload {
+                filename,
+                declared,
+                bytes: buf,
+            });
+        } else {
+            let text = field
+                .text()
+                .await
+                .map_err(|e| AppError::Multipart(e.to_string()))?;
+            fields.insert(name, text);
+        }
+    }
+    Ok((fields, files))
+}
+
 pub async fn create(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path(ledger_id): Path<Uuid>,
-    RawForm(body): RawForm,
+    req: axum::extract::Request,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
@@ -265,12 +348,32 @@ pub async fn create(
     .fetch_all(&state.pool)
     .await?;
 
+    // The body is either `application/x-www-form-urlencoded` (no
+    // documents) or `multipart/form-data` (inline document attach,
+    // `a12-transaction-entry-ease`). Parse both.
+    let content_type = req
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let bytes = axum::body::to_bytes(req.into_body(), MAX_CREATE_BODY)
+        .await
+        .map_err(|e| AppError::Internal(format!("read create body: {e}")))?;
+
     // Parse the raw form body ourselves: `lines[N][field]=value` is not
     // representable as a nested serde struct, so we read the bytes, split on
     // '&', and group by the integer in the key.
-    let raw: std::collections::HashMap<String, String> = form_urlencoded::parse(&body)
-        .map(|(k, v)| (k.into_owned(), v.into_owned()))
-        .collect();
+    let (raw, uploads) = if content_type.starts_with("multipart/form-data") {
+        parse_multipart_create(&bytes, &content_type).await?
+    } else {
+        (
+            form_urlencoded::parse(&bytes)
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect(),
+            Vec::new(),
+        )
+    };
     let form = NewTxnForm {
         date: raw.get("date").cloned().unwrap_or_default(),
         description: raw.get("description").cloned().unwrap_or_default(),
@@ -490,6 +593,26 @@ pub async fn create(
     // Domain metric (`o4-metrics-endpoint`).
     crate::observability::metrics::postings_created(inputs.len() as u64);
 
+    // Inline documents (`a12-transaction-entry-ease`): attach the
+    // uploaded files to the freshly created transaction. A failure
+    // here must not lose the transaction — the entry is already
+    // saved; only the attachment is abandoned.
+    for up in &uploads {
+        if let Err(e) = crate::handlers::documents::save_inline_document(
+            &state,
+            ledger_id,
+            created.id,
+            user,
+            &up.filename,
+            &up.declared,
+            &up.bytes,
+        )
+        .await
+        {
+            tracing::warn!(txn_id = %created.id, error = %e, "inline document attach failed");
+        }
+    }
+
     let target = if save_as_draft {
         format!("/ledgers/{}/drafts", ledger_id)
     } else {
@@ -536,7 +659,7 @@ pub async fn show(
         .collect();
 
     let documents = sqlx::query_as::<_, crate::domain::Document>(
-        r#"SELECT id, transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at
+        r#"SELECT id, transaction_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at, category
            FROM documents WHERE transaction_id = $1 ORDER BY uploaded_at"#,
     )
     .bind(txn_id)
