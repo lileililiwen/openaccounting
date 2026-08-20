@@ -3,6 +3,7 @@
 {% block body %}
 {% include "partials/_nav.html" %}
 <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  {% include "partials/_period_closed.html" %}
   <div class="print-only-header">
     <h1>Balance Sheet — {{ ledger_name }}</h1>
     <div class="meta">As of {{ as_of }} · Printed {{ printed_at }}</div>

@@ -18,7 +18,7 @@ pub async fn close_year(
     Path((ledger_id, year)): Path<(Uuid, i32)>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
-    let _ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
 
     let mut tx = state.pool.begin().await?;
 
@@ -64,14 +64,27 @@ pub async fn close_year(
     .fetch_all(&mut *tx)
     .await?;
 
-    // Find or create retained earnings account
-    let retained_earnings_id: Uuid = sqlx::query_scalar(
+    // Find or create the retained earnings account. The default chart of
+    // accounts does not seed one, so period close must create it on the
+    // fly rather than failing (`a17-reports-polish` surfaced this).
+    let retained_earnings_id: Uuid = match sqlx::query_scalar(
         "SELECT id FROM accounts WHERE ledger_id = $1 AND subtype = 'RETAINED_EARNINGS' LIMIT 1",
     )
     .bind(ledger_id)
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or_else(|| AppError::Internal("Retained earnings account not found".into()))?;
+    {
+        Some(id) => id,
+        None => sqlx::query_scalar(
+            "INSERT INTO accounts (ledger_id, name, code, type, subtype, currency)
+             VALUES ($1, 'Retained Earnings', '3050', 'EQUITY', 'RETAINED_EARNINGS', $2)
+             RETURNING id",
+        )
+        .bind(ledger_id)
+        .bind(&ledger.base_currency)
+        .fetch_one(&mut *tx)
+        .await?,
+    };
 
     // Calculate net income
     let mut net_income = Decimal::ZERO;
@@ -88,12 +101,13 @@ pub async fn close_year(
     let txn = sqlx::query_as::<_, crate::domain::Transaction>(
         r#"INSERT INTO transactions (ledger_id, txn_date, description, currency, kind, created_by)
            VALUES ($1, $2, $3, $4, 'closing', $5)
-           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind, created_by, created_at, updated_at"#,
+           RETURNING id, ledger_id, txn_date, description, payee, reference, currency, kind,
+                     contact_id, invoice_id, template_id, created_by, number, created_at, updated_at"#,
     )
     .bind(ledger_id)
     .bind(closing_date)
     .bind(format!("Year-end close {}", year))
-    .bind("USD") // Will be replaced with ledger currency
+    .bind(&ledger.base_currency)
     .bind(user.id)
     .fetch_one(&mut *tx)
     .await?;

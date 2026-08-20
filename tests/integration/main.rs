@@ -49,6 +49,7 @@ mod printable_views;
 mod pta_round_trip;
 mod pwa;
 mod reconciliation_rules;
+mod reports_polish;
 mod role_enforcement;
 mod s3_store;
 mod saved_searches;

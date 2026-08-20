@@ -36,6 +36,7 @@ pub async fn index(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(ReportsIndex {
         user_id: user.id,
         username: user.username.clone(),
@@ -43,6 +44,7 @@ pub async fn index(
         ledger_id,
         ledger_name: ledger.name,
         current_section: "reports".to_string(),
+        closed_notice: all_closed_notice(&years),
     }))
 }
 
@@ -62,6 +64,84 @@ fn validate_date_range(from: NaiveDate, to: NaiveDate) -> AppResult<()> {
         return Err(AppError::Validation("from must be <= to".into()));
     }
     Ok(())
+}
+
+/// Closed fiscal years for a ledger (`a17-reports-polish`).
+pub async fn closed_years(pool: &sqlx::PgPool, ledger_id: Uuid) -> AppResult<Vec<i32>> {
+    let years = sqlx::query_as::<_, (i32,)>(
+        "SELECT period_year FROM closed_periods WHERE ledger_id = $1 ORDER BY period_year",
+    )
+    .bind(ledger_id)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(y,)| y)
+    .collect();
+    Ok(years)
+}
+
+/// Build the "period closed" notice for the years matching `in_range`;
+/// empty when nothing is closed.
+pub fn closed_notice(years: &[i32], in_range: impl Fn(i32) -> bool) -> String {
+    let matching: Vec<i32> = years.iter().copied().filter(|y| in_range(*y)).collect();
+    if matching.is_empty() {
+        return String::new();
+    }
+    let list = matching.iter().map(|y| format!("FY{y}")).collect::<Vec<_>>();
+    let (last, rest) = list.split_last().expect("non-empty");
+    let joined = if rest.is_empty() {
+        last.clone()
+    } else {
+        format!("{} and {}", rest.join(", "), last)
+    };
+    let verb = if matching.len() == 1 { "is" } else { "are" };
+    format!("{joined} {verb} closed — these figures are final.")
+}
+
+/// Closed-period note for the report index listing every closed year.
+pub fn all_closed_notice(years: &[i32]) -> String {
+    if years.is_empty() {
+        return String::new();
+    }
+    let list = years.iter().map(|y| format!("FY{y}")).collect::<Vec<_>>();
+    let (last, rest) = list.split_last().expect("non-empty");
+    let joined = if rest.is_empty() {
+        last.clone()
+    } else {
+        format!("{} and {}", rest.join(", "), last)
+    };
+    format!("Closed periods: {joined}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closed_notice_single_year() {
+        assert_eq!(
+            closed_notice(&[2025], |y| y == 2025),
+            "FY2025 is closed — these figures are final."
+        );
+    }
+
+    #[test]
+    fn closed_notice_multiple_years() {
+        assert_eq!(
+            closed_notice(&[2024, 2025], |y| y <= 2025),
+            "FY2024 and FY2025 are closed — these figures are final."
+        );
+    }
+
+    #[test]
+    fn closed_notice_out_of_range_empty() {
+        assert_eq!(closed_notice(&[2025], |y| y <= 2024), "");
+    }
+
+    #[test]
+    fn all_closed_notice_empty() {
+        assert_eq!(all_closed_notice(&[]), "");
+    }
 }
 
 /// Parse `?basis=…` from the query string, falling back to the
@@ -89,6 +169,7 @@ pub async fn trial_balance(
     let as_of = parse_or(q.get("as_of"), today());
     let result = build_trial_balance(&state.pool, ledger_id, as_of).await?;
     let balanced = result.total_debit == result.total_credit;
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(TrialBalancePage {
         user_id: user.id,
         username: user.username.clone(),
@@ -101,6 +182,7 @@ pub async fn trial_balance(
         totals_debit: result.total_debit,
         totals_credit: result.total_credit,
         balanced,
+        closed_notice: closed_notice(&years, |y| y <= as_of.year()),
     }))
 }
 
@@ -124,6 +206,7 @@ pub async fn balance_sheet(
         build_income_statement(&state.pool, ledger_id, from, as_of, ReportBasis::Accrual).await?;
     let bs = build_balance_sheet(&state.pool, ledger_id, as_of, is.net_income).await?;
     let balanced = bs.total_assets == bs.total_liab_equity;
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(BalanceSheetPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -140,6 +223,7 @@ pub async fn balance_sheet(
         total_liab_equity: bs.total_liab_equity,
         balanced,
         printed_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+        closed_notice: closed_notice(&years, |y| y <= as_of.year()),
     }))
 }
 
@@ -156,6 +240,7 @@ pub async fn income_statement(
     validate_date_range(from, to)?;
     let basis = parse_basis(&q, &ledger)?;
     let is = build_income_statement(&state.pool, ledger_id, from, to, basis).await?;
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(IncomeStatementPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -176,6 +261,7 @@ pub async fn income_statement(
         tax_expense: is.tax_expense,
         net_income: is.net_income,
         excluded: is.excluded,
+        closed_notice: closed_notice(&years, |y| y >= from.year() && y <= to.year()),
     }))
 }
 
@@ -192,6 +278,7 @@ pub async fn cash_flow(
     validate_date_range(from, to)?;
     let basis = parse_basis(&q, &ledger)?;
     let cf = build_cash_flow(&state.pool, ledger_id, from, to, basis).await?;
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(CashFlowPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -209,6 +296,7 @@ pub async fn cash_flow(
         outflows: cf.outflows,
         total_inflows: cf.total_inflows,
         total_outflows: cf.total_outflows,
+        closed_notice: closed_notice(&years, |y| y >= from.year() && y <= to.year()),
     }))
 }
 
@@ -227,6 +315,7 @@ pub async fn cash_flow_forecast(
         .clamp(1, 365);
     let result = build_forecast(&state.pool, ledger_id, horizon_days).await?;
     let chart_svg = render_forecast_chart(&result);
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(CashFlowForecastPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -237,6 +326,7 @@ pub async fn cash_flow_forecast(
         horizon_days,
         result,
         chart_svg,
+        closed_notice: closed_notice(&years, |_| true),
     }))
 }
 
@@ -263,6 +353,7 @@ pub async fn general_ledger(
     let (entries, running_balances) =
         build_general_ledger(&state.pool, ledger_id, from, to, account_uuid).await?;
     let account_filter_str = account_uuid.map(|u| u.to_string()).unwrap_or_default();
+    let years = closed_years(&state.pool, ledger_id).await?;
     Ok(render_response(GeneralLedgerPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -276,6 +367,7 @@ pub async fn general_ledger(
         accounts,
         entries,
         running_balances,
+        closed_notice: closed_notice(&years, |y| y >= from.year() && y <= to.year()),
     }))
 }
 

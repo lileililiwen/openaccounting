@@ -19,6 +19,8 @@ pub struct ReportsIndex {
     pub ledger_id: Uuid,
     pub ledger_name: String,
     pub current_section: String,
+    /// "Closed periods: FY2025 …" or empty.
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -35,6 +37,7 @@ pub struct TrialBalancePage {
     pub totals_debit: Decimal,
     pub totals_credit: Decimal,
     pub balanced: bool,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -56,6 +59,7 @@ pub struct BalanceSheetPage {
     pub balanced: bool,
     /// Pre-formatted UTC string used by the print header.
     pub printed_at: String,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -80,6 +84,7 @@ pub struct IncomeStatementPage {
     pub tax_expense: Option<IncomeStatementSection>,
     pub net_income: Decimal,
     pub excluded: Option<ExcludedTotals>,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -101,6 +106,7 @@ pub struct CashFlowPage {
     pub outflows: Vec<CashFlowLine>,
     pub total_inflows: Decimal,
     pub total_outflows: Decimal,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -118,6 +124,7 @@ pub struct GeneralLedgerPage {
     pub accounts: Vec<crate::domain::Account>,
     pub entries: Vec<GeneralLedgerEntry>,
     pub running_balances: std::collections::HashMap<Uuid, Decimal>,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -132,6 +139,7 @@ pub struct AgingReportPage {
     pub report_type: String,
     pub as_of: NaiveDate,
     pub aging: Vec<AgingBucketData>,
+    pub closed_notice: String,
 }
 
 #[derive(Template)]
@@ -146,4 +154,5 @@ pub struct CashFlowForecastPage {
     pub horizon_days: u32,
     pub result: crate::reports::ForecastResult,
     pub chart_svg: String,
+    pub closed_notice: String,
 }

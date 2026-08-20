@@ -1,7 +1,7 @@
 use axum::extract::{Path, State};
 use axum::response::Response;
 use axum_login::AuthSession;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
@@ -23,6 +23,7 @@ pub async fn ar_aging(
 
     let today = chrono::Utc::now().date_naive();
     let aging = compute_aging(&state.pool, ledger_id, "receivable", today).await?;
+    let years = crate::handlers::reports::closed_years(&state.pool, ledger_id).await?;
 
     Ok(crate::templates::render_response(AgingReportPage {
         user_id: user.id,
@@ -34,6 +35,7 @@ pub async fn ar_aging(
         report_type: "Accounts Receivable".into(),
         as_of: today,
         aging,
+        closed_notice: crate::handlers::reports::closed_notice(&years, |y| y <= today.year()),
     }))
 }
 
@@ -47,6 +49,7 @@ pub async fn ap_aging(
 
     let today = chrono::Utc::now().date_naive();
     let aging = compute_aging(&state.pool, ledger_id, "payable", today).await?;
+    let years = crate::handlers::reports::closed_years(&state.pool, ledger_id).await?;
 
     Ok(crate::templates::render_response(AgingReportPage {
         user_id: user.id,
@@ -58,6 +61,7 @@ pub async fn ap_aging(
         report_type: "Accounts Payable".into(),
         as_of: today,
         aging,
+        closed_notice: crate::handlers::reports::closed_notice(&years, |y| y <= today.year()),
     }))
 }
 
