@@ -334,6 +334,19 @@ fn build_router_inner(
             get(handlers::accounts::new_page).post(handlers::accounts::create),
         )
         .route(
+            "/ledgers/{id}/accounts/{account_id}/edit",
+            get(handlers::accounts::edit_page).post(handlers::accounts::update),
+        )
+        .route(
+            "/ledgers/{id}/accounts/{account_id}/toggle-archive",
+            post(handlers::accounts::toggle_archive),
+        )
+        .route(
+            "/ledgers/{id}/opening-balances",
+            get(handlers::accounts::opening_balances_page)
+                .post(handlers::accounts::opening_balances_create),
+        )
+        .route(
             "/ledgers/{id}/transactions",
             get(handlers::transactions::list),
         )

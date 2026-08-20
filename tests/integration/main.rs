@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod account_management;
 mod admin;
 mod amortization;
 mod api;

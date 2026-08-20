@@ -205,4 +205,15 @@ impl Account {
     pub fn account_subtype(&self) -> Option<AccountSubtype> {
         AccountSubtype::from_db(&self.subtype)
     }
+
+    /// Raw type string ("ASSET", …) — safe to render in Askama
+    /// templates, which cannot parse the `r#type` raw identifier.
+    pub fn type_str(&self) -> &str {
+        &self.r#type
+    }
+
+    /// Raw subtype string ("CURRENT_ASSET", …) for templates.
+    pub fn subtype_str(&self) -> &str {
+        &self.subtype
+    }
 }

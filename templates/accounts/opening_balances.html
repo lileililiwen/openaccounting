@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Opening balances — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/accounts" class="text-sm text-slate-500 hover:text-slate-800">← Back to accounts</a>
+    <h1 class="text-2xl font-semibold mt-1">Opening balances</h1>
+    <p class="text-sm text-slate-500">
+      Bring the starting position of <strong>{{ ledger_name }}</strong> into the books.
+      Saving posts one balanced entry dated <em>{{ date }}</em> against the
+      <em>Opening Balances</em> equity account.
+    </p>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  {% if has_opening %}
+    <div class="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-3 py-2">
+      Opening balances have already been recorded for this ledger. To change them,
+      reverse the existing "Opening balances" entry in Transactions first.
+    </div>
+  {% endif %}
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/opening-balances" class="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Date</span>
+      <input type="date" name="date" required value="{{ date }}" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+
+    <div class="space-y-1">
+      {% for (account, current) in accounts %}
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_10rem_10rem] gap-2 items-end">
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-slate-800 truncate">{{ account.name }}</div>
+            <div class="text-xs text-slate-500">{{ account.type_str() }} · {{ account.code.as_deref().unwrap_or("") }}</div>
+          </div>
+          <div class="text-xs text-slate-400 text-right pb-2">current: {{ current }}</div>
+          <label class="block">
+            <span class="sr-only">Opening balance for {{ account.name }}</span>
+            <input type="number" step="0.01" name="amount[{{ account.id }}]" placeholder="0.00"
+                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tabular text-right" />
+          </label>
+        </div>
+      {% endfor %}
+    </div>
+
+    <p class="text-xs text-slate-500">
+      Leave an amount blank (or equal to its current balance) to skip that account.
+      Asset balances are entered as positive; liability and equity balances as positive too
+      (the sign is handled for you).
+    </p>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <a href="/ledgers/{{ ledger_id }}/accounts" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Save opening balances</button>
+    </div>
+  </form>
+</main>
+{% endblock %}
