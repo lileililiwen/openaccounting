@@ -8,7 +8,10 @@
       <h1 class="text-2xl font-semibold">Transactions</h1>
       <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
     </div>
-    <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New transaction</a>
+    <div class="flex items-center gap-2">
+      <a href="/transfers/inter-ledger" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">Transfer between ledgers</a>
+      <a href="/ledgers/{{ ledger_id }}/transactions/new" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-medium hover:bg-slate-800">+ New transaction</a>
+    </div>
   </header>
 
 <form method="get" action="/ledgers/{{ ledger_id }}/transactions" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">

@@ -329,6 +329,7 @@ fn build_router_inner(
             "/account/password",
             post(handlers::account::change_password),
         )
+        .merge(handlers::account_api_tokens::router())
         .route("/ledgers/{id}/accounts", get(handlers::accounts::list))
         .route(
             "/ledgers/{id}/accounts/new",

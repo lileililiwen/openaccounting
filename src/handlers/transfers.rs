@@ -26,6 +26,7 @@ use crate::{
     domain::TxnLineInput,
     error::{AppError, AppResult},
     handlers::{ledgers, transactions_edit::insert_reversal},
+    templates::transfers::TransfersPage,
     AppState,
 };
 
@@ -57,14 +58,49 @@ pub struct InterLedgerTransfer {
     pub to_txn_id: Uuid,
 }
 
-async fn new_page() -> Response {
-    // The page is rendered server-side via Askama; this minimal
-    // handler returns a placeholder for now so the route exists.
-    (
-        StatusCode::OK,
-        "Inter-ledger transfer form lives here in a follow-up UI change.",
+async fn new_page(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+
+    // Every ledger the user can write to, with its accounts, for the
+    // transfer form (`a19-stub-cleanup`).
+    let ledgers = sqlx::query_as::<_, (Uuid, String)>(
+        r#"SELECT l.id, l.name FROM ledgers l WHERE l.owner_id = $1
+           UNION
+           SELECT l.id, l.name FROM ledgers l
+           JOIN ledger_members lm ON lm.ledger_id = l.id
+           WHERE lm.user_id = $1 AND lm.role IN ('owner', 'editor')
+           ORDER BY name"#,
     )
-        .into_response()
+    .bind(user.id)
+    .fetch_all(&state.pool)
+    .await?;
+
+    let mut rows = Vec::new();
+    for (ledger_id, ledger_name) in ledgers {
+        let accounts = sqlx::query_as::<_, (Uuid, String)>(
+            r#"SELECT id, name FROM accounts
+               WHERE ledger_id = $1 AND is_archived = FALSE
+               ORDER BY type, code NULLS LAST, name"#,
+        )
+        .bind(ledger_id)
+        .fetch_all(&state.pool)
+        .await?;
+        rows.push((ledger_id, ledger_name, accounts));
+    }
+
+    Ok(crate::templates::render_response(TransfersPage {
+        user_id: user.id,
+        username: user.username.clone(),
+        user_role: user.role.clone(),
+        ledger_id: Uuid::nil(),
+        ledger_name: String::new(),
+        current_section: "transactions".to_string(),
+        ledgers: rows,
+        error: String::new(),
+    }))
 }
 
 /// Create one inter-ledger transfer. Writes:

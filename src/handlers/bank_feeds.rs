@@ -325,12 +325,113 @@ fn encrypt_token(plaintext: &str) -> AppResult<String> {
 }
 
 /// Verify a Plaid webhook signature (HMAC-SHA256).
+///
+/// Plaid signs the raw request body with the webhook secret and sends
+/// the result in the `Plaid-Verification` header as `v1: <hex mac>`.
+/// Returns false for any unknown scheme, malformed header, or mismatch
+/// (fail closed). When `PLAID_WEBHOOK_SECRET` is empty the caller
+/// bypasses this check entirely.
 fn verify_plaid_signature(body: &[u8], header: &str, secret: &str) -> bool {
-    // Signature verification requires hmac+sha2 (not in current deps).
-    // If PLAID_WEBHOOK_SECRET is empty the check is bypassed above.
-    // This stub always returns true for v1; a follow-up adds sha2.
-    let _body = body;
-    let _header = header;
-    let _secret = secret;
-    true
+    let Some((version, mac_hex)) = header.trim().split_once(':') else {
+        return false;
+    };
+    if version.trim() != "v1" {
+        return false;
+    }
+
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+
+    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+    mac.update(body);
+    let expected = mac.finalize().into_bytes();
+
+    let provided = match decode_hex(mac_hex.trim()) {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+    if provided.len() != expected.len() {
+        return false;
+    }
+    // Constant-time comparison.
+    let mut diff = 0u8;
+    for (a, b) in provided.iter().zip(expected.iter()) {
+        diff |= a ^ b;
+    }
+    diff == 0
+}
+
+fn decode_hex(s: &str) -> Option<Vec<u8>> {
+    if s.len() % 2 != 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(s.len() / 2);
+    let bytes = s.as_bytes();
+    for i in (0..bytes.len()).step_by(2) {
+        let hi = (bytes[i] as char).to_digit(16)? as u8;
+        let lo = (bytes[i + 1] as char).to_digit(16)? as u8;
+        out.push((hi << 4) | lo);
+    }
+    Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hmac_hex(body: &[u8], secret: &str) -> String {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body);
+        let bytes = mac.finalize().into_bytes();
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    #[test]
+    fn valid_v1_signature_passes() {
+        let body = b"{\"webhook_type\":\"TRANSACTIONS\"}";
+        let sig = hmac_hex(body, "plaid_secret");
+        let header = format!("v1: {sig}");
+        assert!(verify_plaid_signature(body, &header, "plaid_secret"));
+    }
+
+    #[test]
+    fn wrong_secret_fails() {
+        let body = b"hello";
+        let sig = hmac_hex(body, "correct_secret");
+        let header = format!("v1: {sig}");
+        assert!(!verify_plaid_signature(body, &header, "wrong_secret"));
+    }
+
+    #[test]
+    fn wrong_body_fails() {
+        let body = b"hello";
+        let sig = hmac_hex(body, "secret");
+        let header = format!("v1: {sig}");
+        assert!(!verify_plaid_signature(b"tampered", &header, "secret"));
+    }
+
+    #[test]
+    fn unknown_scheme_fails() {
+        let body = b"hello";
+        assert!(!verify_plaid_signature(body, "v2: deadbeef", "secret"));
+    }
+
+    #[test]
+    fn malformed_header_fails() {
+        let body = b"hello";
+        assert!(!verify_plaid_signature(body, "not-a-header", "secret"));
+    }
+
+    #[test]
+    fn bad_hex_fails() {
+        let body = b"hello";
+        assert!(!verify_plaid_signature(body, "v1: zz", "secret"));
+    }
 }
