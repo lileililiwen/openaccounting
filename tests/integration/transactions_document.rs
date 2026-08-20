@@ -306,3 +306,130 @@ async fn http_multileg_editor_is_default() {
         "the two-leg simple view must be hidden by default"
     );
 }
+
+#[tokio::test]
+async fn http_upload_unbound_document() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, _, _) = setup(&server, "inbox-upload").await;
+
+    let form = reqwest::multipart::Form::new().part(
+        "files",
+        reqwest::multipart::Part::bytes(b"inbox receipt")
+            .file_name("inbox-receipt.txt")
+            .mime_str("text/plain")
+            .unwrap(),
+    );
+    let resp = client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents",
+            server.base_url()
+        ))
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 303, "unbound upload must redirect");
+
+    let pool = server.db().pool();
+    let doc: (Option<Uuid>, Option<Uuid>) = sqlx::query_as(
+        "SELECT transaction_id, ledger_id FROM documents WHERE filename = 'inbox-receipt.txt'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(doc.0, None, "unbound document has no transaction");
+    assert_eq!(
+        doc.1,
+        Some(ledger_id),
+        "unbound document anchored to the ledger"
+    );
+}
+
+#[tokio::test]
+async fn http_upload_unbound_non_writer_403() {
+    let server = TestServer::new().await;
+    let (_, ledger_id, _, _) = setup(&server, "inbox-owner").await;
+
+    // A non-member cannot upload to the ledger.
+    let intruder = make_client();
+    let email = "inbox-intruder@example.com";
+    intruder
+        .post(format!("{}/register", server.base_url()))
+        .form(&[
+            ("email", email),
+            ("username", "inbox-intruder"),
+            ("password", PASSWORD),
+            ("password_confirm", PASSWORD),
+        ])
+        .send()
+        .await
+        .unwrap();
+    intruder
+        .post(format!("{}/login", server.base_url()))
+        .form(&[("email", email), ("password", PASSWORD), ("next", "/")])
+        .send()
+        .await
+        .unwrap();
+
+    let form = reqwest::multipart::Form::new().part(
+        "files",
+        reqwest::multipart::Part::bytes(b"nope")
+            .file_name("x.txt")
+            .mime_str("text/plain")
+            .unwrap(),
+    );
+    let resp = intruder
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents",
+            server.base_url()
+        ))
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        resp.status() == 403 || resp.status() == 404,
+        "non-writer must be blocked from uploading (got {})",
+        resp.status()
+    );
+}
+
+#[tokio::test]
+async fn http_inbox_lists_unbound() {
+    let server = TestServer::new().await;
+    let (client, ledger_id, _, _) = setup(&server, "inbox-list").await;
+
+    let form = reqwest::multipart::Form::new().part(
+        "files",
+        reqwest::multipart::Part::bytes(b"list me")
+            .file_name("list-me.txt")
+            .mime_str("text/plain")
+            .unwrap(),
+    );
+    client
+        .post(format!(
+            "{}/ledgers/{ledger_id}/documents",
+            server.base_url()
+        ))
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+
+    let resp = client
+        .get(format!(
+            "{}/ledgers/{ledger_id}/documents",
+            server.base_url()
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("list-me.txt"), "unbound document listed");
+    assert!(body.contains("Unbound"), "unbound state shown");
+    assert!(
+        body.contains("Bind to transaction"),
+        "bind action present for unbound documents"
+    );
+}

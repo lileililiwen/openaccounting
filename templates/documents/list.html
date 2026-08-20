@@ -3,9 +3,15 @@
 {% block body %}
 {% include "partials/_nav.html" %}
 <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
-  <header>
-    <h1 class="text-2xl font-semibold">Documents</h1>
-    <p class="text-slate-500 text-sm">All receipts, invoices, and payment slips in {{ ledger_name }}</p>
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Documents</h1>
+      <p class="text-slate-500 text-sm">All receipts, invoices, and payment slips in {{ ledger_name }}</p>
+    </div>
+    <form method="post" action="/ledgers/{{ ledger_id }}/documents" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+      <input type="file" name="files" multiple accept="image/*,application/pdf,text/plain,.csv" class="text-sm" />
+      <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Upload</button>
+    </form>
   </header>
 
   <form method="get" action="/ledgers/{{ ledger_id }}/documents" class="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
@@ -71,12 +77,22 @@
                   —
                 {% endif %}
               </td>
-              <td class="px-4 py-2"><a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-slate-800 hover:underline">{{ d.transaction_description }}</a></td>
-              <td class="px-4 py-2 tabular text-slate-500">{{ d.transaction_date }}</td>
+              <td class="px-4 py-2">
+                {% if d.is_unbound %}
+                  <span class="text-slate-400">Unbound</span>
+                {% else %}
+                  <a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-slate-800 hover:underline">{{ d.transaction_description }}</a>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2 tabular text-slate-500">{% if d.is_unbound %}—{% else %}{{ d.transaction_date }}{% endif %}</td>
               <td class="px-4 py-2 text-right tabular text-slate-500">{{ d.size_bytes }}</td>
               <td class="px-4 py-2 text-right">
                 <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline">Open</a>
-                <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="ml-2 text-sky-600 hover:underline text-xs">OCR</a>
+                {% if d.is_unbound %}
+                  <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" class="ml-2 text-indigo-600 hover:underline text-xs">Bind to transaction</a>
+                {% else %}
+                  <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="ml-2 text-sky-600 hover:underline text-xs">OCR</a>
+                {% endif %}
                 <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Delete this document?')">
                   <button class="ml-2 text-rose-600 hover:text-rose-800 text-xs">Delete</button>
                 </form>
@@ -90,10 +106,18 @@
       {% for d in documents %}
         <li class="rounded-xl bg-white border border-slate-200 p-3">
           <div class="text-sm font-medium text-slate-800 truncate">{{ d.filename }}</div>
-          <a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-xs text-slate-500 hover:underline">{{ d.transaction_date }} · {{ d.transaction_description }}</a>
+          {% if d.is_unbound %}
+            <div class="text-xs text-slate-400">Unbound — upload not yet linked to a transaction</div>
+          {% else %}
+            <a href="/ledgers/{{ ledger_id }}/transactions/{{ d.transaction_id }}" class="text-xs text-slate-500 hover:underline">{{ d.transaction_date }} · {{ d.transaction_description }}</a>
+          {% endif %}
           <div class="mt-2 flex gap-2 flex-wrap">
             <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-sm text-slate-800 underline">Open</a>
-            <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="text-sm text-sky-600 underline">OCR</a>
+            {% if d.is_unbound %}
+              <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" class="text-sm text-indigo-600 underline">Bind</a>
+            {% else %}
+              <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="text-sm text-sky-600 underline">OCR</a>
+            {% endif %}
             <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Delete this document?')">
               <button class="text-sm text-rose-600">Delete</button>
             </form>

@@ -23,6 +23,9 @@ pub struct DocumentWithTxn {
     pub size_bytes: i64,
     pub uploaded_at: chrono::DateTime<chrono::Utc>,
     pub transaction_id: Uuid,
+    /// `true` for documents uploaded without a transaction
+    /// (`a13-document-inbox`); the inbox shows a bind action.
+    pub is_unbound: bool,
     pub transaction_date: chrono::NaiveDate,
     pub transaction_description: String,
     /// One of: `""`, `"pending"`, `"done"`, `"failed"`.
@@ -38,6 +41,7 @@ impl From<(Document, chrono::NaiveDate, String)> for DocumentWithTxn {
             size_bytes: d.size_bytes,
             uploaded_at: d.uploaded_at,
             transaction_id: d.transaction_id.unwrap_or_default(),
+            is_unbound: d.transaction_id.is_none(),
             transaction_date: date,
             transaction_description: desc,
             ocr_status: String::new(),

@@ -368,7 +368,10 @@ fn build_router_inner(
             "/ledgers/{id}/transactions/{txn_id}/documents",
             post(handlers::documents::upload),
         )
-        .route("/ledgers/{id}/documents", get(handlers::documents::list))
+        .route(
+            "/ledgers/{id}/documents",
+            get(handlers::documents::list).post(handlers::documents::upload_unbound),
+        )
         .route(
             "/ledgers/{id}/documents/{doc_id}/download",
             get(handlers::documents::download),
