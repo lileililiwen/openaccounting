@@ -12,7 +12,7 @@
     <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
   {% endif %}
 
-  <form method="post" action="/ledgers/{{ ledger_id }}/taxes" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+  <form method="post" action="/ledgers/{{ ledger_id }}/taxes/new" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
     <div>
       <label class="text-sm font-medium text-slate-700">Name *</label>
       <input name="name" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />

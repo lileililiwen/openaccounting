@@ -35,6 +35,30 @@ pub fn group_accounts(accounts: Vec<Account>) -> Vec<(String, Vec<Account>)> {
     groups
 }
 
+/// An active tax rate available on the entry form (`a14-tax-on-transactions`).
+#[derive(Clone, Debug)]
+struct ActiveTaxRate {
+    id: Uuid,
+    name: String,
+    rate: Decimal,
+    account_id: Uuid,
+}
+
+/// Load the ledger's active tax rates for the per-line tax picker.
+async fn load_active_tax_rates(pool: &sqlx::PgPool, ledger_id: Uuid) -> AppResult<Vec<ActiveTaxRate>> {
+    Ok(sqlx::query_as::<_, (Uuid, String, Decimal, Uuid)>(
+        r#"SELECT id, name, rate, account_id FROM tax_rates
+           WHERE ledger_id = $1 AND is_active = TRUE
+           ORDER BY kind, name"#,
+    )
+    .bind(ledger_id)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(id, name, rate, account_id)| ActiveTaxRate { id, name, rate, account_id })
+    .collect())
+}
+
 pub async fn list(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -176,6 +200,14 @@ pub async fn new_page(
     .bind(ledger_id)
     .fetch_all(&state.pool)
     .await?;
+    let tax_rates: Vec<(Uuid, String, String)> = load_active_tax_rates(&state.pool, ledger_id)
+        .await?
+        .iter()
+        .map(|t| {
+            let pct = (t.rate * Decimal::new(100, 0)).round_dp(0);
+            (t.id, format!("{} ({}%)", t.name, pct), t.rate.to_string())
+        })
+        .collect();
     Ok(render_response(TransactionNew {
         user_id: user.id,
         username: user.username.clone(),
@@ -188,6 +220,7 @@ pub async fn new_page(
         error: String::new(),
         bind_doc: params.get("bind_doc").cloned().unwrap_or_default(),
         form: TransactionForm::empty(),
+        tax_rates,
     }))
 }
 
@@ -212,6 +245,8 @@ pub struct ParsedLine {
     pub direction: String,
     pub amount: String,
     pub memo: String,
+    /// Optional active tax rate id (`a14-tax-on-transactions`).
+    pub tax_rate_id: String,
 }
 
 fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLine> {
@@ -239,6 +274,7 @@ fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLin
             "direction" => entry.direction = value.clone(),
             "amount" => entry.amount = value.clone(),
             "memo" => entry.memo = value.clone(),
+            "tax_rate_id" => entry.tax_rate_id = value.clone(),
             _ => {}
         }
     }
@@ -385,6 +421,17 @@ pub async fn create(
     };
     let bind_doc = form.extra.get("bind_doc").cloned().unwrap_or_default();
 
+    // Active tax rates for the per-line picker; also used to expand
+    // tax legs below (`a14-tax-on-transactions`).
+    let active_tax_rates = load_active_tax_rates(&state.pool, ledger_id).await?;
+    let tax_rates: Vec<(Uuid, String, String)> = active_tax_rates
+        .iter()
+        .map(|t| {
+            let pct = (t.rate * Decimal::new(100, 0)).round_dp(0);
+            (t.id, format!("{} ({}%)", t.name, pct), t.rate.to_string())
+        })
+        .collect();
+
     let make_error = |msg: String| TransactionNew {
         user_id: user.id,
         username: user.username.clone(),
@@ -409,9 +456,11 @@ pub async fn create(
                     amount: l.amount,
                     direction: l.direction,
                     memo: l.memo,
+                    tax_rate_id: l.tax_rate_id,
                 })
                 .collect(),
         },
+        tax_rates: tax_rates.clone(),
     };
 
     // `a8-draft-transactions`: "Save as draft" submits with
@@ -475,6 +524,18 @@ pub async fn create(
                 )))
             }
         };
+        let tax_rate_id = if l.tax_rate_id.trim().is_empty() {
+            None
+        } else {
+            match Uuid::parse_str(l.tax_rate_id.trim()) {
+                Ok(id) => Some(id),
+                Err(_) => {
+                    return Ok(render_response(make_error(
+                        "Invalid tax rate on a posting".into(),
+                    )))
+                }
+            }
+        };
         inputs.push(TxnLineInput {
             account_id,
             signed_amount: match direction {
@@ -486,21 +547,14 @@ pub async fn create(
             } else {
                 Some(l.memo.clone())
             },
+            tax_rate_id,
         });
-    }
-
-    // Validate balance in code before insert (DB trigger will also enforce).
-    let total: Decimal = inputs.iter().map(|i| i.signed_amount).sum();
-    if total != Decimal::ZERO {
-        return Ok(render_response(make_error(format!(
-            "Postings do not balance: net is {} (debits must equal credits).",
-            total
-        ))));
     }
 
     // `ux-transaction-entry`: refuse an entry that moves money
     // within a single account (same account on both sides) —
-    // balanced but economically meaningless.
+    // balanced but economically meaningless. Runs on the user's
+    // lines only, before tax legs are appended.
     {
         use std::collections::HashMap;
         let mut by_account: HashMap<Uuid, (bool, bool)> = HashMap::new();
@@ -522,6 +576,57 @@ pub async fn create(
                 "This entry moves money within \"{name}\" (the same account on both sides) — pick a different account for one of the lines."
             ))));
         }
+    }
+
+    // `a14-tax-on-transactions`: expand each taxed line into a tax leg
+    // on the same side, and record the linkage for `posting_taxes`.
+    let mut tax_links: Vec<crate::domain::posting_service::TaxLink> = Vec::new();
+    {
+        let taxed: Vec<(usize, Uuid)> = inputs
+            .iter()
+            .enumerate()
+            .filter_map(|(i, l)| l.tax_rate_id.map(|id| (i, id)))
+            .collect();
+        for (i, rate_id) in taxed {
+            let rate = match active_tax_rates.iter().find(|r| r.id == rate_id) {
+                Some(r) => r,
+                None => {
+                    return Ok(render_response(make_error(
+                        "Unknown or inactive tax rate selected.".into(),
+                    )))
+                }
+            };
+            let base = inputs[i].signed_amount.abs();
+            let tax_amount = (base * rate.rate).round_dp(2);
+            let tax_signed = if inputs[i].signed_amount >= Decimal::ZERO {
+                tax_amount
+            } else {
+                -tax_amount
+            };
+            inputs.push(TxnLineInput {
+                account_id: rate.account_id,
+                signed_amount: tax_signed,
+                memo: Some(format!("{} tax", rate.name)),
+                tax_rate_id: None,
+            });
+            tax_links.push(crate::domain::posting_service::TaxLink {
+                posting_idx: i,
+                tax_rate_id: rate_id,
+                base_amount: base,
+                tax_amount,
+            });
+        }
+    }
+
+    // Validate balance in code before insert (DB trigger will also enforce).
+    // This runs after tax legs are appended, so the entry must balance
+    // including tax.
+    let total: Decimal = inputs.iter().map(|i| i.signed_amount).sum();
+    if total != Decimal::ZERO {
+        return Ok(render_response(make_error(format!(
+            "Postings do not balance: net is {} (debits must equal credits).",
+            total
+        ))));
     }
 
     // Route the actual write through `PostingService`
@@ -549,6 +654,7 @@ pub async fn create(
         lines: inputs.clone(),
         reverses_id: None,
         number: form.extra.get("number").cloned().filter(|s| !s.is_empty()),
+        tax_links,
     };
     let service_call = if save_as_draft {
         crate::domain::posting_service::PostingService::create_draft(&state.pool, new_txn).await

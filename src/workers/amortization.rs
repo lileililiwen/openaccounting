@@ -141,15 +141,18 @@ async fn post_one(
                     account_id: source_account_id,
                     signed_amount: amount,
                     memo: Some(format!("amortize period {period_number}/{periods}")),
+                    tax_rate_id: None,
                 },
                 crate::domain::TxnLineInput {
                     account_id: target_account_id,
                     signed_amount: -amount,
                     memo: Some(format!("amortize period {period_number}/{periods}")),
+                    tax_rate_id: None,
                 },
             ],
             reverses_id: None,
             number: None,
+            tax_links: vec![],
         },
     )
     .await

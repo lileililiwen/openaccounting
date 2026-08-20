@@ -33,6 +33,14 @@
     return isFinite(n) ? n : 0;
   }
 
+  // Rate of the row's selected tax option (0 when none/blank).
+  function selectedRate(row) {
+    var sel = q(row, 'select.tax-rate');
+    if (!sel || !sel.selectedOptions || !sel.selectedOptions[0]) return 0;
+    var r = parseFloat(sel.selectedOptions[0].getAttribute('data-rate'));
+    return isFinite(r) ? r : 0;
+  }
+
   // The balancing line: the row marked data-balancer="true", else
   // the last row with neither an account nor an amount, else the
   // last row.
@@ -56,6 +64,14 @@
       r.classList.toggle('is-balancer', i === bi);
       var badge = r.querySelector('.balancer-badge');
       if (badge) badge.hidden = i !== bi;
+      // The balancing line cannot carry tax: its amount is derived
+      // from the other rows, so giving it its own tax would be
+      // circular (`a14-tax-on-transactions`).
+      var taxSel = q(r, 'select.tax-rate');
+      if (taxSel) {
+        taxSel.disabled = i === bi;
+        if (i === bi) taxSel.value = '';
+      }
     });
     return bi;
   }
@@ -66,6 +82,7 @@
     var debits = 0;
     var credits = 0;
     var anyAmount = false;
+    var totalTax = 0;
     rs.forEach(function (r, i) {
       var dir = q(r, 'select[name$="[direction]"]');
       var amt = q(r, 'input[name$="[amount]"]');
@@ -73,8 +90,10 @@
       var v = parseAmount(amt.value);
       if (v !== 0) anyAmount = true;
       if (i === bi) return;
-      if (dir.value === 'DEBIT') debits += v;
-      else if (dir.value === 'CREDIT') credits += v;
+      var tax = v * selectedRate(r);
+      totalTax += tax;
+      if (dir.value === 'DEBIT') debits += v + tax;
+      else if (dir.value === 'CREDIT') credits += v + tax;
     });
     var net = debits - credits;
     var bal = rs[bi];
@@ -97,20 +116,24 @@
     // amount. Only a defensive mismatch shows the shortfall.
     var actualDebits = 0;
     var actualCredits = 0;
-    rs.forEach(function (r) {
+    rs.forEach(function (r, i) {
       var dir = q(r, 'select[name$="[direction]"]');
       var amt = q(r, 'input[name$="[amount]"]');
       if (!dir || !amt) return;
       var v = parseAmount(amt.value);
+      // Non-balancer rows carry their tax on the same side; the
+      // balancer absorbs the gross, so it must not double-count.
+      if (i !== bi) v = v + v * selectedRate(r);
       if (dir.value === 'DEBIT') actualDebits += v;
       else if (dir.value === 'CREDIT') actualCredits += v;
     });
-    updateStatus(actualDebits - actualCredits, anyAmount);
+    updateStatus(actualDebits - actualCredits, anyAmount, totalTax);
   }
 
-  function updateStatus(net, anyAmount) {
+  function updateStatus(net, anyAmount, totalTax) {
     var small = document.getElementById('split-balance');
     var big = document.getElementById('balance-status');
+    var tax = (typeof totalTax === 'number' && totalTax !== 0) ? totalTax : null;
     if (small) {
       if (!anyAmount) {
         small.textContent = '—';
@@ -128,7 +151,8 @@
         big.textContent = '—';
         big.className = 'text-xs text-slate-500';
       } else if (net === 0) {
-        big.textContent = '✓ balanced — ready to save';
+        var taxNote = tax ? ' · tax ' + tax.toFixed(2) : '';
+        big.textContent = '✓ balanced' + taxNote + ' — ready to save';
         big.className = 'text-xs font-medium text-emerald-600';
       } else {
         var side = net > 0 ? 'credit' : 'debit';
@@ -207,7 +231,8 @@
   });
 
   container.addEventListener('change', function (ev) {
-    if (ev.target && ev.target.name && ev.target.name.endsWith('[account_id]')) {
+    var t = ev.target;
+    if (t && t.name && (t.name.endsWith('[account_id]') || t.name.endsWith('[tax_rate_id]'))) {
       recompute();
     }
   });
@@ -372,15 +397,29 @@
     }
   }
 
+  // The simple-mode fields carry `required` in the template for the
+  // two-leg flow. In Advanced mode the panel is hidden; if they stayed
+  // `required`, native HTML5 validation would block submission with
+  // "not focusable" errors. Turn them off in advanced mode, on again
+  // in simple mode (`a14-tax-on-transactions` surfaced this).
+  function setSimpleRequired(on) {
+    [simpleAmount, simpleAccount, simpleCategory, simpleFrom, simpleTo].forEach(function (el) {
+      if (el) el.required = !!on;
+    });
+  }
+
   function setMode(mode) {
     if (!simplePanel || !advancedPanel) return;
     var simple = mode === 'simple';
     if (simple) {
       preserveToSimple();
       toggleRowsDisabled(true);
+      setSimpleRequired(true);
+      onSimpleTypeChange();
     } else {
       preserveToAdvanced();
       toggleRowsDisabled(false);
+      setSimpleRequired(false);
       recompute();
     }
     simplePanel.hidden = !simple;
@@ -418,6 +457,7 @@
     // alongside the simple-built lines.
     var initialSimple = isSimpleMode();
     toggleRowsDisabled(initialSimple);
+    setSimpleRequired(initialSimple);
     modeButtons.forEach(function (b) {
       var active = b.getAttribute('data-entry-mode') === (initialSimple ? 'simple' : 'advanced');
       b.classList.toggle('is-active', active);

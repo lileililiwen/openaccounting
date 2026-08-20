@@ -32,6 +32,10 @@ pub struct TxnLineInput {
     /// into separate (amount, direction) on insert.
     pub signed_amount: Decimal,
     pub memo: Option<String>,
+    /// Optional active tax rate attached to this line. When present the
+    /// create flow posts an additional tax leg and records `posting_taxes`.
+    /// (`a14-tax-on-transactions`)
+    pub tax_rate_id: Option<Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

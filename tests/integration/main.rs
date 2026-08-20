@@ -63,4 +63,5 @@ mod transactions_draft;
 mod transactions_edit;
 mod transactions_split;
 mod transfers;
+mod tax_transactions;
 mod upload_validation;

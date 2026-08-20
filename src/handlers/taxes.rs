@@ -180,8 +180,9 @@ pub async fn report(
     let from_date = NaiveDate::parse_from_str(&from_str, "%Y-%m-%d").ok();
     let to_date = NaiveDate::parse_from_str(&to_str, "%Y-%m-%d").ok();
 
-    let rows = sqlx::query_as::<_, (Uuid, String, String, Decimal, Decimal, i64)>(
+    let rows = sqlx::query_as::<_, (Uuid, String, String, Decimal, Decimal, Decimal, i64)>(
         r#"SELECT tr.id, tr.name, tr.kind, tr.rate,
+                  COALESCE(SUM(pt.base_amount), 0) AS total_base,
                   COALESCE(SUM(pt.tax_amount), 0) AS total_tax,
                   COUNT(DISTINCT pt.posting_id) AS txn_count
            FROM tax_rates tr
@@ -200,7 +201,7 @@ pub async fn report(
     .fetch_all(&state.pool)
     .await?;
 
-    let summary: Vec<(Uuid, String, String, Decimal, Decimal, i64)> = rows;
+    let summary: Vec<(Uuid, String, String, Decimal, Decimal, Decimal, i64)> = rows;
 
     Ok(render_response(TaxReport {
         user_id: user.id,

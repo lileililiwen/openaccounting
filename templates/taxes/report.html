@@ -28,12 +28,14 @@
           <th class="text-left px-4 py-2">Tax Rate</th>
           <th class="text-left px-4 py-2">Type</th>
           <th class="text-right px-4 py-2">Rate</th>
-          <th class="text-right px-4 py-2">Total Tax</th>
+          <th class="text-right px-4 py-2">Net (base)</th>
+          <th class="text-right px-4 py-2">Tax</th>
+          <th class="text-right px-4 py-2">Gross</th>
           <th class="text-right px-4 py-2">Transactions</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
-        {% for (id, name, kind, rate, total, count) in summary %}
+        {% for (id, name, kind, rate, base, tax, count) in summary %}
           <tr>
             <td class="px-4 py-2 font-medium text-slate-800">{{ name }}</td>
             <td class="px-4 py-2 text-slate-600">
@@ -44,7 +46,9 @@
               {% endif %}
             </td>
             <td class="px-4 py-2 text-right tabular">{{ rate }}</td>
-            <td class="px-4 py-2 text-right tabular font-medium">{{ total }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ base }}</td>
+            <td class="px-4 py-2 text-right tabular font-medium">{{ tax }}</td>
+            <td class="px-4 py-2 text-right tabular">{{ base + tax }}</td>
             <td class="px-4 py-2 text-right tabular">{{ count }}</td>
           </tr>
         {% endfor %}

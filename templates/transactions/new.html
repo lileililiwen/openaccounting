@@ -137,8 +137,8 @@
 
       <div class="space-y-2" id="postings">
         {% for line in form.lines %}
-          <div class="posting grid grid-cols-12 gap-2 items-center">
-            <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-6 sm:col-span-6 rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <div class="posting grid grid-cols-12 gap-2 items-center relative">
+            <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-5 sm:col-span-5 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="">— pick account —</option>
               {% for (label, group) in account_groups %}
                 <optgroup label="{{ label }}">
@@ -152,8 +152,14 @@
               <option value="DEBIT" {% if line.direction == "DEBIT" %}selected{% endif %}>Debit</option>
               <option value="CREDIT" {% if line.direction == "CREDIT" %}selected{% endif %}>Credit</option>
             </select>
-            <input name="lines[{{ loop.index0 }}][amount]" required type="number" step="0.01" min="0.01" value="{{ line.amount }}" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-sm tabular text-right" />
-            <span class="balancer-badge col-span-1 text-[10px] font-semibold uppercase tracking-wide text-sky-600 bg-sky-50 border border-sky-200 rounded px-1 py-0.5 text-center" hidden>auto</span>
+            <input name="lines[{{ loop.index0 }}][amount]" required type="number" step="0.01" min="0.01" value="{{ line.amount }}" placeholder="0.00" class="col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm tabular text-right" />
+            <select name="lines[{{ loop.index0 }}][tax_rate_id]" title="Apply a tax rate to this line" class="tax-rate col-span-3 rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="">— no tax —</option>
+              {% for (id, label, rate) in tax_rates %}
+                <option value="{{ id }}" data-rate="{{ rate }}" {% if line.tax_rate_id == id.to_string() %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <span class="balancer-badge absolute top-1 right-1 text-[10px] font-semibold uppercase tracking-wide text-sky-600 bg-sky-50 border border-sky-200 rounded px-1 py-0.5 text-center" hidden>auto</span>
           </div>
         {% endfor %}
       </div>

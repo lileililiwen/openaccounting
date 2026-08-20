@@ -63,6 +63,9 @@ pub struct TransactionNew {
     /// (`a13-document-inbox`).
     pub bind_doc: String,
     pub form: TransactionForm,
+    /// Active tax rates for the ledger, for the per-line tax picker
+    /// (`a14-tax-on-transactions`): `(id, display name, rate as decimal string)`.
+    pub tax_rates: Vec<(Uuid, String, String)>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -95,6 +98,8 @@ pub struct TransactionFormLine {
     pub amount: String,
     pub direction: String,
     pub memo: String,
+    /// Optional active tax rate id (`a14-tax-on-transactions`).
+    pub tax_rate_id: String,
 }
 
 #[derive(Template)]

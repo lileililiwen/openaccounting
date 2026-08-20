@@ -43,7 +43,7 @@ pub struct TaxReport {
     pub current_section: String,
     pub from: String,
     pub to: String,
-    pub summary: Vec<(Uuid, String, String, Decimal, Decimal, i64)>,
+    pub summary: Vec<(Uuid, String, String, Decimal, Decimal, Decimal, i64)>,
 }
 
 #[derive(Clone, Debug, sqlx::FromRow)]

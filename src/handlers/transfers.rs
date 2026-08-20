@@ -338,11 +338,13 @@ async fn insert_simple_txn(
                 account_id,
                 signed_amount: amount,
                 memo: None,
+                tax_rate_id: None,
             },
             TxnLineInput {
                 account_id: cash_id,
                 signed_amount: -amount,
                 memo: None,
+                tax_rate_id: None,
             },
         ],
         _ => vec![
@@ -355,11 +357,13 @@ async fn insert_simple_txn(
                 account_id,
                 signed_amount: amount,
                 memo: None,
+                tax_rate_id: None,
             },
             TxnLineInput {
                 account_id,
                 signed_amount: -amount,
                 memo: None,
+                tax_rate_id: None,
             },
         ],
     };

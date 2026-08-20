@@ -22,6 +22,23 @@ use uuid::Uuid;
 
 use crate::domain::TxnLineInput;
 
+/// A tax attribution record for one posting (`a14-tax-on-transactions`).
+///
+/// The caller is responsible for having appended the corresponding tax
+/// leg to `NewTransaction::lines`; this struct only carries the linkage
+/// the service persists into `posting_taxes`.
+#[derive(Debug, Clone)]
+pub struct TaxLink {
+    /// Index into `NewTransaction::lines` of the posting the tax
+    /// applies to (the taxed line, not the generated tax leg).
+    pub posting_idx: usize,
+    pub tax_rate_id: Uuid,
+    /// Net amount the tax was computed on (`posting_taxes.base_amount`).
+    pub base_amount: Decimal,
+    /// `round(base_amount × rate, 2)` (`posting_taxes.tax_amount`).
+    pub tax_amount: Decimal,
+}
+
 /// What the caller asks the service to insert. The service
 /// owns the rest of the write — ID allocation, audit, period
 /// check, balance validation.
@@ -43,6 +60,9 @@ pub struct NewTransaction {
     /// When `None`, the service generates
     /// `{YYYY}-{NNNNNN}` based on a per-ledger-per-year counter.
     pub number: Option<String>,
+    /// Tax attributions; each references a line index in `lines`.
+    /// (`a14-tax-on-transactions`)
+    pub tax_links: Vec<TaxLink>,
 }
 
 /// Result of a successful write. The transaction row + postings
@@ -411,6 +431,9 @@ impl PostingService {
         .fetch_one(&mut *tx)
         .await?;
 
+        // Capture the inserted posting ids in line order so tax links can
+        // reference them (`a14-tax-on-transactions`).
+        let mut posting_ids: Vec<Uuid> = Vec::with_capacity(new.lines.len());
         for l in &new.lines {
             let direction = if l.signed_amount >= Decimal::ZERO {
                 "DEBIT"
@@ -418,15 +441,39 @@ impl PostingService {
                 "CREDIT"
             };
             let amount = l.signed_amount.abs();
-            sqlx::query(
+            let posting_id: Uuid = sqlx::query_scalar(
                 "INSERT INTO postings (transaction_id, account_id, amount, direction, memo)
-                 VALUES ($1, $2, $3, $4, $5)",
+                 VALUES ($1, $2, $3, $4, $5)
+                 RETURNING id",
             )
             .bind(txn_id)
             .bind(l.account_id)
             .bind(amount)
             .bind(direction)
             .bind(l.memo.as_deref())
+            .fetch_one(&mut *tx)
+            .await?;
+            posting_ids.push(posting_id);
+        }
+
+        // Persist the tax attribution links. The tax leg itself was already
+        // inserted as an ordinary posting (the caller appends it to `lines`);
+        // here we record which posting the tax applies to and the amount.
+        for link in &new.tax_links {
+            let Some(&posting_id) = posting_ids.get(link.posting_idx) else {
+                return Err(PostingServiceError::Unbalanced {
+                    debits: Decimal::ZERO,
+                    credits: Decimal::ZERO,
+                });
+            };
+            sqlx::query(
+                "INSERT INTO posting_taxes (posting_id, tax_rate_id, tax_amount, base_amount)
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(posting_id)
+            .bind(link.tax_rate_id)
+            .bind(link.tax_amount)
+            .bind(link.base_amount)
             .execute(&mut *tx)
             .await?;
         }
