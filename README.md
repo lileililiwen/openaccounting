@@ -83,6 +83,7 @@ balance sheet; double-entry can, automatically.
   (see below).
 - **Onboarding setup checklist** — a data-driven five-step guide (opening balances, first transaction, a document, a bank feed, an invite) shown on the dashboard and at `/ledgers/{id}/setup`, so a new user knows exactly what to do first.
 - **Invoices** — multi-line invoices with computed totals, a printable per-invoice detail page with mark-paid / void actions, and a computed overdue flag for unpaid past-due invoices.
+- **REST API** — personal API tokens (manageable from the account page) for the `/api/v1/*` endpoints; bank-feed webhooks verify Plaid's HMAC-SHA256 signature.
 - **Single binary**, no JS build step, no Node.js required.
 
 ## Plain-text CLI
