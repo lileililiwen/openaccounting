@@ -1,21 +1,5 @@
 # document-inbox Specification (delta)
 
-## MODIFIED Requirements
-
-### Requirement: Simple Entry Mode
-
-MUST present the multi-leg posting editor (with the balancing line) as the DEFAULT view of the new-transaction form; the two-leg "Simple" view SHALL remain available as an optional shortcut that preserves entered data when switching. (Previously: "Simple entry mode ... as the default view".)
-
-#### Scenario: Default is multi-leg
-
-- **WHEN** a user opens the new-transaction form
-- **THEN** the multi-leg editor is shown with the balancing line active.
-
-#### Scenario: Simple stays a shortcut
-
-- **WHEN** a user switches to Simple and back to the editor
-- **THEN** no entered data is lost.
-
 ## ADDED Requirements
 
 ### Requirement: Unbound Document Upload

@@ -52,7 +52,12 @@ MUST render, adjacent to the save actions, a persistent status line that reads "
 
 ### Requirement: Simple Entry Mode
 
-MUST present a "Simple" entry mode on the new-transaction form as the default view, alongside an "Advanced" mode. Simple mode SHALL collect an amount, a date, a description, and two account choices (or an expense/income/transfer selector with a category and a payment account), and SHALL build the two balanced posting lines before submit without exposing Debit/Credit rows. Switching between Simple and Advanced SHALL preserve the data already entered.
+MUST present the multi-leg posting editor (with the balancing line) as the DEFAULT view of the new-transaction form; the two-leg "Simple" entry mode SHALL remain available as an optional shortcut, alongside an "Advanced" mode. Simple mode SHALL collect an amount, a date, a description, and two account choices (or an expense/income/transfer selector with a category and a payment account), and SHALL build the two balanced posting lines before submit without exposing Debit/Credit rows. Switching between Simple and Advanced SHALL preserve the data already entered.
+
+#### Scenario: Default is multi-leg
+
+- **WHEN** a user opens the new-transaction form
+- **THEN** the multi-leg editor is shown with the balancing line active.
 
 #### Scenario: Expense from everyday language
 
@@ -73,6 +78,11 @@ MUST present a "Simple" entry mode on the new-transaction form as the default vi
 
 - **WHEN** the user fills simple fields and switches to Advanced
 - **THEN** the two generated lines are visible with their accounts and amounts, and nothing entered is lost.
+
+#### Scenario: Simple stays a shortcut
+
+- **WHEN** a user switches to Simple and back to the editor
+- **THEN** no entered data is lost.
 
 ### Requirement: Advanced Editor Retained
 
