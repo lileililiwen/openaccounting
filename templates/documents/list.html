@@ -8,7 +8,7 @@
       <h1 class="text-2xl font-semibold">Documents</h1>
       <p class="text-slate-500 text-sm">All receipts, invoices, and payment slips in {{ ledger_name }}</p>
     </div>
-    <form method="post" action="/ledgers/{{ ledger_id }}/documents" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+    <form method="post" action="/ledgers/{{ ledger_id }}/documents" enctype="multipart/form-data" id="inbox-upload" class="flex flex-wrap items-center gap-2">
       <input type="file" name="files" multiple accept="image/*,application/pdf,text/plain,.csv" class="text-sm" />
       <button class="rounded bg-slate-800 text-white px-3 py-1.5 text-sm">Upload</button>
     </form>
@@ -127,4 +127,28 @@
     </ul>
   {% endif %}
 </main>
+<script>
+// Multipart uploads need the CSRF token via the X-CSRF-Token header
+// (`s1-csrf-protection`); a native form POST cannot set headers, so
+// submit the inbox upload form via fetch.
+(function () {
+  var form = document.getElementById('inbox-upload');
+  if (!form) return;
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var meta = document.querySelector('meta[name=csrf-token]');
+    var headers = {};
+    if (meta) headers['X-CSRF-Token'] = meta.getAttribute('content');
+    var fd = new FormData(form);
+    fetch(form.getAttribute('action'), { method: 'POST', headers: headers, body: fd })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .catch(function () { window.alert('Upload failed — please try again.'); });
+  });
+})();
+</script>
 {% endblock %}
