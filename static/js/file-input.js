@@ -24,7 +24,11 @@
     button.textContent = 'Choose file';
 
     var status = document.createElement('span');
-    status.className = 'text-xs text-slate-500 truncate max-w-[24rem]';
+    // Fixed width keeps the control's total size constant no matter how
+    // long the chosen filename is, so picking a file never reflows the
+    // surrounding form (no jump/vibration). The full name is available
+    // via the title tooltip.
+    status.className = 'text-xs text-slate-500 truncate w-36 sm:w-48';
     status.textContent = 'No file chosen';
 
     // Hide the native control (its own label would be localized).
@@ -39,10 +43,13 @@
       var n = input.files ? input.files.length : 0;
       if (n === 0) {
         status.textContent = 'No file chosen';
+        status.title = '';
       } else if (n === 1) {
         status.textContent = input.files[0].name;
+        status.title = input.files[0].name;
       } else {
         status.textContent = n + ' files chosen';
+        status.title = '';
       }
     });
   }

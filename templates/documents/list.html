@@ -87,15 +87,17 @@
               <td class="px-4 py-2 tabular text-slate-500">{% if d.is_unbound %}—{% else %}{{ d.transaction_date }}{% endif %}</td>
               <td class="px-4 py-2 text-right tabular text-slate-500">{{ d.size_bytes }}</td>
               <td class="px-4 py-2 text-right">
-                <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline">Open</a>
-                {% if d.is_unbound %}
-                  <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" class="ml-2 text-indigo-600 hover:underline text-xs">Bind to transaction</a>
-                {% else %}
-                  <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="ml-2 text-sky-600 hover:underline text-xs">OCR</a>
-                {% endif %}
-                <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Delete this document?')">
-                  <button class="ml-2 text-rose-600 hover:text-rose-800 text-xs">Delete</button>
-                </form>
+                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
+                  <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/download" target="_blank" class="text-slate-800 underline text-xs">Open</a>
+                  {% if d.is_unbound %}
+                    <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/bind" class="text-indigo-600 hover:underline text-xs">Bind to transaction</a>
+                  {% else %}
+                    <a href="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/ocr" class="text-sky-600 hover:underline text-xs">OCR</a>
+                  {% endif %}
+                  <form method="post" action="/ledgers/{{ ledger_id }}/documents/{{ d.id }}/delete" onsubmit="return confirm('Delete this document?')">
+                    <button class="text-rose-600 hover:text-rose-800 text-xs">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% endfor %}
