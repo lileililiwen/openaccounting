@@ -140,14 +140,22 @@ pub async fn login_submit(
         .map_err(AppError::Db)?;
     if account_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, email = %email_norm, "login throttled (account)");
-        return Ok(login_error_page(&next, &form.email, StatusCode::TOO_MANY_REQUESTS));
+        return Ok(login_error_page(
+            &next,
+            &form.email,
+            StatusCode::TOO_MANY_REQUESTS,
+        ));
     }
     let ip_ok = rate_limit::check_ip(&state.pool, &ip, now)
         .await
         .map_err(AppError::Db)?;
     if ip_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, "login throttled (ip)");
-        return Ok(login_error_page(&next, &form.email, StatusCode::TOO_MANY_REQUESTS));
+        return Ok(login_error_page(
+            &next,
+            &form.email,
+            StatusCode::TOO_MANY_REQUESTS,
+        ));
     }
 
     // ── Authentication ──────────────────────────────────────────────────────

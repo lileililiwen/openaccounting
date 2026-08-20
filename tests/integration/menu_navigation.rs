@@ -310,8 +310,7 @@ async fn http_sidebar_links_have_tooltips() {
         .bootstrap_user("u_tip", "u_tip@example.com", "correct horse battery staple")
         .await;
     let id = make_ledger(&server).await;
-    let (_, body) =
-        fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
+    let (_, body) = fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
     // Every sidebar-link anchor must have a data-tooltip attribute.
     // We extract the sidebar region first to avoid matching links
     // outside the sidebar.
@@ -331,10 +330,7 @@ async fn http_sidebar_links_have_tooltips() {
     // The template emits `data-tooltip` BEFORE `class`, so the
     // test regex looks for the tooltip attribute in any position
     // within the same `<a>` tag.
-    let tooltip_re = Regex::new(
-        r#"<a[^>]*data-tooltip="[^"]+"[^>]*class="sidebar-link"#,
-    )
-    .unwrap();
+    let tooltip_re = Regex::new(r#"<a[^>]*data-tooltip="[^"]+"[^>]*class="sidebar-link"#).unwrap();
     let n_links = link_re.find_iter(sidebar).count();
     let n_tooltips = tooltip_re.find_iter(sidebar).count();
     assert!(
@@ -501,8 +497,7 @@ async fn http_sidebar_layout_does_not_push_main_down() {
     //    so the main content has a small visual gap from the
     //    rail and doesn't kiss it.
     assert!(
-        css.contains("var(--oa-sidebar-width)")
-            && css.contains("var(--oa-sidebar-gap)"),
+        css.contains("var(--oa-sidebar-width)") && css.contains("var(--oa-sidebar-gap)"),
         "nav.css must reserve left padding for the sidebar with a visual gap"
     );
     // 3. Sanity: the rendered page contains both the sidebar and
@@ -522,11 +517,14 @@ async fn http_sidebar_layout_does_not_push_main_down() {
 async fn http_top_nav_is_thin_only_global_links() {
     let server = TestServer::new().await;
     let cookie = server
-        .bootstrap_user("u_thin", "u_thin@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "u_thin",
+            "u_thin@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let id = make_ledger(&server).await;
-    let (_, body) =
-        fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
+    let (_, body) = fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
     // The top nav (inside `<nav class="sticky ...">`) should NOT
     // contain any per-ledger section links. The sidebar does —
     // that's where they live now. Extract the top nav region by
@@ -545,12 +543,21 @@ async fn http_top_nav_is_thin_only_global_links() {
     // (no other surrounding text). Use a substring check that
     // works whether or not the text is wrapped in a `<span>`.
     let re = Regex::new(r#">\s*Ledgers\s*<"#).unwrap();
-    assert!(
-        re.is_match(top_nav),
-        "top nav must contain Ledgers link"
-    );
+    assert!(re.is_match(top_nav), "top nav must contain Ledgers link");
     // The top nav must NOT contain per-ledger section links.
-    for forbidden in ["Transactions", "Documents", "Bank Feeds", "Import", "WeChat", "Alipay", "Accounts", "Approvals", "Expenses", "Reports", "Dashboard"] {
+    for forbidden in [
+        "Transactions",
+        "Documents",
+        "Bank Feeds",
+        "Import",
+        "WeChat",
+        "Alipay",
+        "Accounts",
+        "Approvals",
+        "Expenses",
+        "Reports",
+        "Dashboard",
+    ] {
         let re = Regex::new(&format!(r#">\s*{forbidden}\s*<"#)).unwrap();
         assert!(
             !re.is_match(top_nav),
@@ -573,14 +580,17 @@ async fn http_import_upload_uses_wide_container() {
         .await;
     let id = make_ledger(&server).await;
     for path in ["import", "import/wechat", "import/alipay"] {
-        let (_, body) =
-            fetch(&server, &cookie, &format!("/ledgers/{id}/{path}")).await;
+        let (_, body) = fetch(&server, &cookie, &format!("/ledgers/{id}/{path}")).await;
         // Extract the <main>...</main> region and assert it does
         // not use `max-w-md` (28rem). Other parts of the page
         // (e.g. modal dialogs) may legitimately use max-w-md.
         let main_region = body
             .find("<main")
-            .and_then(|start| body[start..].find("</main>").map(|end| &body[start..start + end]))
+            .and_then(|start| {
+                body[start..]
+                    .find("</main>")
+                    .map(|end| &body[start..start + end])
+            })
             .unwrap_or("");
         assert!(
             !main_region.contains(r#"max-w-md"#),
@@ -599,7 +609,11 @@ async fn http_import_upload_uses_wide_container() {
 async fn http_empty_state_has_styled_block() {
     let server = TestServer::new().await;
     let cookie = server
-        .bootstrap_user("u_empty", "u_empty@example.com", "correct horse battery staple")
+        .bootstrap_user(
+            "u_empty",
+            "u_empty@example.com",
+            "correct horse battery staple",
+        )
         .await;
     let id = make_ledger(&server).await;
     // Each of these pages should render a styled empty-state
@@ -607,7 +621,10 @@ async fn http_empty_state_has_styled_block() {
     // empty container).
     for (label, path) in [
         ("contacts", format!("/ledgers/{id}/contacts")),
-        ("approval_policies", format!("/ledgers/{id}/approval-policies")),
+        (
+            "approval_policies",
+            format!("/ledgers/{id}/approval-policies"),
+        ),
         ("rules", format!("/ledgers/{id}/rules")),
         ("templates", format!("/ledgers/{id}/templates")),
     ] {
@@ -633,13 +650,9 @@ async fn http_sidebar_uses_thin_styled_scrollbar() {
         .bootstrap_user("u_sb", "u_sb@example.com", "correct horse battery staple")
         .await;
     let id = make_ledger(&server).await;
-    let (_, body) =
-        fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
+    let (_, body) = fetch(&server, &cookie, &format!("/ledgers/{id}/dashboard")).await;
     // The aside must carry the scrollbar-thin class.
-    let aside_re = Regex::new(
-        r#"<aside[^>]*class="[^"]*app-sidebar[^"]*"[^>]*"#,
-    )
-    .unwrap();
+    let aside_re = Regex::new(r#"<aside[^>]*class="[^"]*app-sidebar[^"]*"[^>]*"#).unwrap();
     let aside_match = aside_re
         .find(&body)
         .expect("page must render <aside class=\"app-sidebar ...\">");
@@ -683,12 +696,7 @@ async fn http_dark_mode_toggle_preserves_current_url() {
         .bootstrap_user("u_dm", "u_dm@example.com", "correct horse battery staple")
         .await;
     let id = make_ledger(&server).await;
-    let (_, body) = fetch(
-        &server,
-        &cookie,
-        &format!("/ledgers/{id}/transactions/new"),
-    )
-    .await;
+    let (_, body) = fetch(&server, &cookie, &format!("/ledgers/{id}/transactions/new")).await;
     // The theme toggle form must carry an `id="theme-next"`
     // hidden input that the JS updates with the current URL
     // before submit. Without this id, the server would redirect
