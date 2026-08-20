@@ -405,3 +405,140 @@ async fn admin_user_detail_shows_ledgers_and_activity() {
         "activity section rendered"
     );
 }
+
+#[tokio::test]
+async fn admin_audit_log_lists_all_ledgers() {
+    let server = TestServer::new().await;
+
+    let (admin, _) = register_user(&server, "audit-all-admin").await;
+    promote_and_relogin(&server, &admin, "audit-all-admin@example.com").await;
+
+    // A normal user creates a ledger; the audit row is actor=user,
+    // ledger = the new ledger. The admin is not part of that ledger.
+    let (user, _) = register_user(&server, "audit-all-user").await;
+    user.post(format!("{}/ledgers/new", server.base_url()))
+        .form(&[
+            ("name", "other-users-books"),
+            ("base_currency", "USD"),
+            ("timezone", "UTC"),
+            ("basis", "accrual"),
+        ])
+        .send()
+        .await
+        .unwrap();
+
+    let resp = admin
+        .get(format!("{}/admin/audit", server.base_url()))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "audit log must render for admins");
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("audit-all-user"), "actor username shown");
+    assert!(
+        body.contains("other-users-books"),
+        "ledger name shown even though admin is not a member"
+    );
+    assert!(body.contains("ledger"), "entity type shown");
+}
+
+#[tokio::test]
+async fn admin_audit_log_filter_by_actor() {
+    let server = TestServer::new().await;
+
+    let (admin, _) = register_user(&server, "filter-admin").await;
+    promote_and_relogin(&server, &admin, "filter-admin@example.com").await;
+
+    let (user_a, _) = register_user(&server, "filter-user-a").await;
+    user_a
+        .post(format!("{}/ledgers/new", server.base_url()))
+        .form(&[
+            ("name", "books-a"),
+            ("base_currency", "USD"),
+            ("timezone", "UTC"),
+            ("basis", "accrual"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    let (user_b, _) = register_user(&server, "filter-user-b").await;
+    user_b
+        .post(format!("{}/ledgers/new", server.base_url()))
+        .form(&[
+            ("name", "books-b"),
+            ("base_currency", "USD"),
+            ("timezone", "UTC"),
+            ("basis", "accrual"),
+        ])
+        .send()
+        .await
+        .unwrap();
+
+    let actor_a = user_id_of(&server, "filter-user-a@example.com").await;
+    let resp = admin
+        .get(format!("{}/admin/audit?actor={actor_a}", server.base_url()))
+        .send()
+        .await
+        .unwrap();
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("books-a"), "user A's entry shown");
+    assert!(!body.contains("books-b"), "user B's entry filtered out");
+}
+
+#[tokio::test]
+async fn admin_audit_log_pagination() {
+    let server = TestServer::new().await;
+
+    let (admin, _) = register_user(&server, "pager-admin").await;
+    promote_and_relogin(&server, &admin, "pager-admin@example.com").await;
+
+    // Seed 55 audit rows for a user so page 1 holds 50 and page 2
+    // holds the remaining 5.
+    let (user, user_id) = register_user(&server, "pager-user").await;
+    let _ = user;
+    let pool = server.db().pool();
+    for i in 0..55 {
+        // Distinct created_at (i=0 newest, i=54 oldest) so ordering
+        // is deterministic: page 1 = seq 0..49, page 2 = seq 50..54.
+        sqlx::query(
+            "INSERT INTO audit_entries (ledger_id, actor_id, action, entity_type, entity_id, new_value, created_at)
+             VALUES (NULL, $1, 'seed', 'test', NULL, $2::jsonb, now() - ($3::int * interval '1 second'))",
+        )
+        .bind(user_id)
+        .bind(format!(r#"{{"seq": {i}}}"#))
+        .bind(i)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    let p1 = admin
+        .get(format!("{}/admin/audit?page=1", server.base_url()))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(p1.contains("Page 1"), "page 1 rendered");
+    assert!(p1.contains("Next"), "page 1 must offer a next page");
+    assert!(!p1.contains("seq: — → 51"), "page 1 holds at most 50 rows");
+    assert!(
+        p1.contains("seq: — → 5"),
+        "an early seed row appears on page 1"
+    );
+
+    let p2 = admin
+        .get(format!("{}/admin/audit?page=2", server.base_url()))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(p2.contains("Page 2"), "page 2 rendered");
+    assert!(
+        p2.contains("seq: — → 54"),
+        "the oldest seed row appears on page 2"
+    );
+}

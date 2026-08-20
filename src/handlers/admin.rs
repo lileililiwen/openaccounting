@@ -47,6 +47,7 @@ pub fn admin_routes() -> Router<AppState> {
             "/admin/ocr-corpus.json",
             axum::routing::get(crate::handlers::document_ocr_feedback::export_corpus),
         )
+        .route("/admin/audit", axum::routing::get(audit_log))
         .route(
             "/admin/audit/verify",
             axum::routing::get(crate::handlers::admin_audit_verify::verify_chain),
@@ -418,6 +419,131 @@ pub async fn user_detail(
     );
 
     Ok(render_response(page))
+}
+
+/// Query params for `/admin/audit` (`a11-admin-console` System-Wide
+/// Audit Log).
+#[derive(Deserialize)]
+pub struct AuditLogQuery {
+    pub actor: Option<Uuid>,
+    pub action: Option<String>,
+    pub entity: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub page: Option<i64>,
+}
+
+fn parse_date_filter(s: &str, end_of_day: bool) -> Option<chrono::DateTime<chrono::Utc>> {
+    let d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()?;
+    if end_of_day {
+        Some(d.and_hms_opt(23, 59, 59)?.and_utc())
+    } else {
+        Some(d.and_hms_opt(0, 0, 0)?.and_utc())
+    }
+}
+
+/// Render `/admin/audit` — every audit entry across all users and
+/// ledgers, newest first, filterable and paginated.
+pub async fn audit_log(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    axum::extract::Query(q): axum::extract::Query<AuditLogQuery>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    let admin = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+
+    const PAGE_SIZE: i64 = 50;
+    let page = q.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * PAGE_SIZE;
+
+    let from = q.from.as_deref().and_then(|s| parse_date_filter(s, false));
+    let to = q.to.as_deref().and_then(|s| parse_date_filter(s, true));
+
+    // Fetch one extra row to detect "has more" for the pager.
+    let entries = crate::audit::list(
+        &state.pool,
+        None,
+        q.actor,
+        q.action.as_deref(),
+        q.entity.as_deref(),
+        from,
+        to,
+        PAGE_SIZE + 1,
+        offset,
+    )
+    .await?;
+    let has_more = entries.len() as i64 > PAGE_SIZE;
+    let entries: Vec<_> = entries.into_iter().take(PAGE_SIZE as usize).collect();
+
+    // Batch-resolve actor usernames and ledger names for this page.
+    let actor_ids: Vec<Uuid> = entries.iter().map(|e| e.actor_id).collect();
+    let ledger_ids: Vec<Uuid> = entries.iter().filter_map(|e| e.ledger_id).collect();
+    let actor_names: std::collections::HashMap<Uuid, String> = if actor_ids.is_empty() {
+        Default::default()
+    } else {
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, username FROM users WHERE id = ANY($1)")
+            .bind(&actor_ids)
+            .fetch_all(&state.pool)
+            .await?
+            .into_iter()
+            .collect()
+    };
+    let ledger_names: std::collections::HashMap<Uuid, String> = if ledger_ids.is_empty() {
+        Default::default()
+    } else {
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, name FROM ledgers WHERE id = ANY($1)")
+            .bind(&ledger_ids)
+            .fetch_all(&state.pool)
+            .await?
+            .into_iter()
+            .collect()
+    };
+
+    // User dropdown for the actor filter.
+    let filter_users = sqlx::query_as::<_, (Uuid, String, String)>(
+        "SELECT id, username, email FROM users ORDER BY username",
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(
+        |(id, username, email)| crate::templates::admin::AuditFilterUser {
+            id,
+            username,
+            email,
+        },
+    )
+    .collect::<Vec<_>>();
+
+    let page_model = crate::templates::admin::AdminAuditPage::new(
+        admin.clone(),
+        filter_users,
+        crate::templates::admin::AuditFilters {
+            actor_id: q.actor.map(|v| v.to_string()).unwrap_or_default(),
+            action: q.action.unwrap_or_default(),
+            entity: q.entity.unwrap_or_default(),
+            from: q.from.unwrap_or_default(),
+            to: q.to.unwrap_or_default(),
+        },
+        entries
+            .into_iter()
+            .map(|e| crate::templates::admin::AuditLogRow {
+                created_display: e.created_at.format("%Y-%m-%d %H:%M").to_string(),
+                actor_username: actor_names.get(&e.actor_id).cloned().unwrap_or_default(),
+                ledger_name: e
+                    .ledger_id
+                    .and_then(|id| ledger_names.get(&id).cloned())
+                    .unwrap_or_default(),
+                action: e.action,
+                entity_type: e.entity_type,
+                entity_id: e.entity_id.unwrap_or_default().to_string(),
+                summary: value_summary(e.old_value.as_ref(), e.new_value.as_ref()),
+            })
+            .collect(),
+        page,
+        has_more,
+    );
+
+    Ok(render_response(page_model))
 }
 
 #[cfg(test)]
