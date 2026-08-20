@@ -56,7 +56,7 @@ balance sheet; double-entry can, automatically.
 ## Features
 
 - **Double-entry bookkeeping** — every transaction is balanced; cannot be saved otherwise.
-- **Chart of Accounts** — five account types (Asset, Liability, Equity, Income, Expense); default chart seeded.
+- **Chart of Accounts** — five account types (Asset, Liability, Equity, Income, Expense); default chart seeded. Edit/rename accounts and archive unused ones (they stay in reports); record **opening balances** when starting the books.
 - **Transactions** — dated, described, with 2+ postings. Multi-leg splits supported.
 - **Document upload** — attach receipts, invoices, payment slips (images + PDFs) to any transaction.
 - **Tax on transactions** — define tax rates per ledger (sales/purchase),
