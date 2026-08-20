@@ -58,7 +58,7 @@
       <div class="space-y-2" id="postings">
         {% for line in form.lines %}
           <div class="posting grid grid-cols-12 gap-2 items-center">
-            <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-6 sm:col-span-7 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="lines[{{ loop.index0 }}][account_id]" required class="col-span-6 sm:col-span-6 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="">— pick account —</option>
               {% for (label, group) in account_groups %}
                 <optgroup label="{{ label }}">
@@ -68,15 +68,16 @@
                 </optgroup>
               {% endfor %}
             </select>
-            <select name="lines[{{ loop.index0 }}][direction]" required class="col-span-3 sm:col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="lines[{{ loop.index0 }}][direction]" required class="col-span-2 sm:col-span-2 rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="DEBIT" {% if line.direction == "DEBIT" %}selected{% endif %}>Debit</option>
               <option value="CREDIT" {% if line.direction == "CREDIT" %}selected{% endif %}>Credit</option>
             </select>
             <input name="lines[{{ loop.index0 }}][amount]" required type="number" step="0.01" min="0.01" value="{{ line.amount }}" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-sm tabular text-right" />
+            <span class="balancer-badge col-span-1 text-[10px] font-semibold uppercase tracking-wide text-sky-600 bg-sky-50 border border-sky-200 rounded px-1 py-0.5 text-center" hidden>auto</span>
           </div>
         {% endfor %}
       </div>
-      <p class="mt-1 text-xs text-slate-500">Tip: every debit must have a matching credit. The form will not save if postings do not balance.</p>
+      <p class="mt-1 text-xs text-slate-500">Tip: one line is auto-balanced for you — pick its account and the amount fills in.</p>
       <p id="posting-help" hidden class="mt-1 text-xs text-slate-600 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
         Every transaction has two sides and they must total the same amount: the
         <strong>debit</strong> is where the money goes (an expense, or money into an
@@ -86,40 +87,23 @@
       </p>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center gap-3">
+      <span id="balance-status" class="text-xs text-slate-500">—</span>
+      <span class="flex-1"></span>
       <button name="action" value="save"
-              class="w-full sm:w-auto rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
+              class="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
         Save transaction
       </button>
       <button name="action" value="draft" type="submit"
-              class="w-full sm:w-auto text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
+              class="text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
         Save as draft
       </button>
     </div>
   </form>
 </main>
-<script src="/static/js/split.js"></script>
+<script src="/static/js/entry.js"></script>
 <script>
 (function() {
-  var container = document.getElementById('postings');
-  var idx = container.querySelectorAll('.posting').length;
-  document.getElementById('add-line').addEventListener('click', function() {
-    var last = container.querySelector('.posting');
-    var clone = last.cloneNode(true);
-    // Rewrite field names with the correct index.
-    clone.querySelectorAll('input, select').forEach(function(el) {
-      var name = el.getAttribute('name');
-      if (name) {
-        // Replace lines[N][field] with lines[idx][field]
-        el.setAttribute('name', name.replace(/lines\[\d+\]/, 'lines[' + idx + ']'));
-      }
-      if (el.tagName === 'INPUT') el.value = '';
-      if (el.tagName === 'SELECT') el.selectedIndex = 0;
-    });
-    container.appendChild(clone);
-    idx++;
-  });
-
   var helpBtn = document.getElementById('posting-help-btn');
   var helpBox = document.getElementById('posting-help');
   if (helpBtn && helpBox) {
