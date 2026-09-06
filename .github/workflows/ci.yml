@@ -119,3 +119,50 @@ jobs:
             fi
           done
           echo "OK: $(ls migrations/*.sql | wc -l) migrations verified"
+
+  coverage:
+    name: Coverage gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
+      RUST_LOG: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dt-rust/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - name: Install cargo-llvm-cov
+        uses: taiki197/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Collect coverage (fail below floor)
+        run: >
+          cargo llvm-cov
+          --features test-support
+          --lib --test integration
+          --lcov --output-path lcov.info
+          --fail-under-lines 70
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: lcov.info
