@@ -75,15 +75,17 @@ pub async fn close_year(
     .await?
     {
         Some(id) => id,
-        None => sqlx::query_scalar(
-            "INSERT INTO accounts (ledger_id, name, code, type, subtype, currency)
+        None => {
+            sqlx::query_scalar(
+                "INSERT INTO accounts (ledger_id, name, code, type, subtype, currency)
              VALUES ($1, 'Retained Earnings', '3050', 'EQUITY', 'RETAINED_EARNINGS', $2)
              RETURNING id",
-        )
-        .bind(ledger_id)
-        .bind(&ledger.base_currency)
-        .fetch_one(&mut *tx)
-        .await?,
+            )
+            .bind(ledger_id)
+            .bind(&ledger.base_currency)
+            .fetch_one(&mut *tx)
+            .await?
+        }
     };
 
     // Calculate net income

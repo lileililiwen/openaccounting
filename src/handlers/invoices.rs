@@ -262,6 +262,14 @@ pub async fn create(
     )
     .await;
 
+    crate::jobs::events::emit(
+        &state.pool,
+        ledger_id,
+        "invoice.created",
+        serde_json::json!({ "invoice_id": invoice_id, "kind": kind, "total": total }),
+    )
+    .await;
+
     Ok(Redirect::to(&format!("/ledgers/{}/invoices/{invoice_id}", ledger_id)).into_response())
 }
 
@@ -356,6 +364,14 @@ pub async fn mark_paid(
         Some(invoice_id),
         None,
         None,
+    )
+    .await;
+
+    crate::jobs::events::emit(
+        &state.pool,
+        ledger_id,
+        "invoice.paid",
+        serde_json::json!({ "invoice_id": invoice_id }),
     )
     .await;
 

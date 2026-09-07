@@ -24,7 +24,12 @@ pub async fn compute_setup_status(
     ledger_id: Uuid,
     owner_id: Uuid,
 ) -> AppResult<SetupStatus> {
-    async fn exists(pool: &sqlx::PgPool, q: &str, ledger_id: Uuid, owner_id: Option<Uuid>) -> AppResult<bool> {
+    async fn exists(
+        pool: &sqlx::PgPool,
+        q: &str,
+        ledger_id: Uuid,
+        owner_id: Option<Uuid>,
+    ) -> AppResult<bool> {
         let mut qb = sqlx::query_scalar(q).bind(ledger_id);
         if let Some(owner) = owner_id {
             qb = qb.bind(owner);

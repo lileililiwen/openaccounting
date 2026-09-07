@@ -134,53 +134,163 @@ pub async fn upload_csv(
     let _mime = upload::validate(&declared, Some(&filename), &bytes)
         .map_err(|e| AppError::Validation(e.message()))?;
 
-    let csv = std::str::from_utf8(&bytes)
-        .map_err(|_| AppError::Validation("Invalid UTF-8 in CSV file".into()))?
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| AppError::Validation("Invalid UTF-8 in statement file".into()))?
         .to_string();
 
-    let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_reader(csv.as_bytes());
+    // `data-interchange`: content sniffing picks the format — CSV,
+    // OFX/QFX, QIF, CAMT.052/053, or MT940. Extensions are ignored.
+    let account_currency: String =
+        sqlx::query_scalar("SELECT currency FROM accounts WHERE id = $1")
+            .bind(account_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or(AppError::NotFound)?;
+
+    enum Line {
+        Csv(csv::StringRecord),
+        Stmt(crate::import::statement::StatementLine),
+    }
+    let lines: Vec<Line> = match crate::import::statement::sniff_format(&bytes) {
+        Some(format) => {
+            let qif_order = crate::import::statement::qif::DateOrder::Us;
+            let parsed = crate::import::statement::parse(format, &text, qif_order)
+                .map_err(AppError::Validation)?;
+            parsed.into_iter().map(Line::Stmt).collect()
+        }
+        None => {
+            let mut rdr = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(text.as_bytes());
+            rdr.records()
+                .map(|r| r.map(Line::Csv))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| AppError::Internal(e.to_string()))?
+        }
+    };
 
     let mut tx = state.pool.begin().await?;
-    let mut count = 0;
-    for result in rdr.records() {
-        let record = result.map_err(|e| AppError::Internal(e.to_string()))?;
-        if record.len() < 3 {
-            continue;
-        }
-        let date = NaiveDate::parse_from_str(&record[0], "%Y-%m-%d")
-            .map_err(|_| AppError::Validation("Invalid date".into()))?;
-        let description = record.get(1).unwrap_or("").to_string();
-        let amount: Decimal = record[2]
-            .parse()
-            .map_err(|_| AppError::Validation("Invalid amount".into()))?;
-        let check_number = if record.len() > 3 {
-            let c = record.get(3).unwrap_or("").to_string();
-            if c.is_empty() {
-                None
-            } else {
-                Some(c)
+    let mut count = 0i64;
+    let mut duplicates = 0i64;
+    let mut row_errors: Vec<String> = Vec::new();
+    for line in lines {
+        let (date, description, amount, check_number, external_id, line_currency) = match line {
+            Line::Csv(record) => {
+                if record.len() < 3 {
+                    continue;
+                }
+                let date = match NaiveDate::parse_from_str(&record[0], "%Y-%m-%d") {
+                    Ok(d) => d,
+                    Err(_) => {
+                        row_errors.push(format!("bad CSV date '{}'", &record[0]));
+                        continue;
+                    }
+                };
+                let amount: Decimal = match record[2].parse() {
+                    Ok(a) => a,
+                    Err(_) => {
+                        row_errors.push(format!("bad CSV amount '{}'", &record[2]));
+                        continue;
+                    }
+                };
+                let desc = record.get(1).unwrap_or("").to_string();
+                let check = if record.len() > 3 {
+                    let c = record.get(3).unwrap_or("").to_string();
+                    if c.is_empty() {
+                        None
+                    } else {
+                        Some(c)
+                    }
+                } else {
+                    None
+                };
+                (date, desc, amount, check, None, None)
             }
-        } else {
-            None
+            Line::Stmt(l) => (
+                l.date,
+                l.payee.clone(),
+                l.amount,
+                l.memo,
+                l.external_id,
+                l.currency,
+            ),
         };
 
+        // Currency mismatch fails loudly per row (`data-interchange`):
+        // FX conversion belongs to multi-currency-fx, not the importer.
+        if let Some(ccy) = &line_currency {
+            if !ccy.eq_ignore_ascii_case(&account_currency) {
+                row_errors.push(format!("{ccy} vs account {account_currency}"));
+                continue;
+            }
+        }
+
+        // Cross-format duplicate detection: stable external ids use the
+        // unique index; fingerprint fallback (QIF) checks
+        // (date, amount, normalized payee).
+        if let Some(ext) = &external_id {
+            let exists: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM bank_statement_lines WHERE account_id = $1 AND external_id = $2",
+            )
+            .bind(account_id)
+            .bind(ext)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if exists.is_some() {
+                duplicates += 1;
+                continue;
+            }
+        } else {
+            let norm = crate::import::statement::normalize_payee(&description);
+            let exists: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM bank_statement_lines
+                 WHERE account_id = $1 AND statement_date = $2 AND amount = $3
+                       AND LOWER(description) = LOWER($4)",
+            )
+            .bind(account_id)
+            .bind(date)
+            .bind(amount)
+            .bind(&norm)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if exists.is_some() {
+                duplicates += 1;
+                continue;
+            }
+        }
+
         sqlx::query(
-            r#"INSERT INTO bank_statement_lines (ledger_id, account_id, statement_date, description, amount, check_number)
-               VALUES ($1, $2, $3, $4, $5, $6)"#,
+            r#"INSERT INTO bank_statement_lines (ledger_id, account_id, statement_date, description, amount, check_number, external_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
         )
         .bind(ledger_id)
         .bind(account_id)
         .bind(date)
         .bind(&description)
         .bind(amount)
-        .bind(check_number)
+        .bind(&check_number)
+        .bind(&external_id)
         .execute(&mut *tx)
         .await?;
         count += 1;
     }
     tx.commit().await?;
+
+    if !row_errors.is_empty() {
+        return Err(AppError::Validation(format!(
+            "imported {count} lines; {} row(s) rejected: {}",
+            row_errors.len(),
+            row_errors
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("; ")
+        )));
+    }
+    if duplicates > 0 {
+        tracing::info!(%ledger_id, %account_id, duplicates, "statement import skipped duplicates");
+    }
 
     let _ = audit::log(
         &state.pool,
@@ -223,6 +333,44 @@ pub async fn match_line(
         .await?;
 
     tx.commit().await?;
+
+    // `payee-learning`: confirmed matches teach the alias store. The
+    // contra account (non-cash side of the matched transaction) is the
+    // suggested category next time.
+    {
+        let stmt_desc: Option<String> =
+            sqlx::query_scalar("SELECT description FROM bank_statement_lines WHERE id = $1")
+                .bind(form.line_id)
+                .fetch_optional(&state.pool)
+                .await?
+                .flatten();
+        let txn_payee: Option<Option<String>> =
+            sqlx::query_scalar("SELECT payee FROM transactions WHERE id = $1")
+                .bind(form.transaction_id)
+                .fetch_optional(&state.pool)
+                .await?;
+        let contra: Option<Uuid> = sqlx::query_scalar(
+            r#"SELECT p.account_id FROM postings p
+               JOIN transactions t ON t.id = p.transaction_id
+               WHERE t.id = $1 AND p.account_id <> $2
+               LIMIT 1"#,
+        )
+        .bind(form.transaction_id)
+        .bind(account_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .flatten();
+        if let (Some(desc), Some(Some(payee))) = (stmt_desc, txn_payee) {
+            crate::domain::payee_learning::record_from_match(
+                &state.pool,
+                ledger_id,
+                &desc,
+                &payee,
+                contra,
+            )
+            .await;
+        }
+    }
 
     Ok(Redirect::to(&format!("/ledgers/{}/reconcile/{}", ledger_id, account_id)).into_response())
 }

@@ -36,6 +36,20 @@ pub struct TxnLineInput {
     /// create flow posts an additional tax leg and records `posting_taxes`.
     /// (`a14-tax-on-transactions`)
     pub tax_rate_id: Option<Uuid>,
+    /// Optional foreign-currency leg (`multi-currency-fx`). When present,
+    /// the posting service derives the base-currency amount from this leg
+    /// at the transaction date's rate and stores the original on the
+    /// posting; the supplied `signed_amount` is ignored.
+    #[serde(default)]
+    pub foreign: Option<ForeignLeg>,
+}
+
+/// A foreign-currency leg: signed amount in `currency` (positive =
+/// debit), converted to the ledger base currency at save time.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ForeignLeg {
+    pub signed_amount: Decimal,
+    pub currency: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

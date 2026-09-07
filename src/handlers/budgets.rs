@@ -335,6 +335,20 @@ pub async fn check_alerts(state: &AppState, user_id: Uuid) -> AppResult<()> {
                 .bind(amount)
                 .execute(&state.pool)
                 .await?;
+
+                crate::jobs::events::emit(
+                    &state.pool,
+                    _ledger_id,
+                    "budget.threshold_crossed",
+                    serde_json::json!({
+                        "budget_id": budget_id,
+                        "account_name": account_name,
+                        "threshold_pct": pct,
+                        "amount": actual,
+                        "budget_amount": amount,
+                    }),
+                )
+                .await;
             }
         }
     }

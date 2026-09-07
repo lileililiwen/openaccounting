@@ -156,3 +156,18 @@ pub struct CashFlowForecastPage {
     pub chart_svg: String,
     pub closed_notice: String,
 }
+
+#[derive(Template)]
+#[template(path = "reports/fx_gains.html")]
+pub struct FxGainsPage {
+    pub user_id: Uuid,
+    pub username: String,
+    pub user_role: String,
+    pub ledger_id: Uuid,
+    pub ledger_name: String,
+    pub current_section: String,
+    pub from: String,
+    pub to: String,
+    pub report: crate::reports::fx_gains::FxGainsReport,
+    pub closed_notice: String,
+}

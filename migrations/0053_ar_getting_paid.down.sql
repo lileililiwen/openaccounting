@@ -1,0 +1,18 @@
+DROP INDEX IF EXISTS uq_recurring_invoice_due;
+ALTER TABLE ledgers DROP COLUMN IF EXISTS country_code;
+ALTER TABLE ledgers DROP COLUMN IF EXISTS postal_code;
+ALTER TABLE ledgers DROP COLUMN IF EXISTS city;
+ALTER TABLE ledgers DROP COLUMN IF EXISTS address_line;
+ALTER TABLE ledgers DROP COLUMN IF EXISTS vat_id;
+DROP TABLE IF EXISTS invoice_shares;
+ALTER TABLE invoices DROP COLUMN IF EXISTS recurring_template_id;
+DROP TABLE IF EXISTS recurring_invoice_lines;
+DROP TABLE IF EXISTS recurring_invoice_templates;
+ALTER TABLE invoices DROP COLUMN IF EXISTS payment_means_code;
+ALTER TABLE invoices DROP COLUMN IF EXISTS payment_terms;
+ALTER TABLE contacts DROP COLUMN IF EXISTS country_code;
+ALTER TABLE contacts DROP COLUMN IF EXISTS postal_code;
+ALTER TABLE contacts DROP COLUMN IF EXISTS city;
+ALTER TABLE contacts DROP COLUMN IF EXISTS address_line;
+ALTER TABLE contacts DROP COLUMN IF EXISTS vat_id;
+ALTER TABLE invoices DROP COLUMN IF EXISTS doc_kind;

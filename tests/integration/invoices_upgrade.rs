@@ -72,7 +72,10 @@ async fn setup(server: &TestServer, tag: &str) -> (reqwest::Client, Uuid, Uuid) 
 
     // Create a contact (invoices require one).
     let resp = client
-        .post(format!("{}/ledgers/{ledger_id}/contacts/new", server.base_url()))
+        .post(format!(
+            "{}/ledgers/{ledger_id}/contacts/new",
+            server.base_url()
+        ))
         .form(&[
             ("name", "Acme Corp"),
             ("kind", "customer"),
@@ -244,7 +247,10 @@ async fn overdue_flag_appears_and_hides() {
         .text()
         .await
         .unwrap();
-    assert!(list.contains("overdue"), "past-due invoice should be flagged");
+    assert!(
+        list.contains("overdue"),
+        "past-due invoice should be flagged"
+    );
 
     // The future invoice detail should NOT be overdue.
     let future_id: Uuid = sqlx::query_scalar(
@@ -262,7 +268,10 @@ async fn overdue_flag_appears_and_hides() {
         .text()
         .await
         .unwrap();
-    assert!(!detail.contains("overdue"), "future invoice must not be overdue");
+    assert!(
+        !detail.contains("overdue"),
+        "future invoice must not be overdue"
+    );
 }
 
 #[tokio::test]
@@ -297,7 +306,9 @@ async fn mark_paid_and_void_update_status_and_audit() {
     assert_eq!(paid, Decimal::new(1600, 0));
 
     client
-        .post(format!("{base}/ledgers/{ledger_id}/invoices/{invoice_id}/void"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/invoices/{invoice_id}/void"
+        ))
         .send()
         .await
         .unwrap();
@@ -315,7 +326,10 @@ async fn mark_paid_and_void_update_status_and_audit() {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert!(audit_count.0 >= 3, "create + mark_paid + void should be logged");
+    assert!(
+        audit_count.0 >= 3,
+        "create + mark_paid + void should be logged"
+    );
 }
 
 #[tokio::test]

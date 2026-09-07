@@ -81,7 +81,10 @@ async fn setup(server: &TestServer, tag: &str) -> (reqwest::Client, Uuid, Uuid) 
     let ledger_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
 
     let resp = client
-        .post(format!("{}/ledgers/{ledger_id}/accounts/new", server.base_url()))
+        .post(format!(
+            "{}/ledgers/{ledger_id}/accounts/new",
+            server.base_url()
+        ))
         .form(&[
             ("name", "Probe Account"),
             ("code", "9990"),
@@ -147,7 +150,9 @@ async fn edit_account_updates_fields_and_audits() {
     let pool = server.db().pool();
 
     let resp = client
-        .post(format!("{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"
+        ))
         .form(&[
             ("name", "Renamed Account"),
             ("code", "9991"),
@@ -160,13 +165,12 @@ async fn edit_account_updates_fields_and_audits() {
         .unwrap();
     assert_eq!(resp.status(), 303);
 
-    let row: (String, Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT name, code, description FROM accounts WHERE id = $1",
-    )
-    .bind(account_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row: (String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT name, code, description FROM accounts WHERE id = $1")
+            .bind(account_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(row.0, "Renamed Account");
     assert_eq!(row.1.as_deref(), Some("9991"));
     assert_eq!(row.2.as_deref(), Some("renamed"));
@@ -191,7 +195,9 @@ async fn edit_type_locked_once_account_has_postings() {
     give_account_postings(&client, &base, ledger_id, account_id, bank).await;
 
     let resp = client
-        .post(format!("{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"
+        ))
         .form(&[
             ("name", "Renamed Account"),
             ("code", "9991"),
@@ -218,7 +224,9 @@ async fn edit_type_locked_once_account_has_postings() {
 
     // The GET edit page surfaces the lock notice.
     let edit_page = client
-        .get(format!("{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"))
+        .get(format!(
+            "{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"
+        ))
         .send()
         .await
         .unwrap()
@@ -240,7 +248,9 @@ async fn edit_type_allowed_without_postings() {
     let pool = server.db().pool();
 
     let resp = client
-        .post(format!("{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/accounts/{account_id}/edit"
+        ))
         .form(&[
             ("name", "Moved Account"),
             ("code", "9992"),

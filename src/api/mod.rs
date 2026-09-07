@@ -6,7 +6,14 @@
 //! `Idempotency-Key` header for safe retries.
 
 pub mod accounts;
+pub mod bank_feeds;
+pub mod budgets;
+pub mod contacts;
+pub mod documents;
+pub mod helpers;
+pub mod invoices;
 pub mod ledgers;
+pub mod payments;
 pub mod problem;
 pub mod reports;
 pub mod transactions;
@@ -62,6 +69,12 @@ pub fn router(state: AppState) -> Router<AppState> {
         .merge(ledgers::router())
         .merge(accounts::router())
         .merge(transactions::router())
+        .merge(invoices::router())
+        .merge(payments::router())
+        .merge(contacts::router())
+        .merge(documents::router())
+        .merge(budgets::router())
+        .merge(bank_feeds::router())
         .merge(reports::router())
         .layer(middleware::from_fn_with_state(state, require_bearer));
 
@@ -82,23 +95,137 @@ async fn require_bearer(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    let user_id = match api_token::verify_token(&state.pool, header).await {
-        Some(id) => id,
-        None => {
-            return problem::Problem::new(
-                StatusCode::UNAUTHORIZED,
-                "Unauthorized",
-                "Missing or invalid Authorization: Bearer oa_live_… header",
-            )
-            .with_type("/errors/unauthorized")
-            .into_response();
-        }
+    let Some((user_id, token_id)) = api_token::verify_token(&state.pool, header).await else {
+        return problem::Problem::new(
+            StatusCode::UNAUTHORIZED,
+            "Unauthorized",
+            "Missing or invalid Authorization: Bearer oa_live_… header",
+        )
+        .with_type("/errors/unauthorized")
+        .into_response();
     };
+
+    // Per-token rate limit (`api-v2-coverage`): sliding window,
+    // default 120 req/min. 429 + Retry-After when exceeded.
+    if let Err(retry_after) = rate_limit::check(token_id) {
+        return problem::Problem::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "Too Many Requests",
+            "API token rate limit exceeded",
+        )
+        .with_type("/errors/rate-limited")
+        .with_header(axum::http::header::RETRY_AFTER, retry_after.to_string())
+        .into_response();
+    }
 
     let mut request = request;
     request.extensions_mut().insert(ApiUser(user_id));
+    request.extensions_mut().insert(ApiTokenId(token_id));
 
     next.run(request).await
+}
+
+/// The API token id injected into request extensions.
+#[derive(Clone, Copy, Debug)]
+pub struct ApiTokenId(pub Uuid);
+
+impl<S> FromRequestParts<S> for ApiTokenId
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<ApiTokenId>()
+            .copied()
+            .ok_or((StatusCode::UNAUTHORIZED, "missing ApiTokenId extension"))
+    }
+}
+
+/// In-memory per-token sliding-window rate limiter (`api-v2-coverage`).
+/// Single-node semantics by design; SMB scale makes cross-node sync
+/// unnecessary. Fixed-capacity map bounds memory under key churn.
+pub mod rate_limit {
+    use std::collections::{HashMap, VecDeque};
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    use uuid::Uuid;
+
+    pub const DEFAULT_LIMIT_PER_MIN: u32 = 120;
+    const WINDOW: Duration = Duration::from_secs(60);
+    const MAX_TRACKED_TOKENS: usize = 10_000;
+
+    struct Entry {
+        hits: VecDeque<Instant>,
+    }
+
+    static STATE: once_cell::sync::Lazy<Mutex<HashMap<Uuid, Entry>>> =
+        once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+
+    /// Per-token limit overrides. Production never touches this;
+    /// tests use it to exercise throttling deterministically without
+    /// depending on wall-clock windows.
+    static TOKEN_OVERRIDES: once_cell::sync::Lazy<Mutex<HashMap<Uuid, u32>>> =
+        once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+
+    /// Set a specific request-per-minute limit for one token
+    /// (`None` clears). Test-support only.
+    #[cfg(feature = "test-support")]
+    pub fn set_token_limit(token_id: Uuid, limit: Option<u32>) {
+        let mut map = TOKEN_OVERRIDES.lock().unwrap();
+        match limit {
+            Some(l) => {
+                map.insert(token_id, l);
+            }
+            None => {
+                map.remove(&token_id);
+            }
+        }
+    }
+
+    /// Returns `Ok(())` or `Err(retry_after_seconds)`.
+    pub fn check(token_id: Uuid) -> Result<(), u64> {
+        let limit = TOKEN_OVERRIDES
+            .lock()
+            .unwrap()
+            .get(&token_id)
+            .copied()
+            .or_else(|| {
+                std::env::var("API_RATE_LIMIT_PER_MIN")
+                    .ok()
+                    .and_then(|v| v.parse::<u32>().ok())
+            })
+            .unwrap_or(DEFAULT_LIMIT_PER_MIN);
+        let now = Instant::now();
+        let mut state = STATE.lock().unwrap();
+        if state.len() >= MAX_TRACKED_TOKENS && !state.contains_key(&token_id) {
+            // Bound memory under key churn: drop everything and give
+            // existing clients a fresh window (worst case they retry).
+            state.clear();
+        }
+        let entry = state.entry(token_id).or_insert_with(|| Entry {
+            hits: VecDeque::new(),
+        });
+        while let Some(front) = entry.hits.front() {
+            if now.duration_since(*front) >= WINDOW {
+                entry.hits.pop_front();
+            } else {
+                break;
+            }
+        }
+        if entry.hits.len() as u32 >= limit {
+            let retry = entry
+                .hits
+                .front()
+                .map(|t| WINDOW.saturating_sub(now.duration_since(*t)).as_secs() + 1)
+                .unwrap_or(1);
+            return Err(retry);
+        }
+        entry.hits.push_back(now);
+        Ok(())
+    }
 }
 
 // `Backend` is referenced so the module compiles when unused

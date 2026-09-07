@@ -45,7 +45,10 @@ struct ActiveTaxRate {
 }
 
 /// Load the ledger's active tax rates for the per-line tax picker.
-async fn load_active_tax_rates(pool: &sqlx::PgPool, ledger_id: Uuid) -> AppResult<Vec<ActiveTaxRate>> {
+async fn load_active_tax_rates(
+    pool: &sqlx::PgPool,
+    ledger_id: Uuid,
+) -> AppResult<Vec<ActiveTaxRate>> {
     Ok(sqlx::query_as::<_, (Uuid, String, Decimal, Uuid)>(
         r#"SELECT id, name, rate, account_id FROM tax_rates
            WHERE ledger_id = $1 AND is_active = TRUE
@@ -55,7 +58,12 @@ async fn load_active_tax_rates(pool: &sqlx::PgPool, ledger_id: Uuid) -> AppResul
     .fetch_all(pool)
     .await?
     .into_iter()
-    .map(|(id, name, rate, account_id)| ActiveTaxRate { id, name, rate, account_id })
+    .map(|(id, name, rate, account_id)| ActiveTaxRate {
+        id,
+        name,
+        rate,
+        account_id,
+    })
     .collect())
 }
 
@@ -548,6 +556,7 @@ pub async fn create(
                 Some(l.memo.clone())
             },
             tax_rate_id,
+            foreign: None,
         });
     }
 
@@ -608,6 +617,7 @@ pub async fn create(
                 signed_amount: tax_signed,
                 memo: Some(format!("{} tax", rate.name)),
                 tax_rate_id: None,
+                foreign: None,
             });
             tax_links.push(crate::domain::posting_service::TaxLink {
                 posting_idx: i,
@@ -694,6 +704,9 @@ pub async fn create(
             return Err(AppError::Conflict(format!(
                 "Transaction number already used in {year}: {number}"
             )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::MissingFxRate(msg)) => {
+            return Ok(render_response(make_error(msg)));
         }
         Err(crate::domain::posting_service::PostingServiceError::Db(e)) => {
             return Err(AppError::Db(e));

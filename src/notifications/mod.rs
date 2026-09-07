@@ -60,3 +60,58 @@ pub fn from_env() -> Box<dyn Notifier> {
         _ => Box::new(noop::NoopNotifier),
     }
 }
+
+// ─── In-app + generic HTTP channels (`automation-platform`) ─────────────
+
+/// Record an in-app notification for a user. Best-effort: failures are
+/// logged, never propagated (callers sit inside business paths).
+pub async fn record_in_app(
+    pool: &sqlx::PgPool,
+    user_id: Uuid,
+    event: &str,
+    message: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("INSERT INTO in_app_notifications (user_id, event, message) VALUES ($1, $2, $3)")
+        .bind(user_id)
+        .bind(event)
+        .bind(message)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Deliver one notification to the user's generic HTTP target
+/// (ntfy/Gotify-compatible JSON body), if configured. Returns
+/// `Ok(false)` when no target exists.
+pub async fn send_http_target(
+    pool: &sqlx::PgPool,
+    user_id: Uuid,
+    title: &str,
+    body: &str,
+) -> Result<bool, NotifierError> {
+    let target: Option<(String,)> =
+        sqlx::query_as("SELECT target_url FROM notification_http_targets WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| NotifierError::Http(e.to_string()))?;
+    let Some((url,)) = target else {
+        return Ok(false);
+    };
+    if !url.starts_with("https://") {
+        return Err(NotifierError::Config("HTTP target must be https".into()));
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| NotifierError::Http(e.to_string()))?;
+    client
+        .post(&url)
+        .json(&serde_json::json!({ "topic": "openaccounting", "title": title, "message": body }))
+        .send()
+        .await
+        .map_err(|e| NotifierError::Http(e.to_string()))?
+        .error_for_status()
+        .map_err(|e| NotifierError::Http(e.to_string()))?;
+    Ok(true)
+}

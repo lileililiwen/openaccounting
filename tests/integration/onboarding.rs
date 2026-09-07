@@ -117,11 +117,13 @@ async fn opening_balances_marks_first_milestone() {
     let (client, ledger_id, _) = setup(&server, "obopening").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let bank: Uuid = sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'")
-        .bind(ledger_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let bank: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'",
+    )
+    .bind(ledger_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     let amount = "amount[".to_string() + &bank.to_string() + "]";
     client
@@ -145,17 +147,20 @@ async fn first_transaction_marks_milestone() {
     let (client, ledger_id, _) = setup(&server, "obtxn").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let expense: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'EXPENSE' LIMIT 1")
-            .bind(ledger_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    let bank: Uuid = sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'")
-        .bind(ledger_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let expense: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'EXPENSE' LIMIT 1",
+    )
+    .bind(ledger_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let bank: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'",
+    )
+    .bind(ledger_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     client
         .post(format!("{base}/ledgers/{ledger_id}/transactions/new"))
@@ -223,7 +228,10 @@ async fn document_bank_feed_and_invitation_each_mark_milestones() {
     .await
     .unwrap();
     let body = setup_page(&client, &base, ledger_id).await;
-    assert!(body.contains("3 of 5 steps done"), "invitation should count");
+    assert!(
+        body.contains("3 of 5 steps done"),
+        "invitation should count"
+    );
 }
 
 #[tokio::test]
@@ -249,17 +257,20 @@ async fn dashboard_card_shows_then_hides() {
 
     // Complete everything: opening balances, first transaction, document,
     // bank feed, invitation.
-    let bank: Uuid = sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'")
-        .bind(ledger_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let expense: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'EXPENSE' LIMIT 1")
-            .bind(ledger_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let bank: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'",
+    )
+    .bind(ledger_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let expense: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'EXPENSE' LIMIT 1",
+    )
+    .bind(ledger_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     let amount = "amount[".to_string() + &bank.to_string() + "]";
     client

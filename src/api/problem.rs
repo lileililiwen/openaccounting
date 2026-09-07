@@ -52,6 +52,36 @@ impl Problem {
         self.instance = Some(instance.into());
         self
     }
+
+    /// Attach a header to the response (e.g. `Retry-After`).
+    pub fn with_header(
+        self,
+        name: axum::http::HeaderName,
+        value: impl Into<String>,
+    ) -> ProblemWithHeaders {
+        ProblemWithHeaders {
+            problem: self,
+            headers: vec![(name, value.into())],
+        }
+    }
+}
+
+/// A [`Problem`] plus extra raw headers, still RFC 7807 on the body.
+pub struct ProblemWithHeaders {
+    problem: Problem,
+    headers: Vec<(axum::http::HeaderName, String)>,
+}
+
+impl IntoResponse for ProblemWithHeaders {
+    fn into_response(self) -> Response {
+        let mut resp = self.problem.into_response();
+        for (name, value) in self.headers {
+            if let Ok(v) = axum::http::HeaderValue::from_str(&value) {
+                resp.headers_mut().insert(name, v);
+            }
+        }
+        resp
+    }
 }
 
 impl IntoResponse for Problem {

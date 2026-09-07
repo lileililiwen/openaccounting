@@ -193,6 +193,7 @@ pub async fn edit(
                 Some(l.memo.clone())
             },
             tax_rate_id: None,
+            foreign: None,
         });
     }
 

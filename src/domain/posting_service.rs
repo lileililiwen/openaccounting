@@ -94,6 +94,8 @@ pub enum PostingServiceError {
     WrongLedger(Uuid),
     #[error("Transaction number already used in {year}: {number}")]
     DuplicateNumber { year: i32, number: String },
+    #[error("{0}")]
+    MissingFxRate(String),
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -276,13 +278,53 @@ impl PostingService {
                 credits: Decimal::ZERO,
             });
         }
+
+        // Resolve the effective base-currency amount per line.
+        // Lines with a foreign leg derive their base amount from the
+        // transaction-date rate (`multi-currency-fx`); the supplied
+        // `signed_amount` is ignored for those lines. The balance
+        // invariant is enforced on the derived (base) amounts, so the
+        // DB trigger needs no relaxation.
+        let has_foreign = new.lines.iter().any(|l| l.foreign.is_some());
+        let effective: Vec<Decimal> = if has_foreign {
+            let (base_currency,): (String,) =
+                sqlx::query_as("SELECT base_currency FROM ledgers WHERE id = $1")
+                    .bind(new.ledger_id)
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => PostingServiceError::LedgerNotFound,
+                        other => other.into(),
+                    })?;
+            let mut derived = Vec::with_capacity(new.lines.len());
+            for l in &new.lines {
+                match &l.foreign {
+                    Some(f) => {
+                        let rate = crate::domain::fx::lookup(
+                            pool,
+                            &f.currency,
+                            &base_currency,
+                            new.txn_date,
+                        )
+                        .await
+                        .map_err(|e| PostingServiceError::MissingFxRate(e.to_string()))?;
+                        derived.push(crate::domain::fx::derive_base_amount(f.signed_amount, rate));
+                    }
+                    None => derived.push(l.signed_amount),
+                }
+            }
+            derived
+        } else {
+            new.lines.iter().map(|l| l.signed_amount).collect()
+        };
+
         let mut debits = Decimal::ZERO;
         let mut credits = Decimal::ZERO;
-        for l in &new.lines {
-            if l.signed_amount >= Decimal::ZERO {
-                debits += l.signed_amount;
+        for amount in &effective {
+            if *amount >= Decimal::ZERO {
+                debits += *amount;
             } else {
-                credits += -l.signed_amount;
+                credits += -*amount;
             }
         }
         if debits != credits {
@@ -434,16 +476,21 @@ impl PostingService {
         // Capture the inserted posting ids in line order so tax links can
         // reference them (`a14-tax-on-transactions`).
         let mut posting_ids: Vec<Uuid> = Vec::with_capacity(new.lines.len());
-        for l in &new.lines {
-            let direction = if l.signed_amount >= Decimal::ZERO {
+        for (l, effective_amount) in new.lines.iter().zip(&effective) {
+            let direction = if *effective_amount >= Decimal::ZERO {
                 "DEBIT"
             } else {
                 "CREDIT"
             };
-            let amount = l.signed_amount.abs();
+            let amount = effective_amount.abs();
+            let (foreign_amount, foreign_currency) = match &l.foreign {
+                Some(f) => (Some(f.signed_amount.abs()), Some(f.currency.as_str())),
+                None => (None, None),
+            };
             let posting_id: Uuid = sqlx::query_scalar(
-                "INSERT INTO postings (transaction_id, account_id, amount, direction, memo)
-                 VALUES ($1, $2, $3, $4, $5)
+                "INSERT INTO postings (transaction_id, account_id, amount, direction, memo,
+                                        foreign_amount, foreign_currency)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  RETURNING id",
             )
             .bind(txn_id)
@@ -451,6 +498,8 @@ impl PostingService {
             .bind(amount)
             .bind(direction)
             .bind(l.memo.as_deref())
+            .bind(foreign_amount)
+            .bind(foreign_currency)
             .fetch_one(&mut *tx)
             .await?;
             posting_ids.push(posting_id);
@@ -501,6 +550,19 @@ impl PostingService {
                     "kind": kind,
                     "lines": new.lines.len(),
                 })),
+            )
+            .await;
+        }
+
+        if !is_draft {
+            crate::jobs::events::emit(
+                pool,
+                new.ledger_id,
+                "transaction.posted",
+                serde_json::json!({
+                    "transaction_id": txn_id,
+                    "number": resolved_number,
+                }),
             )
             .await;
         }

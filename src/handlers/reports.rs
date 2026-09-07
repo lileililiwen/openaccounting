@@ -87,7 +87,10 @@ pub fn closed_notice(years: &[i32], in_range: impl Fn(i32) -> bool) -> String {
     if matching.is_empty() {
         return String::new();
     }
-    let list = matching.iter().map(|y| format!("FY{y}")).collect::<Vec<_>>();
+    let list = matching
+        .iter()
+        .map(|y| format!("FY{y}"))
+        .collect::<Vec<_>>();
     let (last, rest) = list.split_last().expect("non-empty");
     let joined = if rest.is_empty() {
         last.clone()

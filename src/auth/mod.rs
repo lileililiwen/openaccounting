@@ -2,6 +2,7 @@ pub mod api_token;
 pub mod cookie_signer;
 pub mod csrf;
 pub mod handlers;
+pub mod oidc;
 pub mod password;
 pub mod rate_limit;
 pub mod session_timeout;

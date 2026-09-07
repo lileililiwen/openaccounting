@@ -242,14 +242,10 @@ pub async fn show(
 
     // Setup checklist (`a16-onboarding-quickstart`): show the card only
     // while milestones are still pending.
-    let setup = crate::handlers::onboarding::compute_setup_status(
-        &state.pool,
-        ledger_id,
-        user.id,
-    )
-    .await
-    .ok()
-    .filter(|s| !s.complete);
+    let setup = crate::handlers::onboarding::compute_setup_status(&state.pool, ledger_id, user.id)
+        .await
+        .ok()
+        .filter(|s| !s.complete);
 
     Ok(render_response(DashboardPage {
         user_id: user.id,

@@ -51,6 +51,10 @@ pub struct LoginPage {
     /// The email the user submitted, preserved on error so a typo
     /// only needs re-entering the password (`ux-onboarding-flow`).
     pub email: String,
+    /// SSO provider configured → show the button (`oidc-sso`).
+    pub sso_enabled: bool,
+    /// SSO-only mode → hide the password form and registration link.
+    pub sso_only: bool,
 }
 
 #[derive(Template)]
@@ -61,17 +65,26 @@ pub struct RegisterPage {
 }
 
 pub async fn login_page(
+    State(state): State<AppState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
-    let error = if params.get("expired").map(|s| s.as_str()) == Some("1") {
+    let error = if params.get("error").map(|s| s.as_str()) == Some("oidc") {
+        "Sign-in with your identity provider failed. Please try again or contact your administrator."
+    } else if params.get("expired").map(|s| s.as_str()) == Some("1") {
         "Your session expired; please sign in again."
     } else {
         ""
     };
+    let provider = crate::auth::oidc::load_provider(&state.pool)
+        .await
+        .ok()
+        .flatten();
     Ok(render_response(LoginPage {
         error: error.to_string(),
         next: params.get("next").cloned().unwrap_or_default(),
         email: String::new(),
+        sso_enabled: provider.is_some(),
+        sso_only: provider.as_ref().is_some_and(|p| p.sso_only),
     }))
 }
 
@@ -100,6 +113,8 @@ fn login_error_page(next: &str, email: &str, status: StatusCode) -> Response {
         error: GENERIC_LOGIN_ERROR.into(),
         next: next.to_string(),
         email: email.to_string(),
+        sso_enabled: false,
+        sso_only: false,
     };
     match page.render() {
         Ok(body) => (
@@ -314,8 +329,19 @@ pub async fn login_2fa_submit(
 }
 
 pub async fn register_page(
+    State(state): State<AppState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
+    // SSO-only mode (`oidc-sso`): local registration is disabled when
+    // the configured provider enables it.
+    let sso_only = crate::auth::oidc::load_provider(&state.pool)
+        .await
+        .ok()
+        .flatten()
+        .is_some_and(|p| p.sso_only);
+    if sso_only {
+        return Err(AppError::NotFound);
+    }
     Ok(render_response(RegisterPage {
         error: String::new(),
         next: params.get("next").cloned().unwrap_or_default(),

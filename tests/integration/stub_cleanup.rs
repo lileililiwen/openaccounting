@@ -118,13 +118,12 @@ async fn api_tokens_page_issue_and_revoke() {
         .send()
         .await
         .unwrap();
-    let revoked: bool = sqlx::query_scalar(
-        "SELECT revoked_at IS NOT NULL FROM api_tokens WHERE id = $1",
-    )
-    .bind(token_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let revoked: bool =
+        sqlx::query_scalar("SELECT revoked_at IS NOT NULL FROM api_tokens WHERE id = $1")
+            .bind(token_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert!(revoked, "token should be revoked");
 }
 
@@ -163,18 +162,20 @@ async fn transfer_creates_two_transactions_and_link() {
     let from_ledger = create_ledger(&client, &server, "Transfer A").await;
     let to_ledger = create_ledger(&client, &server, "Transfer B").await;
 
-    let from_account: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'")
-            .bind(from_ledger)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    let to_account: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'")
-            .bind(to_ledger)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let from_account: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'",
+    )
+    .bind(from_ledger)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let to_account: Uuid = sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND name = 'Bank Account'",
+    )
+    .bind(to_ledger)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     let resp = client
         .post(format!("{base}/transfers/inter-ledger"))

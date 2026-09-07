@@ -116,6 +116,7 @@ pub async fn post_draft(
         Err(PostingServiceError::DuplicateNumber { .. }) => Err(AppError::Conflict(
             "promotion would create a duplicate number".into(),
         )),
+        Err(PostingServiceError::MissingFxRate(msg)) => Err(AppError::Validation(msg)),
         Err(PostingServiceError::Db(e)) => Err(AppError::Db(e)),
     }
 }
@@ -146,6 +147,7 @@ pub async fn discard_draft(
         Err(PostingServiceError::PeriodClosed { .. }) => {
             Err(AppError::Validation("period closed".into()))
         }
+        Err(PostingServiceError::MissingFxRate(msg)) => Err(AppError::Validation(msg)),
         Err(PostingServiceError::DuplicateNumber { .. }) => {
             Err(AppError::Conflict("discard would conflict".into()))
         }

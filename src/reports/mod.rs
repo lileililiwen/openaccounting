@@ -2,6 +2,7 @@ pub mod amortization;
 pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_forecast;
+pub mod fx_gains;
 pub mod general_ledger;
 pub mod holdings;
 pub mod income_statement;

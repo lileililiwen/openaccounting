@@ -26,6 +26,8 @@ pub enum AppError {
 
     #[error("conflict: {0}")]
     Conflict(String),
+    #[error("gone: {0}")]
+    Gone(String),
 
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
@@ -70,6 +72,7 @@ impl AppError {
             AppError::Validation(_) | AppError::Multipart(_) => StatusCode::BAD_REQUEST,
             AppError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Gone(_) => StatusCode::GONE,
             AppError::Io(_) | AppError::Db(_) | AppError::Template(_) | AppError::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }

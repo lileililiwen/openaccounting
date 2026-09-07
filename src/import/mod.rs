@@ -103,3 +103,5 @@ pub struct ParseOptions {
 /// Re-exported so the shared 7-column row shape carries
 /// through from preview to commit for every importer.
 pub use crate::handlers::import::ParsedRow;
+
+pub mod statement;

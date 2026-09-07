@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Rules applied{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 py-6">
+  <div class="rounded-xl bg-white border border-slate-200 p-6 text-center">
+    <h1 class="text-xl font-semibold">Retroactive rules applied</h1>
+    <p class="mt-2 text-slate-600">{{ changed }} of {{ selected }} selected transactions were recategorized.</p>
+    <a href="/ledgers/{{ ledger_id }}/transactions" class="mt-4 inline-block rounded-lg bg-slate-900 text-white px-4 py-2 text-sm">Back to transactions</a>
+  </div>
+</main>
+{% endblock %}

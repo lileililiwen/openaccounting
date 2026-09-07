@@ -144,6 +144,18 @@ metrics-exporter-prometheus = "0.18.3"
 infer = "0.16"
 cron = "0.12"
 
+# Email notification channel (`automation-platform`). SMTP via rustls;
+# no native TLS dependency. Alternative considered: API-provider-only
+# delivery (Postmark) — rejected: self-hosted users often have no SaaS
+# egress.
+lettre = { version = "0.11", default-features = false,
+            features = ["smtp-transport", "builder", "rustls-tls", "tokio1", "tokio1-rustls-tls"] }
+
+# OIDC single sign-on (`oidc-sso`). Alternative considered: hand-rolled
+# JWT verification — rejected (key-type/alg-confusion risk); the oauth2
+# crate alone — rejected (no discovery/JWKS/nonce layer).
+openidconnect = { version = "3", default-features = false, features = ["reqwest", "rustls-tls"] }
+
 [dev-dependencies]
 # reqwest is already a non-optional dep; re-declare for dev to get the
 # same features (cookie_store is needed for the test client).

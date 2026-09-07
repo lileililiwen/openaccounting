@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Exchange Rates — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Exchange Rates</h1>
+    <a href="/ledgers/{{ ledger_id }}/reports/fx-gains" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">FX Gains Report</a>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-3">Add / override a rate</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/fx-rates" class="flex flex-wrap items-end gap-3 text-sm">
+      <label>
+        <span class="block text-xs text-slate-500">From (base)</span>
+        <input type="text" name="base_currency" maxlength="3" placeholder="EUR" required
+               class="rounded border border-slate-300 px-2 py-1 uppercase w-20" />
+      </label>
+      <span class="pb-2 text-slate-400">→</span>
+      <label>
+        <span class="block text-xs text-slate-500">To (quote)</span>
+        <input type="text" name="quote_currency" maxlength="3" placeholder="{{ base_currency }}" required
+               class="rounded border border-slate-300 px-2 py-1 uppercase w-20" />
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">Rate</span>
+        <input type="text" name="rate" placeholder="0.9100" required
+               class="rounded border border-slate-300 px-2 py-1 w-28 tabular" />
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">Date</span>
+        <input type="date" name="rate_date" required
+               class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Save rate</button>
+    </form>
+    <p class="mt-2 text-xs text-slate-500">Manual rates take precedence over the ECB feed for the same day. The rate is the amount of the quote currency per one unit of the base currency.</p>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-3">Month-end revaluation</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/fx-revaluation" class="flex flex-wrap items-end gap-3 text-sm">
+      <label>
+        <span class="block text-xs text-slate-500">Revaluation date</span>
+        <input type="date" name="date" required
+               class="rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Run revaluation</button>
+    </form>
+    <p class="mt-2 text-xs text-slate-500">Posts unrealized gain/loss for every foreign-currency bank/cash account, once per account per month.</p>
+  </section>
+
+  {% if rates.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No exchange rates stored yet. Add one above or enable the ECB daily feed (<code>FX_ECB_ENABLED=true</code>).
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Pair</th>
+            <th class="text-right px-4 py-2">Rate</th>
+            <th class="text-left px-4 py-2">Date</th>
+            <th class="text-left px-4 py-2">Source</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for r in rates %}
+            <tr>
+              <td class="px-4 py-2 font-medium text-slate-800 tabular">{{ r.0 }} → {{ r.1 }}</td>
+              <td class="px-4 py-2 text-right tabular">{{ r.2 }}</td>
+              <td class="px-4 py-2 tabular">{{ r.3 }}</td>
+              <td class="px-4 py-2">
+                {% if r.4 == "manual" %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">manual</span>
+                {% else %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">ECB</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

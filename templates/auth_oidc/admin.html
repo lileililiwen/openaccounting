@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}OIDC SSO — Admin{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">OIDC Single Sign-On</h1>
+    <p class="text-slate-500 text-sm">One provider. Authorization Code + PKCE. Secrets are encrypted at rest.</p>
+  </header>
+
+  <form method="post" action="/admin/oidc" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3 text-sm">
+    <label class="block">
+      <span class="block text-xs text-slate-500">Issuer URL (https)</span>
+      <input type="url" name="issuer_url" value="{{ issuer_url }}" required
+             class="w-full rounded border border-slate-300 px-2 py-1" />
+    </label>
+    <label class="block">
+      <span class="block text-xs text-slate-500">Client ID</span>
+      <input type="text" name="client_id" value="{{ client_id }}" required
+             class="w-full rounded border border-slate-300 px-2 py-1" />
+    </label>
+    <label class="block">
+      <span class="block text-xs text-slate-500">
+        Client secret {% if has_secret %}(configured — enter a new value to rotate){% endif %}
+      </span>
+      <input type="password" name="client_secret"
+             class="w-full rounded border border-slate-300 px-2 py-1" />
+      {% if has_secret %}
+        <p class="text-xs text-slate-500">A secret is configured. Enter a new value only to rotate it.</p>
+      {% else %}
+        <p class="text-xs text-slate-500">Required on first save.</p>
+      {% endif %}
+    </label>
+    <label class="block">
+      <span class="block text-xs text-slate-500">Scopes</span>
+      <input type="text" name="scopes" value="openid email profile"
+             class="w-full rounded border border-slate-300 px-2 py-1" />
+    </label>
+    <fieldset class="flex gap-4">
+      <legend class="block text-xs text-slate-500 mb-1">Provisioning policy</legend>
+      <label class="inline-flex items-center gap-1">
+        {% if provisioning == "invite-only" %}
+          <input type="radio" name="provisioning" value="invite-only" checked />
+        {% else %}
+          <input type="radio" name="provisioning" value="invite-only" />
+        {% endif %}
+        <span>Invite-only (recommended)</span>
+      </label>
+      <label class="inline-flex items-center gap-1">
+        {% if provisioning == "auto" %}
+          <input type="radio" name="provisioning" value="auto" checked />
+        {% else %}
+          <input type="radio" name="provisioning" value="auto" />
+        {% endif %}
+        <span>Auto-create accounts</span>
+      </label>
+    </fieldset>
+    <label class="inline-flex items-center gap-2">
+      {% if sso_only %}
+        <input type="checkbox" name="sso_only" value="true" checked />
+      {% else %}
+        <input type="checkbox" name="sso_only" value="true" />
+      {% endif %}
+      <span>SSO-only mode (disable password login and registration)</span>
+    </label>
+    <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Save provider</button>
+  </form>
+</main>
+{% endblock %}

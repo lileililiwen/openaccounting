@@ -15,7 +15,10 @@ use uuid::Uuid;
 use crate::{
     audit,
     auth::Backend,
-    domain::{posting_service::PostingService, Account, AccountSubtype, AccountType, Direction, TxnLineInput},
+    domain::{
+        posting_service::PostingService, Account, AccountSubtype, AccountType, Direction,
+        TxnLineInput,
+    },
     error::{AppError, AppResult},
     handlers::ledgers,
     templates::accounts::{
@@ -263,11 +266,7 @@ pub async fn create(
     Ok(Redirect::to(&format!("/ledgers/{}/accounts", ledger_id)).into_response())
 }
 
-async fn load_account(
-    state: &AppState,
-    ledger_id: Uuid,
-    account_id: Uuid,
-) -> AppResult<Account> {
+async fn load_account(state: &AppState, ledger_id: Uuid, account_id: Uuid) -> AppResult<Account> {
     sqlx::query_as::<_, Account>(
         r#"SELECT id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at
            FROM accounts WHERE id = $1 AND ledger_id = $2"#,
@@ -280,10 +279,12 @@ async fn load_account(
 }
 
 async fn posting_count(state: &AppState, account_id: Uuid) -> AppResult<i64> {
-    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM postings WHERE account_id = $1")
-        .bind(account_id)
-        .fetch_one(&state.pool)
-        .await?)
+    Ok(
+        sqlx::query_scalar("SELECT COUNT(*) FROM postings WHERE account_id = $1")
+            .bind(account_id)
+            .fetch_one(&state.pool)
+            .await?,
+    )
 }
 
 /// Build the `AccountEdit` page for an account, shared by the GET page
@@ -406,7 +407,11 @@ pub async fn update(
                 )))
             }
         };
-        let st = match form.account_subtype.as_deref().and_then(AccountSubtype::from_db) {
+        let st = match form
+            .account_subtype
+            .as_deref()
+            .and_then(AccountSubtype::from_db)
+        {
             Some(s) => s,
             None => {
                 return Ok(render_response(edit_view(
@@ -500,13 +505,12 @@ pub async fn toggle_archive(
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
-    let current: Option<(bool, String)> = sqlx::query_as(
-        "SELECT is_archived, name FROM accounts WHERE id = $1 AND ledger_id = $2",
-    )
-    .bind(account_id)
-    .bind(ledger_id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let current: Option<(bool, String)> =
+        sqlx::query_as("SELECT is_archived, name FROM accounts WHERE id = $1 AND ledger_id = $2")
+            .bind(account_id)
+            .bind(ledger_id)
+            .fetch_optional(&state.pool)
+            .await?;
     let (was_archived, name) = current.ok_or(AppError::NotFound)?;
     let archived = !was_archived;
     sqlx::query(
@@ -686,13 +690,15 @@ pub async fn opening_balances_create(
             signed_amount: signed,
             memo: Some(format!("Opening balance — {}", account.name)),
             tax_rate_id: None,
+            foreign: None,
         });
     }
 
     let net: Decimal = lines.iter().map(|l| l.signed_amount).sum();
     if lines.is_empty() || net == Decimal::ZERO {
         return Ok(re_render(
-            "Enter at least one opening balance that differs from the account's current balance.".into(),
+            "Enter at least one opening balance that differs from the account's current balance."
+                .into(),
         ));
     }
 
@@ -706,21 +712,24 @@ pub async fn opening_balances_create(
     .await?
     {
         Some(id) => id,
-        None => sqlx::query_scalar(
-            "INSERT INTO accounts (ledger_id, name, code, type, subtype, currency)
+        None => {
+            sqlx::query_scalar(
+                "INSERT INTO accounts (ledger_id, name, code, type, subtype, currency)
              VALUES ($1, 'Opening Balances', '3010', 'EQUITY', 'EQUITY', $2)
              RETURNING id",
-        )
-        .bind(ledger_id)
-        .bind(&ledger.base_currency)
-        .fetch_one(&state.pool)
-        .await?,
+            )
+            .bind(ledger_id)
+            .bind(&ledger.base_currency)
+            .fetch_one(&state.pool)
+            .await?
+        }
     };
     lines.push(TxnLineInput {
         account_id: opening_account_id,
         signed_amount: -net,
         memo: Some("Opening balances contra".to_string()),
         tax_rate_id: None,
+        foreign: None,
     });
 
     let new_txn = crate::domain::posting_service::NewTransaction {

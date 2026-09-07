@@ -7,8 +7,11 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use chrono::Datelike;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
+
+use crate::reports::ReportBasis;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -182,24 +185,50 @@ async fn income_statement(
 }
 
 async fn cash_flow(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     user: ApiUser,
     Path(ledger_id): Path<Uuid>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, Problem> {
-    if !ledger_owned_by(&_state.pool, ledger_id, user.0).await? {
-        return Err(Problem::new(
-            StatusCode::NOT_FOUND,
-            "Not Found",
-            "ledger not found",
-        ));
-    }
-    // Minimal stub — full cash-flow is implemented in the HTML
-    // handler. The API endpoint returns the running totals of
-    // INCOME - EXPENSE on cash accounts as a placeholder.
+    crate::api::helpers::require_access(&state.pool, user.0, ledger_id, false).await?;
+    let today = chrono::Utc::now().date_naive();
+    let from = params
+        .get("from")
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+        .unwrap_or_else(|| NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today));
+    let to = params
+        .get("to")
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+        .unwrap_or(today);
+    let basis = ReportBasis::parse(params.get("basis").map(String::as_str).unwrap_or(""))
+        .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
+
+    let report = crate::reports::build_cash_flow(&state.pool, ledger_id, from, to, basis)
+        .await
+        .map_err(|e| {
+            Problem::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                e.to_string(),
+            )
+        })?;
+
     Ok(Json(serde_json::json!({
         "ledger_id": ledger_id,
-        "as_of": chrono::Utc::now().date_naive(),
-        "note": "full cash-flow report pending; see /ledgers/{id}/reports/cash-flow",
+        "basis": basis.as_str(),
+        "from": from,
+        "to": to,
+        "opening": report.opening,
+        "closing": report.closing,
+        "movement": report.movement,
+        "total_inflows": report.total_inflows,
+        "total_outflows": report.total_outflows,
+        "inflows": report.inflows.iter().map(|l| serde_json::json!({
+            "account": l.account_name, "amount": l.amount,
+        })).collect::<Vec<_>>(),
+        "outflows": report.outflows.iter().map(|l| serde_json::json!({
+            "account": l.account_name, "amount": l.amount,
+        })).collect::<Vec<_>>(),
     })))
 }
 

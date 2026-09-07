@@ -1,5 +1,6 @@
 //! Transaction endpoints for the REST API (`a1-rest-api`).
 
+use axum::response::IntoResponse;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -64,24 +65,15 @@ pub struct CreateTransactionResponse {
     pub total: Decimal,
 }
 
-/// `Idempotency-Key` cache. We store the raw JSON response and
-/// replay it on duplicate POSTs. The cache is per-process; a
-/// restart loses it — fine for v1.
-#[derive(Debug, Clone)]
-struct IdempotencyRecord {
-    status: u16,
-    body: String,
-}
-
-static IDEMPOTENCY_CACHE: once_cell::sync::Lazy<
-    std::sync::Mutex<std::collections::HashMap<String, IdempotencyRecord>>,
-> = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+// Idempotency is durable as of `api-v2-coverage`:
+// `crate::api::helpers::{idempotency_lookup, idempotency_store}`.
 
 async fn list(
     State(state): State<AppState>,
     user: ApiUser,
     Path(ledger_id): Path<Uuid>,
-) -> Result<Json<serde_json::Value>, Problem> {
+    axum::extract::Query(params): axum::extract::Query<crate::api::helpers::PageParams>,
+) -> Result<axum::response::Response, Problem> {
     if !ledger_owned_by(&state.pool, ledger_id, user.0).await? {
         return Err(Problem::new(
             StatusCode::NOT_FOUND,
@@ -89,17 +81,28 @@ async fn list(
             "ledger not found",
         ));
     }
+    let page = crate::api::helpers::page_from(&params)?;
     let rows: Vec<TransactionDto> = sqlx::query_as::<_, TransactionDto>(
         "SELECT id, ledger_id, txn_date, description, payee, reference, currency, kind, number, created_at, updated_at
          FROM transactions WHERE ledger_id = $1
          ORDER BY txn_date DESC, created_at DESC
-         LIMIT 100",
+         LIMIT $2 OFFSET $3",
     )
     .bind(ledger_id)
+    .bind(page.limit)
+    .bind(page.offset)
     .fetch_all(&state.pool)
     .await
     .map_err(problem_for_db)?;
-    Ok(Json(serde_json::json!({ "data": rows })))
+    let link = crate::api::helpers::next_link(
+        &format!("/api/v1/ledgers/{ledger_id}/transactions"),
+        page,
+        rows.len(),
+    );
+    return Ok(crate::api::helpers::with_next_link(
+        Json(serde_json::json!({ "data": rows })).into_response(),
+        link,
+    ));
 }
 
 async fn get_one(
@@ -136,9 +139,10 @@ async fn get_one(
 async fn create(
     State(state): State<AppState>,
     user: ApiUser,
+    token: crate::api::ApiTokenId,
     Path(ledger_id): Path<Uuid>,
     headers: HeaderMap,
-    Json(body): Json<CreateTransactionBody>,
+    Json(raw_body): Json<serde_json::Value>,
 ) -> Result<
     (
         StatusCode,
@@ -147,24 +151,30 @@ async fn create(
     ),
     Problem,
 > {
-    // Idempotency-Key: replay the cached response when present.
+    // Durable Idempotency-Key (`api-v2-coverage`): replay within 24 h;
+    // key reuse with a different body is a hard 422.
     let idem_key = headers
         .get("Idempotency-Key")
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
+    let fp = crate::api::helpers::fingerprint(&raw_body);
     if let Some(k) = &idem_key {
-        if let Some(rec) = IDEMPOTENCY_CACHE.lock().unwrap().get(k).cloned() {
-            let status = StatusCode::from_u16(rec.status).unwrap_or(StatusCode::CREATED);
+        if let Some((status, resp_body)) =
+            crate::api::helpers::idempotency_lookup(&state.pool, k, token.0, &fp).await?
+        {
             return Ok((
-                status,
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
                 [(
                     axum::http::header::CONTENT_TYPE,
                     axum::http::HeaderValue::from_static("application/json"),
                 )],
-                rec.body,
+                resp_body,
             ));
         }
     }
+
+    let body: CreateTransactionBody = serde_json::from_value(raw_body)
+        .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
 
     if !ledger_owned_by(&state.pool, ledger_id, user.0).await? {
         return Err(Problem::new(
@@ -281,13 +291,15 @@ async fn create(
     let body_str = serde_json::to_string(&resp).unwrap_or_default();
 
     if let Some(k) = idem_key {
-        IDEMPOTENCY_CACHE.lock().unwrap().insert(
-            k,
-            IdempotencyRecord {
-                status: StatusCode::CREATED.as_u16(),
-                body: body_str.clone(),
-            },
-        );
+        crate::api::helpers::idempotency_store(
+            &state.pool,
+            &k,
+            token.0,
+            &fp,
+            StatusCode::CREATED.as_u16(),
+            &body_str,
+        )
+        .await?;
     }
 
     Ok((

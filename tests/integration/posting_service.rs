@@ -137,12 +137,14 @@ async fn posting_service_balanced_writes_succeed() {
                 signed_amount: Decimal::new(100, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
             TxnLineInput {
                 account_id: sales,
                 signed_amount: Decimal::new(-100, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
         ],
     };
@@ -183,12 +185,14 @@ async fn posting_service_unbalanced_rejected_no_rows() {
                 signed_amount: Decimal::new(100, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
             TxnLineInput {
                 account_id: sales,
                 signed_amount: Decimal::new(-99, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
         ],
     };
@@ -247,12 +251,14 @@ async fn posting_service_closed_period_rejected() {
                 signed_amount: Decimal::new(50, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
             TxnLineInput {
                 account_id: sales,
                 signed_amount: Decimal::new(-50, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
         ],
     };
@@ -288,12 +294,14 @@ async fn posting_service_unknown_account_rejected() {
                 signed_amount: Decimal::new(10, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
             TxnLineInput {
                 account_id: bogus,
                 signed_amount: Decimal::new(-10, 0),
                 memo: None,
                 tax_rate_id: None,
+                foreign: None,
             },
         ],
     };

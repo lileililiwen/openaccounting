@@ -26,6 +26,7 @@ pub mod export;
 pub mod handlers;
 pub mod i18n;
 pub mod import;
+pub mod jobs;
 pub mod notifications;
 pub mod observability;
 pub mod ocr;
@@ -262,6 +263,16 @@ fn build_router_inner(
             "/ledgers/{id}/webhooks/plaid",
             post(handlers::bank_feeds::webhook_plaid),
         )
+        // Public share links (`ar-getting-paid`): tokenized, login-free
+        // document views. Tokens are unguessable; revoked links 410.
+        .route(
+            "/share/invoice/{token}",
+            get(handlers::invoice_share::public_page).post(handlers::invoice_share::decide),
+        )
+        // OIDC SSO round-trip (`oidc-sso`). Unauthenticated by design;
+        // every step verifies state/signature before a session exists.
+        .route("/auth/oidc/login", get(handlers::auth_oidc::login_start))
+        .route("/auth/oidc/callback", get(handlers::auth_oidc::callback))
         // Liveness + readiness probes (`o5-health-endpoint`).
         // No I/O for /healthz; /readyz pings Postgres + the
         // documents directory, each with a 1 s timeout.
@@ -420,6 +431,47 @@ fn build_router_inner(
             "/ledgers/{id}/bank-feeds/{link_id}/unlink",
             post(handlers::bank_feeds::unlink),
         )
+        .route("/ledgers/{id}/estimates", post(handlers::estimates::create))
+        .route(
+            "/ledgers/{id}/estimates/{estimate_id}/convert",
+            post(handlers::estimates::convert),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/share",
+            post(handlers::invoice_share::create_link),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/share/revoke",
+            post(handlers::invoice_share::revoke_link),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/export.xml",
+            get(handlers::einvoice::export_xml),
+        )
+        .route(
+            "/ledgers/{id}/rules/suggest",
+            get(handlers::rules_apply::suggest),
+        )
+        .route(
+            "/ledgers/{id}/rules/apply",
+            post(handlers::rules_apply::apply_rules),
+        )
+        .route(
+            "/ledgers/{id}/webhooks/subscriptions",
+            get(handlers::webhooks_out::list).post(handlers::webhooks_out::create),
+        )
+        .route(
+            "/ledgers/{id}/webhooks/{sub_id}/toggle",
+            post(handlers::webhooks_out::toggle),
+        )
+        .route(
+            "/ledgers/{id}/webhooks/{sub_id}/rotate-secret",
+            post(handlers::webhooks_out::rotate_secret),
+        )
+        .route(
+            "/ledgers/{id}/webhooks/{sub_id}/replay",
+            post(handlers::webhooks_out::replay_latest),
+        )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
         .route(
             "/ledgers/{id}/reports/trial-balance",
@@ -464,6 +516,20 @@ fn build_router_inner(
         .route(
             "/ledgers/{id}/reports/amortization",
             get(handlers::amortization::list_page),
+        )
+        .route(
+            "/ledgers/{id}/reports/fx-gains",
+            get(handlers::fx::fx_gains_report),
+        )
+        .route(
+            "/ledgers/{id}/reports/fx-gains/export.csv",
+            get(handlers::fx::fx_gains_export_csv),
+        )
+        .route("/ledgers/{id}/fx-rates", get(handlers::fx::rates_page))
+        .route("/ledgers/{id}/fx-rates", post(handlers::fx::create_rate))
+        .route(
+            "/ledgers/{id}/fx-revaluation",
+            post(handlers::fx::revaluate),
         )
         .route(
             "/ledgers/{id}/amortization/new",
@@ -923,6 +989,14 @@ pub async fn run() -> anyhow::Result<()> {
     // `BACKUP_CRON` / `BACKUP_KEEP` / `BACKUP_DIR`; the worker
     // logs and disables itself if the expression is invalid.
     workers::backup::spawn_backup_worker(state.clone(), workers::backup::BackupConfig::from_env());
+
+    // Start the daily ECB FX-rate refresh (`multi-currency-fx`).
+    // No-op unless FX_ECB_ENABLED=true.
+    workers::fx_refresh::spawn_if_enabled(pool.clone());
+
+    // Start the job-queue scheduler (`automation-platform`): recurring
+    // templates, invoice reminders, webhook deliveries, digests.
+    workers::scheduler::run_scheduler_loop(pool.clone());
 
     // ── Cookie security policy ──────────────────────────────────────────
     // Production / staging MUST emit Secure cookies. Refuse to

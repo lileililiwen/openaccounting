@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Webhooks — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Outgoing Webhooks</h1>
+    <p class="text-slate-500 text-sm">{{ ledger_name }} — deliveries are signed with <code>X-OA-Signature: sha256=HMAC-SHA256(secret, body)</code></p>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  {% if !new_secret.is_empty() %}
+    <div class="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm px-3 py-2">
+      <strong>Copy your signing secret now — it is shown only once:</strong>
+      <code class="block mt-1 break-all font-mono">{{ new_secret }}</code>
+    </div>
+  {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-3">New subscription</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/webhooks/subscriptions" class="space-y-3 text-sm">
+      <label class="block">
+        <span class="block text-xs text-slate-500">Target URL (https only)</span>
+        <input type="url" name="target_url" placeholder="https://example.com/hooks/oa" required
+               class="w-full rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <fieldset class="flex flex-wrap gap-x-4 gap-y-1">
+        <legend class="block text-xs text-slate-500 mb-1">Events</legend>
+        {% for et in event_types %}
+          <label class="inline-flex items-center gap-1">
+            <input type="checkbox" name="events" value="{{ et }}" />
+            <span class="font-mono text-xs">{{ et }}</span>
+          </label>
+        {% endfor %}
+      </fieldset>
+      <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Create subscription</button>
+    </form>
+  </section>
+
+  {% if subscriptions.is_empty() %}
+    <div class="rounded-xl bg-white border border-slate-200 p-10 text-center text-slate-500">
+      No webhooks yet. Subscribe to events above to receive signed JSON deliveries.
+    </div>
+  {% else %}
+    <div class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Target</th>
+            <th class="text-left px-4 py-2">Events</th>
+            <th class="text-left px-4 py-2">Status</th>
+            <th class="text-right px-4 py-2">Failed</th>
+            <th class="text-right px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for s in subscriptions %}
+            <tr>
+              <td class="px-4 py-2 font-mono text-xs break-all max-w-xs">{{ s.target_url }}</td>
+              <td class="px-4 py-2 text-xs">
+                {% for e in s.events %}<span class="mr-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 font-mono">{{ e }}</span>{% endfor %}
+              </td>
+              <td class="px-4 py-2">
+                {% if s.is_enabled %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">enabled</span>
+                {% else %}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">disabled</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2 text-right tabular">{{ s.failed_count }}</td>
+              <td class="px-4 py-2 text-right space-x-3 whitespace-nowrap">
+                <form method="post" action="/ledgers/{{ ledger_id }}/webhooks/{{ s.id }}/toggle" class="inline">
+                  <button class="text-xs text-slate-600 hover:text-slate-800">Toggle</button>
+                </form>
+                <form method="post" action="/ledgers/{{ ledger_id }}/webhooks/{{ s.id }}/rotate-secret" class="inline">
+                  <button class="text-xs text-slate-600 hover:text-slate-800">Rotate secret</button>
+                </form>
+                <form method="post" action="/ledgers/{{ ledger_id }}/webhooks/{{ s.id }}/replay" class="inline">
+                  <button class="text-xs text-slate-600 hover:text-slate-800">Replay last failure</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

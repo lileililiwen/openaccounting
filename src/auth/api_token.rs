@@ -99,9 +99,9 @@ pub async fn issue_token(
     })
 }
 
-/// Verify a bearer token. Returns the `user_id` on success, or
-/// `None` if the token is malformed, revoked, or unknown.
-pub async fn verify_token(pool: &PgPool, header_value: &str) -> Option<Uuid> {
+/// Verify a bearer token. Returns `(user_id, token_id)` on success,
+/// or `None` if the token is malformed, revoked, or unknown.
+pub async fn verify_token(pool: &PgPool, header_value: &str) -> Option<(Uuid, Uuid)> {
     let token = header_value.strip_prefix("Bearer ").unwrap_or(header_value);
     let token = token.trim();
     let secret = token.strip_prefix(TOKEN_PREFIX)?;
@@ -133,7 +133,7 @@ pub async fn verify_token(pool: &PgPool, header_value: &str) -> Option<Uuid> {
         .bind(row.id)
         .execute(pool)
         .await;
-    Some(row.user_id)
+    Some((row.user_id, row.id))
 }
 
 /// Mark a token as revoked. Idempotent — a second call on an

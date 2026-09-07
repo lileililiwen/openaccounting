@@ -123,7 +123,10 @@ async fn index_shows_closed_periods_when_any() {
         .text()
         .await
         .unwrap();
-    assert!(!body.contains("Closed periods"), "no note expected on fresh ledger");
+    assert!(
+        !body.contains("Closed periods"),
+        "no note expected on fresh ledger"
+    );
 
     sqlx::query(
         "INSERT INTO closed_periods (ledger_id, period_year, closed_by) VALUES ($1, 2025, $2)",
@@ -188,7 +191,10 @@ async fn trial_balance_notice_appears_after_close() {
         .text()
         .await
         .unwrap();
-    assert!(!body.contains("is closed"), "no notice expected before the closed year");
+    assert!(
+        !body.contains("is closed"),
+        "no notice expected before the closed year"
+    );
 }
 
 #[tokio::test]
@@ -234,5 +240,8 @@ async fn income_statement_notice_intersects_closed_year() {
         .text()
         .await
         .unwrap();
-    assert!(!body.contains("is closed"), "no notice expected outside the closed year");
+    assert!(
+        !body.contains("is closed"),
+        "no notice expected outside the closed year"
+    );
 }

@@ -171,9 +171,28 @@ async fn taxed_transaction_posts_tax_leg_and_linkage() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxok").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
 
-    let resp = create_txn(&client, &base, ledger_id, expense, asset, &rate_id.to_string(), "110.00").await;
+    let resp = create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &rate_id.to_string(),
+        "110.00",
+    )
+    .await;
     assert_eq!(resp.status(), 303);
     let loc = resp
         .headers()
@@ -185,12 +204,11 @@ async fn taxed_transaction_posts_tax_leg_and_linkage() {
     let txn_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
 
     // Three postings: expense (100 debit), tax leg (10 debit), bank (110 credit).
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM postings WHERE transaction_id = $1")
-            .bind(txn_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM postings WHERE transaction_id = $1")
+        .bind(txn_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count.0, 3, "expense + tax leg + bank");
 
     // The tax leg is on the rate's account, same side (debit), amount 10.
@@ -229,10 +247,29 @@ async fn taxed_transaction_unbalanced_rejected() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxbal").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
 
     // Bank side only 100 — the tax leg of 10 unbalances the entry.
-    let resp = create_txn(&client, &base, ledger_id, expense, asset, &rate_id.to_string(), "100.00").await;
+    let resp = create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &rate_id.to_string(),
+        "100.00",
+    )
+    .await;
     let body = resp.text().await.unwrap();
     assert!(
         body.contains("do not balance"),
@@ -247,7 +284,16 @@ async fn unknown_tax_rate_rejected() {
     let (client, ledger_id, expense, asset, _) = setup(&server, "taxbad").await;
     let base = server.base_url();
     let bogus = Uuid::new_v4();
-    let resp = create_txn(&client, &base, ledger_id, expense, asset, &bogus.to_string(), "110.00").await;
+    let resp = create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &bogus.to_string(),
+        "110.00",
+    )
+    .await;
     let body = resp.text().await.unwrap();
     assert!(
         body.contains("tax rate"),
@@ -262,13 +308,32 @@ async fn inactive_tax_rate_rejected() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxoff").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
     client
         .post(format!("{base}/ledgers/{ledger_id}/taxes/{rate_id}/toggle"))
         .send()
         .await
         .unwrap();
-    let resp = create_txn(&client, &base, ledger_id, expense, asset, &rate_id.to_string(), "110.00").await;
+    let resp = create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &rate_id.to_string(),
+        "110.00",
+    )
+    .await;
     let body = resp.text().await.unwrap();
     assert!(
         body.contains("tax rate"),
@@ -318,7 +383,17 @@ async fn draft_promote_keeps_tax() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxdraft").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
 
     // Save as draft with tax.
     let resp = client
@@ -348,7 +423,9 @@ async fn draft_promote_keeps_tax() {
 
     // Promote.
     client
-        .post(format!("{base}/ledgers/{ledger_id}/transactions/{draft_id}/post"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/transactions/{draft_id}/post"
+        ))
         .form(&[("_unused", "")])
         .send()
         .await
@@ -378,9 +455,28 @@ async fn reversal_negates_tax_leg() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxrev").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
 
-    let resp = create_txn(&client, &base, ledger_id, expense, asset, &rate_id.to_string(), "110.00").await;
+    let resp = create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &rate_id.to_string(),
+        "110.00",
+    )
+    .await;
     let loc = resp
         .headers()
         .get(reqwest::header::LOCATION)
@@ -392,19 +488,19 @@ async fn reversal_negates_tax_leg() {
 
     // Reverse.
     client
-        .post(format!("{base}/ledgers/{ledger_id}/transactions/{txn_id}/reverse"))
+        .post(format!(
+            "{base}/ledgers/{ledger_id}/transactions/{txn_id}/reverse"
+        ))
         .form(&[("memo", "reversal test")])
         .send()
         .await
         .unwrap();
 
-    let rev_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM transactions WHERE reverses_id = $1",
-    )
-    .bind(txn_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let rev_id: Uuid = sqlx::query_scalar("SELECT id FROM transactions WHERE reverses_id = $1")
+        .bind(txn_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     let tax_leg: (Decimal, String) = sqlx::query_as(
         "SELECT amount, direction FROM postings
          WHERE transaction_id = $1 AND account_id = $2",
@@ -424,10 +520,29 @@ async fn tax_report_aggregates_base_tax_gross() {
     let (client, ledger_id, expense, asset, liability) = setup(&server, "taxrep").await;
     let base = server.base_url();
     let pool = server.db().pool();
-    let rate_id = create_tax_rate(&client, &base, ledger_id, "VAT 10%", "0.1", "sales_tax", liability, &pool).await;
+    let rate_id = create_tax_rate(
+        &client,
+        &base,
+        ledger_id,
+        "VAT 10%",
+        "0.1",
+        "sales_tax",
+        liability,
+        &pool,
+    )
+    .await;
 
     // Two taxed purchases: 100 + 10 and 50 + 5.
-    create_txn(&client, &base, ledger_id, expense, asset, &rate_id.to_string(), "110.00").await;
+    create_txn(
+        &client,
+        &base,
+        ledger_id,
+        expense,
+        asset,
+        &rate_id.to_string(),
+        "110.00",
+    )
+    .await;
     let resp = client
         .post(format!("{base}/ledgers/{ledger_id}/transactions/new"))
         .form(&[
