@@ -3,3 +3,11 @@ target/
 data/
 *.log
 .DS_Store
+
+# IDE / editor
+.idea/
+.qoder/
+.vscode/
+*.swp
+*.swo
+*~
