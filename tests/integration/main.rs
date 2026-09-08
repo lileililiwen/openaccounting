@@ -8,6 +8,7 @@
 mod common;
 
 mod account_management;
+mod accounting_assurance;
 mod admin;
 mod amortization;
 mod api;

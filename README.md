@@ -284,6 +284,35 @@ migrations that drop data (e.g. seed scripts) MUST carry a
 `sqlx migrate add --reversible <name>` is the canonical command
 for new migrations.
 
+## Accounting Compliance Disclaimer
+
+OpenAccounting is open-source bookkeeping software. It is NOT
+a substitute for professional accounting, tax, or legal advice.
+
+**Tax compliance:** Passing automated tests does NOT establish
+jurisdiction-specific tax compliance. Tax rules vary by
+jurisdiction and change frequently. Consult a qualified tax
+professional for your jurisdiction.
+
+**Accounting standards:** The software implements generic
+double-entry bookkeeping. Revenue recognition, inventory
+valuation, depreciation, and other treatments follow simplified
+rules that may NOT conform to your jurisdiction's accounting
+standards (e.g., GAAP, IFRS). Consult your auditor.
+
+**Audit trail:** The append-only hash chain provides
+tamper-evidence but is NOT a legally binding digital signature.
+It does not replace formal audit controls.
+
+**Financial reports:** Reports are informational only. They
+should NOT be used as the sole basis for financial decisions
+without professional review.
+
+For detailed treatment records for each advanced workflow
+(tax, FX, invoices, amortization, inventory, closing,
+reversals, audit chain), see
+`docs/accounting-treatment/`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

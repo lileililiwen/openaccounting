@@ -37,6 +37,9 @@ pub mod upload;
 pub mod workers;
 
 #[cfg(any(test, feature = "test-support"))]
+pub mod fixtures;
+
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
 use axum::{
