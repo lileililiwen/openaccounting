@@ -1,7 +1,7 @@
 # account Specification
 
 ## Purpose
-TBD - created by archiving change add-user-account-page. Update Purpose after archive.
+Profile View: The system SHALL expose `GET /account` to authenticated users.
 ## Requirements
 ### Requirement: Profile View
 

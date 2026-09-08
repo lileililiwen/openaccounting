@@ -1,7 +1,7 @@
 # dark-mode Specification
 
 ## Purpose
-TBD - created by archiving change u8-dark-mode. Update Purpose after archive.
+Default: MUST default to the user's `prefers-color-scheme` (system).
 ## Requirements
 ### Requirement: Default
 

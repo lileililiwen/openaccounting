@@ -49,7 +49,7 @@ The following features are NOT supported on SQLite:
 
 | Feature | Why |
 |---|---|
-| `gen_random_uuid()` | SQLite needs `randomblob(16)` or app-side UUIDs; the `core` migration uses `gen_random_uuid()` because Postgres' `pgcrypto` extension is required. The SQLite migration variant (`migrations/0001_init.sqlite.sql`) substitutes `lower(hex(randomblob(16)))` (a 32-char hex string). |
+| `gen_random_uuid()` | SQLite needs `randomblob(16)` or app-side UUIDs; the `core` migration uses `gen_random_uuid()` because Postgres' `pgcrypto` extension is required. UUIDs are stored as `lower(hex(randomblob(16)))` (a 32-char hex string) in the SQLite variant. |
 | `MERGE` / `ON CONFLICT … DO UPDATE` | Postgres 15+ only. SQLite uses `ON CONFLICT (key) DO UPDATE SET …` instead. |
 | `JSONB` columns | SQLite stores JSON as TEXT. The schema uses `TEXT` for JSON-shaped columns when the SQLite variant runs. |
 | `uuid` type | SQLite has no native UUID type; UUIDs are stored as TEXT. |
@@ -66,7 +66,7 @@ binary refuses to start with a clear error.
 
 ## See also
 
-- `openspec/changes/d5-sqlite-option/specs/sqlite-backend/spec.md`
+- `openspec/specs/sqlite-backend/spec.md`
 - `src/config.rs` — `database_url_scheme` rejects unknown
   schemes.
 - `openspec/specs/reports/spec.md` — basis semantics for reports.

@@ -1,7 +1,7 @@
 # reproducible-builds Specification
 
 ## Purpose
-TBD - created by archiving change d4-reproducible-builds. Update Purpose after archive.
+Bit-Identical Builds: MUST produce bit-identical binaries when built twice from the same source under the same pinned toolchain.
 ## Requirements
 ### Requirement: Bit-Identical Builds
 

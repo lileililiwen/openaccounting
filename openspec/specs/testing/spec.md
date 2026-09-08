@@ -1,7 +1,7 @@
 # testing Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Test Categories and Locations: Tests MUST be organized into the following categories, each with a fixed location and naming convention:.
 ## Requirements
 ### Requirement: Test Categories and Locations
 

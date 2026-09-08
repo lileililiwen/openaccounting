@@ -1,7 +1,7 @@
 # keyboard-shortcuts Specification
 
 ## Purpose
-TBD - created by archiving change u1-keyboard-shortcuts. Update Purpose after archive.
+Shortcuts Defined: MUST define and document the following shortcuts: `g l` (ledgers), `g t` (transactions), `g a` (accounts), `g r` (reports), `c` (create on list), `?` (help), `Esc` (close overlay).
 ## Requirements
 ### Requirement: Shortcuts Defined
 

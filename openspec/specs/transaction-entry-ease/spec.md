@@ -1,7 +1,7 @@
 # transaction-entry-ease Specification
 
 ## Purpose
-TBD - created by archiving change a12-transaction-entry-ease. Update Purpose after archive.
+Balancing Line: MUST designate one posting line on the transaction editor as the balancing line: its amount is computed live so that Σ debits equals Σ credits, and its direction flips to the opposite of the net of the other lines.
 ## Requirements
 ### Requirement: Balancing Line
 

@@ -1,7 +1,7 @@
 # quality Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+No Panics in Production Code: `unwrap`, `expect`, `panic!`, `todo!`, and `unimplemented!` are Use one of:.
 ## Requirements
 ### Requirement: No Panics in Production Code
 

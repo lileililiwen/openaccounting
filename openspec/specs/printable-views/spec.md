@@ -1,7 +1,7 @@
 # printable-views Specification
 
 ## Purpose
-TBD - created by archiving change u10-printable-views. Update Purpose after archive.
+Hidden Chrome: MUST hide navigation, footer, and primary CTAs when printing.
 ## Requirements
 ### Requirement: Hidden Chrome
 

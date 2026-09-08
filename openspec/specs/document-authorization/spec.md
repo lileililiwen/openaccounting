@@ -1,7 +1,7 @@
 # document-authorization Specification
 
 ## Purpose
-TBD - created by archiving change s8-document-authorization. Update Purpose after archive.
+Download Authorization: MUST verify that the requesting user has access (owner, editor, viewer, or admin) to the ledger that owns the document's transaction; otherwise respond 404.
 ## Requirements
 ### Requirement: Download Authorization
 

@@ -1,7 +1,7 @@
 # bulk-actions Specification
 
 ## Purpose
-TBD - created by archiving change u3-bulk-actions. Update Purpose after archive.
+Selection: MUST allow selecting one or more rows via checkboxes; a select-all checkbox selects every row on the current page.
 ## Requirements
 ### Requirement: Selection
 

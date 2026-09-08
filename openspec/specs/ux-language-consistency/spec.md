@@ -1,7 +1,7 @@
 # ux-language-consistency Specification
 
 ## Purpose
-The web UI is English-only, but browser-native controls (HTML5 validation tooltips, the file picker) and the default 404 fallback render in the OS locale (here: Simplified Chinese). A user of an English app must never see browser-generated UI in a different language; the app MUST present a single consistent language and SHOULD ship its own error and form-feedback surfaces instead of delegating to the browser.
+Custom Form Validation Messages: MUST replace browser-native `required`/`minlength`/`type` validation tooltips with app-owned messages in the UI language; the app SHALL listen for `invalid` events (or use `setCustomValidity`) and render its own styled message.
 
 Found by a novice-user form submission test on 2026-08-19 (Chrome, zh-CN system locale). Evidence: `docs/ux-novice-form-test/*.png`.
 

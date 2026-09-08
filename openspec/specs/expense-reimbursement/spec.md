@@ -1,7 +1,7 @@
 # expense-reimbursement Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-expense-reimbursement. Update Purpose after archive.
+Claim Entity: A claim SHALL be a header row in `reimbursement_claims` owned by one ledger, with `id` (uuid), `ledger_id`, `author_id` (the user who created it), `title`, `description`, `currency` (3-letter, must equal `ledgers.base_currency`), `status` (enum: `draft | submitted | approved | rejected | paid`), ...
 ## Requirements
 ### Requirement: Claim Entity
 

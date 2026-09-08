@@ -1,7 +1,7 @@
 # localization Specification
 
 ## Purpose
-TBD - created by archiving change u7-localization. Update Purpose after archive.
+Locale Selection: MUST pick the locale in this order: explicit user setting (`/account/locale`), `Accept-Language` header, default `en`.
 ## Requirements
 ### Requirement: Locale Selection
 

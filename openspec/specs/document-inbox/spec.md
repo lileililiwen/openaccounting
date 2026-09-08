@@ -1,7 +1,7 @@
 # document-inbox Specification
 
 ## Purpose
-TBD - created by archiving change a13-document-inbox. Update Purpose after archive.
+Unbound Document Upload: MUST allow a ledger writer to upload one or more documents to the ledger without a transaction, via `POST /ledgers/{id}/documents`; each upload SHALL be stored with a NULL `transaction_id` and the ledger's id as its authorization anchor; uploads MUST reuse the existing MIME validation and storage...
 ## Requirements
 ### Requirement: Unbound Document Upload
 

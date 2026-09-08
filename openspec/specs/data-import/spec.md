@@ -1,7 +1,7 @@
 # data-import Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-bank-statement-imports. Update Purpose after archive.
+OFX Importer: The system SHALL accept OFX (Open Financial Exchange) files in both QFX (SGML, header begins with `OFXHEADER:100`) and 2.x XML variants.
 ## Requirements
 ### Requirement: OFX Importer
 

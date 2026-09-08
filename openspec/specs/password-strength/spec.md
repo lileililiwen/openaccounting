@@ -1,7 +1,7 @@
 # password-strength Specification
 
 ## Purpose
-TBD - created by archiving change s4-password-strength. Update Purpose after archive.
+Minimum Length: MUST reject any password shorter than 12 characters at registration and at password change.
 ## Requirements
 ### Requirement: Minimum Length
 

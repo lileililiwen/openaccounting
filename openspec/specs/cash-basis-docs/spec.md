@@ -1,7 +1,7 @@
 # cash-basis-docs Specification
 
 ## Purpose
-TBD - created by archiving change a9-cash-basis-docs. Update Purpose after archive.
+Cash-Basis Documentation: MUST document how cash-basis works: a read-time filter that only counts postings whose peer leg is a cash or bank account; the underlying postings are unchanged.
 ## Requirements
 ### Requirement: Cash-Basis Documentation
 

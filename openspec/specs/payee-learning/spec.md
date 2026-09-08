@@ -1,7 +1,7 @@
 # payee-learning Specification
 
 ## Purpose
-TBD - created by archiving change data-interchange. Update Purpose after archive.
+Alias Store: Confirmed reconciliation matches and manual payee edits SHALL update `payee_aliases (ledger_id, alias_normalized, canonical_payee, account_id, hit_count, last_used_at)` where `alias_normalized` is lowercased with whitespace/punctuation collapsed.
 ## Requirements
 ### Requirement: Alias Store
 

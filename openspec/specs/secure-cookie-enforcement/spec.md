@@ -1,7 +1,7 @@
 # secure-cookie-enforcement Specification
 
 ## Purpose
-TBD - created by archiving change s5-secure-cookie-enforcement. Update Purpose after archive.
+APP_ENV Config: MUST read `APP_ENV` from the environment; allowed values are `production`, `staging`, `development`, `test`.
 ## Requirements
 ### Requirement: APP_ENV Config
 

@@ -1,7 +1,7 @@
 # mobile Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-mobile-shells. Update Purpose after archive.
+Device Registration: `POST /devices/register` MUST accept `{ token: string, platform: "ios" | "android" }` and store it in `device_tokens` (`id, user_id, token, platform, last_seen_at`).
 ## Requirements
 ### Requirement: Device Registration
 

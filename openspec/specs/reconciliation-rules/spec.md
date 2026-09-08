@@ -1,7 +1,7 @@
 # reconciliation-rules Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-reconciliation-automation. Update Purpose after archive.
+Rule Kinds: A rule SHALL have a `kind` in (`match`, `categorize`, `flag`).
 ## Requirements
 ### Requirement: Rule Kinds
 

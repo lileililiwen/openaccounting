@@ -1,7 +1,7 @@
 # signed-cookies Specification
 
 ## Purpose
-TBD - created by archiving change s7-signed-cookies. Update Purpose after archive.
+Cookie Signature: MUST HMAC-SHA256 the session cookie using a key derived from APP_SECRET; MUST reject any cookie whose signature does not verify.
 ## Requirements
 ### Requirement: Cookie Signature
 

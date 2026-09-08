@@ -1,7 +1,7 @@
 # statement-import-formats Specification
 
 ## Purpose
-TBD - created by archiving change data-interchange. Update Purpose after archive.
+Supported Formats: The reconciliation import (`POST /reconcile/{account_id}/import`) SHALL accept, in addition to CSV: OFX v1 (SGML) and v2 (XML) including `.qfx`, QIF, CAMT.052/053 (ISO 20022 XML), and MT940/MT942 text.
 ## Requirements
 ### Requirement: Supported Formats
 

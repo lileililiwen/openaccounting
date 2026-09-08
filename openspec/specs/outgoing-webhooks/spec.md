@@ -1,7 +1,7 @@
 # outgoing-webhooks Specification
 
 ## Purpose
-TBD - created by archiving change automation-platform. Update Purpose after archive.
+Subscriptions: Ledger owners SHALL manage webhook subscriptions (`POST /ledgers/{id}/webhooks/subscriptions`) with fields: target URL (HTTPS only), secret (server-generated, shown once), enabled flag, and an event-type filter list.
 ## Requirements
 ### Requirement: Subscriptions
 

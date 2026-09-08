@@ -1,7 +1,7 @@
 # bookkeeping Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Double-Entry Invariant: The system SHALL enforce the **double-entry invariant** — for every committed transaction, `Σ postings.amount where direction='DEBIT' = Σ postings.amount where direction='CREDIT'`.
 ## Requirements
 ### Requirement: Double-Entry Invariant
 

@@ -1,7 +1,7 @@
 # sqlite-backend Specification
 
 ## Purpose
-TBD - created by archiving change d5-sqlite-option. Update Purpose after archive.
+DATABASE_URL Selection: MUST accept `sqlite://<path>` and run on SQLite; the path is created if missing.
 ## Requirements
 ### Requirement: DATABASE_URL Selection
 

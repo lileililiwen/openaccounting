@@ -1,7 +1,7 @@
 # metrics Specification
 
 ## Purpose
-TBD - created by archiving change o4-metrics-endpoint. Update Purpose after archive.
+Metrics Endpoint: MUST expose `GET /metrics` returning Prometheus exposition format; the endpoint MUST be unauthenticated and rate-limit-exempt.
 ## Requirements
 ### Requirement: Metrics Endpoint
 

@@ -1,7 +1,7 @@
 # csv-import-wizard Specification
 
 ## Purpose
-TBD - created by archiving change u4-csv-import-wizard. Update Purpose after archive.
+Three Steps: MUST guide the user through upload → map → preview → commit; each step is a separate URL but state is kept in the session.
 ## Requirements
 ### Requirement: Three Steps
 

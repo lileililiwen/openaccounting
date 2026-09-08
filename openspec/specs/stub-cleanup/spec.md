@@ -1,7 +1,7 @@
 # stub-cleanup Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a19-stub-cleanup. Update Purpose after archive.
+API token management UI: MUST make the API token page reachable: a logged-in user SHALL be able to list, issue (seeing the plaintext once), and revoke REST API tokens.
 ## Requirements
 ### Requirement: API token management UI
 

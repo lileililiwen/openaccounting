@@ -1,7 +1,7 @@
 # ocr-feedback Specification
 
 ## Purpose
-TBD - created by archiving change o7-ocr-feedback. Update Purpose after archive.
+Capture: MUST record every successful OCR + apply cycle with the original OCR output and the final user-edited values.
 ## Requirements
 ### Requirement: Capture
 

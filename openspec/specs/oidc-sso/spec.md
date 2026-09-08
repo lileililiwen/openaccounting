@@ -1,7 +1,7 @@
 # oidc-sso Specification
 
 ## Purpose
-TBD - created by archiving change oidc-sso. Update Purpose after archive.
+Provider Configuration: Admins SHALL configure exactly one OIDC provider in the admin console (issuer/discovery URL, client id, client secret, scopes, claim paths).
 ## Requirements
 ### Requirement: Provider Configuration
 

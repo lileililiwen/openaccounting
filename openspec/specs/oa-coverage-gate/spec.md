@@ -1,7 +1,7 @@
 # oa-coverage-gate Specification
 
 ## Purpose
-TBD - created by archiving change oa-coverage-gate. Update Purpose after archive.
+Coverage enforcement: CI SHALL enforce a minimum test coverage.
 ## Requirements
 ### Requirement: Coverage enforcement
 CI SHALL enforce a minimum test coverage.

@@ -8,7 +8,7 @@ binary attached to a [GitHub Release][releases] is:
 2. **Signed** — every binary is signed with [`cosign`][cosign] using
    keyless OIDC tied to this GitHub repository.
 
-[releases]: https://github.com/anomalyco/openaccounting/releases
+[releases]: https://github.com/lileililiwen/openaccounting/releases
 [cosign]: https://docs.sigstore.dev/cosign/
 
 ---
@@ -46,7 +46,7 @@ The hash must match exactly.
 ```sh
 cosign verify-blob \
   --bundle openaccounting.bundle \
-  --certificate-identity-regexp 'https://github.com/anomalyco/openaccounting/.github/workflows/release.yml@refs/tags/v0.1.0' \
+  --certificate-identity-regexp 'https://github.com/lileililiwen/openaccounting/.github/workflows/release.yml@refs/tags/v0.1.0' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   openaccounting
 ```
@@ -101,12 +101,12 @@ maintainer. Verify the tag locally with:
 git verify-tag v0.1.0
 ```
 
-[tags]: https://github.com/anomalyco/openaccounting/tags
+[tags]: https://github.com/lileililiwen/openaccounting/tags
 
 ---
 
 ## See also
 
-- `openspec/changes/d4-reproducible-builds/specs/reproducible-builds/spec.md`
+- `openspec/specs/reproducible-builds/spec.md`
 - `.github/workflows/release.yml`
 - `scripts/release.sh`

@@ -1,7 +1,7 @@
 # invoicing-completeness Specification
 
 ## Purpose
-TBD - created by archiving change ar-getting-paid. Update Purpose after archive.
+Estimates and Conversion: Users SHALL create estimates (quotes) with the same line-item model as invoices, in status `draft | sent | accepted | declined | expired | converted`.
 ## Requirements
 ### Requirement: Estimates and Conversion
 

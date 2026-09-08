@@ -1,7 +1,7 @@
 # draft-transactions Specification
 
 ## Purpose
-TBD - created by archiving change a8-draft-transactions. Update Purpose after archive.
+Save as Draft: MUST allow saving a transaction with `kind='draft'`; the draft MUST be persisted but MUST NOT affect any report.
 ## Requirements
 ### Requirement: Save as Draft
 

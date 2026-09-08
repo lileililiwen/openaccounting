@@ -1,7 +1,7 @@
 # transaction-numbering Specification
 
 ## Purpose
-TBD - created by archiving change a5-transaction-numbering. Update Purpose after archive.
+Auto-Number: MUST auto-generate a number of the form `{YYYY}-{NNNNNN}` per ledger per year on transaction creation; the counter MUST reset each year.
 ## Requirements
 ### Requirement: Auto-Number
 

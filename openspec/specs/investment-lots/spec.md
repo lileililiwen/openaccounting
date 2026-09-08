@@ -1,7 +1,7 @@
 # investment-lots Specification
 
 ## Purpose
-TBD - created by archiving change a6-investment-lots. Update Purpose after archive.
+Lot Creation: MUST create one lot per buy transaction on an account flagged as `type='Investment'`.
 ## Requirements
 ### Requirement: Lot Creation
 

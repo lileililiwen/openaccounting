@@ -1,7 +1,7 @@
 # documents Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Document Upload: A user MAY upload one or more files to a transaction via a multipart form on the transaction detail page.
 ## Requirements
 ### Requirement: Document Upload
 

@@ -1,7 +1,7 @@
 # auth Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+User Registration: A first-time visitor MAY create an account by providing `username`, `email`, and `password` (plus `password_confirm`).
 ## Requirements
 ### Requirement: User Registration
 

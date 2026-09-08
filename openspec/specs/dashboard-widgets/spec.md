@@ -1,7 +1,7 @@
 # dashboard-widgets Specification
 
 ## Purpose
-TBD - created by archiving change u5-dashboard-widgets. Update Purpose after archive.
+Widget Picker: MUST allow adding, removing, and reordering widgets; the layout is saved per user.
 ## Requirements
 ### Requirement: Widget Picker
 

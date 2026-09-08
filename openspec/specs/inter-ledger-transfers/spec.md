@@ -1,7 +1,7 @@
 # inter-ledger-transfers Specification
 
 ## Purpose
-TBD - created by archiving change a7-inter-ledger-transfers. Update Purpose after archive.
+Single Action: MUST allow the user to move money from one ledger to another with a single form submit; the system creates one transaction in each ledger and links them.
 ## Requirements
 ### Requirement: Single Action
 

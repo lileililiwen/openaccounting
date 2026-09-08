@@ -1,7 +1,7 @@
 # login-rate-limiting Specification
 
 ## Purpose
-TBD - created by archiving change s2-login-rate-limiting. Update Purpose after archive.
+Failed-Login Counter: MUST record every login attempt (success and failure) with the lowercased email, the client IP, the timestamp, and the outcome.
 ## Requirements
 ### Requirement: Failed-Login Counter
 

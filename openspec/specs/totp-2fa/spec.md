@@ -1,7 +1,7 @@
 # totp-2fa Specification
 
 ## Purpose
-TBD - created by archiving change s3-totp-2fa. Update Purpose after archive.
+TOTP Enrollment: MUST allow a user with a verified password to enroll TOTP by scanning a QR code and confirming a 6-digit code; the TOTP secret MUST be stored encrypted at rest.
 ## Requirements
 ### Requirement: TOTP Enrollment
 

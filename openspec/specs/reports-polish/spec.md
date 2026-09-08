@@ -1,7 +1,7 @@
 # reports-polish Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a17-reports-polish. Update Purpose after archive.
+Report discoverability: The report index MUST link every rendered report: AR aging, AP aging, cash-flow forecast, budget vs actual, tax summary, and amortization.
 ## Requirements
 ### Requirement: Report discoverability
 

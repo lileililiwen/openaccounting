@@ -1,7 +1,7 @@
 # transaction-edit-void Specification
 
 ## Purpose
-TBD - created by archiving change a2-transaction-edit-void. Update Purpose after archive.
+Reversal Entry: MUST allow reversing any transaction by creating a new dated reversal transaction with all amounts negated and a foreign key to the original; the original MUST NOT be modified or deleted.
 ## Requirements
 ### Requirement: Reversal Entry
 

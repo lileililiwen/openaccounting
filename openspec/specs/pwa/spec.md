@@ -1,7 +1,7 @@
 # pwa Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-pwa. Update Purpose after archive.
+Web App Manifest: The binary SHALL serve a `static/manifest.webmanifest` at the URL `/static/manifest.webmanifest` containing:.
 ## Requirements
 ### Requirement: Web App Manifest
 

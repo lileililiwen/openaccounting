@@ -1,7 +1,7 @@
 # account-management Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a15-account-management. Update Purpose after archive.
+Account edit: MUST allow a ledger writer to edit an account's name, code, and description at any time, and to change its type/subtype while the account has no postings; edits MUST be recorded in the audit log.
 ## Requirements
 ### Requirement: Account edit
 

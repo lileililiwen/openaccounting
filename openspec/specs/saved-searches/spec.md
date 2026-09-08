@@ -1,7 +1,7 @@
 # saved-searches Specification
 
 ## Purpose
-TBD - created by archiving change u2-saved-searches. Update Purpose after archive.
+Save: MUST allow saving the current filter set as a named search.
 ## Requirements
 ### Requirement: Save
 

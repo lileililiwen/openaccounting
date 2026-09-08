@@ -1,7 +1,7 @@
 # notification-preferences Specification
 
 ## Purpose
-TBD - created by archiving change u6-notification-preferences. Update Purpose after archive.
+Channels and Events: MUST expose a grid of (channel, event) toggles; defaults: in-app all ON, email weekly_summary only, push off.
 ## Requirements
 ### Requirement: Channels and Events
 

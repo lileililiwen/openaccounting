@@ -1,7 +1,7 @@
 # health-endpoints Specification
 
 ## Purpose
-TBD - created by archiving change o5-health-endpoint. Update Purpose after archive.
+Liveness: MUST respond to `GET /healthz` with HTTP 200 and the JSON `{ "status": "ok" }` whenever the process is alive.
 ## Requirements
 ### Requirement: Liveness
 

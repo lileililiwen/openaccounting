@@ -1,7 +1,7 @@
 # menu-navigation Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-19-u11-menu-navigation. Update Purpose after archive.
+Active-State Indicator: The top navigation bar SHALL visualise the current top-level section with a persistent, animated indicator that slides between items whenever the section changes.
 ## Requirements
 ### Requirement: Active-State Indicator
 

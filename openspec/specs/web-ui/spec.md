@@ -1,7 +1,7 @@
 # web-ui Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Responsive Layout: All pages SHALL be built on Tailwind CSS, mobile-first, and use a narrow as 360 px.
 ## Requirements
 ### Requirement: Responsive Layout
 

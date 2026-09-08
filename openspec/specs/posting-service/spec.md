@@ -1,7 +1,7 @@
 # posting-service Specification
 
 ## Purpose
-TBD - created by archiving change a3-posting-service. Update Purpose after archive.
+Single Create Entry Point: MUST route every transaction creation through `PostingService::create(NewTransaction)`; no other module MAY write to `transactions` or `postings`.
 ## Requirements
 ### Requirement: Single Create Entry Point
 

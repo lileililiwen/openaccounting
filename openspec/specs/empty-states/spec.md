@@ -1,7 +1,7 @@
 # empty-states Specification
 
 ## Purpose
-TBD - created by archiving change u9-empty-states. Update Purpose after archive.
+Empty Partial: MUST render a dedicated empty partial for each list view when zero rows exist.
 ## Requirements
 ### Requirement: Empty Partial
 

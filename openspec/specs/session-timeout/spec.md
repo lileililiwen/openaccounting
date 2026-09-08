@@ -1,7 +1,7 @@
 # session-timeout Specification
 
 ## Purpose
-TBD - created by archiving change s6-session-timeout. Update Purpose after archive.
+Idle Timeout: MUST expire a session that has not seen activity for 30 minutes.
 ## Requirements
 ### Requirement: Idle Timeout
 

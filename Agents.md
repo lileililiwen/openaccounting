@@ -248,6 +248,54 @@ When asked to implement a feature or spec:
 
 ---
 
+## 9. Documentation Consistency Rule
+
+Current source code, accepted specs (`openspec/specs/<cap>/spec.md`),
+and user-facing documentation (README, `docs/*.md`) must agree. When
+one drifts from the others, a follow-up change fixes the drift — code
+behavior is not silently changed to match a stale doc.
+
+### What must stay consistent
+
+- **Repository identity.** Every Cosign command, release URL, and
+  example command uses the canonical owner/name from `git remote -v`.
+  Never copy a former project's identity into new docs.
+- **Dependency versions.** README tech stack and `openspec/specs/architecture/spec.md`
+  must list the same versions that `Cargo.toml` and `rust-toolchain.toml` pin.
+- **Feature status.** Every capability advertised in README Features
+  has a status (shipped / experimental / provider-dependent / optional
+  / deferred) and is not simultaneously listed in Non-Goals.
+- **Spec purposes.** Every accepted capability spec has a meaningful
+  `## Purpose` section — no `TBD - created by archiving change …`
+  placeholders. The purpose summarizes the capability's current
+  contract, who uses it, and what remains out of scope.
+- **Referenced paths and commands.** Every path and command in README
+  and `docs/*.md` resolves to an existing file in the current
+  checkout, or is explicitly marked optional.
+
+### When a drift is found
+
+1. Open a new OpenSpec change (do not silently edit).
+2. List the drift in the proposal's "Why".
+3. Update the spec and the docs together.
+4. Archive the change only after `openspec validate` passes and the
+   affected files are reconciled.
+
+### Verification command
+
+```bash
+# All TBD purposes replaced
+rg "TBD - created by archiving" openspec/specs/ && echo "FAIL: TBDs remain" || echo "OK"
+
+# No stale repository identity in docs
+rg "anomalyco" docs/ README.md && echo "FAIL: stale repo identity" || echo "OK"
+
+# All referenced paths exist
+python3 scripts/check_doc_paths.py
+```
+
+---
+
 ## 9. References
 
 - `openspec/changes/2026-08-13-bootstrap-double-entry-bookkeeping-engine/` — first change

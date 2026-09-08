@@ -1,7 +1,7 @@
 # e-invoicing-facturx Specification
 
 ## Purpose
-TBD - created by archiving change ar-getting-paid. Update Purpose after archive.
+Factur-X Embedded PDF: The printable invoice view SHALL offer "Download e-invoice (PDF)" producing a PDF/A-3 with embedded `factur-x.xml` (CII, profile EN 16931 / COMFORT) plus the `AFRelationship` metadata.
 ## Requirements
 ### Requirement: Factur-X Embedded PDF
 

@@ -1,7 +1,7 @@
 # s3-storage Specification
 
 ## Purpose
-TBD - created by archiving change o6-s3-storage. Update Purpose after archive.
+Storage Trait: MUST define a `Storage` trait with `put`, `get`, `delete`, `exists`, `signed_url` methods.
 ## Requirements
 ### Requirement: Storage Trait
 

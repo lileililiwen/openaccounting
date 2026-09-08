@@ -1,7 +1,7 @@
 # append-only-mode Specification
 
 ## Purpose
-TBD - created by archiving change d2-append-only-mode. Update Purpose after archive.
+Toggle: MUST allow the owner to toggle append-only on a ledger; the audit log records the toggle.
 ## Requirements
 ### Requirement: Toggle
 

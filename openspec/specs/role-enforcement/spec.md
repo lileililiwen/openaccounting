@@ -1,7 +1,7 @@
 # role-enforcement Specification
 
 ## Purpose
-TBD - created by archiving change s9-editor-role-enforcement. Update Purpose after archive.
+Owner Can Write: MUST allow the owner of a ledger to perform every write action.
 ## Requirements
 ### Requirement: Owner Can Write
 

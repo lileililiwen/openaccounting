@@ -1,7 +1,7 @@
 # amortization Specification
 
 ## Purpose
-TBD - created by archiving change a10-amortization. Update Purpose after archive.
+Schedule Creation: MUST accept a source account, a target account, a total amount, a period unit (monthly, quarterly, yearly), and a number of periods; the system MUST compute the per-period amount and end date.
 ## Requirements
 ### Requirement: Schedule Creation
 

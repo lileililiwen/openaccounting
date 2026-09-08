@@ -1,7 +1,7 @@
 # tax-on-transactions Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a14-tax-on-transactions. Update Purpose after archive.
+Tax rate selection on postings: MUST allow attaching one of the ledger's active tax rates to a posting line when entering a transaction in Advanced mode.
 ## Requirements
 ### Requirement: Tax rate selection on postings
 

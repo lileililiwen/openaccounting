@@ -1,7 +1,7 @@
 # notifications Specification
 
 ## Purpose
-Alert users to important events: overdue invoices, upcoming bill due dates, budget thresholds, and system events.
+Notification Entity: The system MUST maintain a `notifications` table:.
 
 ## Requirements
 

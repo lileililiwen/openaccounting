@@ -1,7 +1,7 @@
 # upload-validation Specification
 
 ## Purpose
-TBD - created by archiving change s10-upload-validation. Update Purpose after archive.
+Body Size Limit: MUST reject any request whose body exceeds `UPLOAD_MAX_BYTES` (default 25 MB) with HTTP 413.
 ## Requirements
 ### Requirement: Body Size Limit
 

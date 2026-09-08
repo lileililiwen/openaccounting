@@ -1,7 +1,7 @@
 # api Specification
 
 ## Purpose
-TBD - created by archiving change a1-rest-api. Update Purpose after archive.
+API Token Auth: MUST authenticate API requests with a bearer token issued from `/account/api-tokens`; the token prefix is `oa_live_`; the token is shown once at creation and stored as Argon2id-hashed at rest.
 ## Requirements
 ### Requirement: API Token Auth
 

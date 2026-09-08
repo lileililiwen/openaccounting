@@ -1,7 +1,7 @@
 # pta-export-import Specification
 
 ## Purpose
-TBD - created by archiving change d3-plaintext-export. Update Purpose after archive.
+Export Subcommand: MUST support `openaccounting export --ledger=<id> --format=beancount` writing the export to stdout.
 ## Requirements
 ### Requirement: Export Subcommand
 

@@ -1,7 +1,7 @@
 # ux-onboarding-flow Specification
 
 ## Purpose
-A brand-new user must be able to register, reach ledger creation, and record their first transaction without getting stuck, misled, or locked out of a flow they just started. Found by a novice-user form submission test on 2026-08-19; evidence in `docs/ux-novice-form-test/*.png`.
+Register Auto-Login: MUST sign the user in immediately after a successful registration and redirect them to the `next` target (default `/ledgers/new`); MUST NOT send the freshly registered user back to `/login` to re-enter credentials.
 
 ## Requirements
 

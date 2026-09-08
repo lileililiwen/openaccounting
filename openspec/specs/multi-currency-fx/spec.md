@@ -1,7 +1,7 @@
 # multi-currency-fx Specification
 
 ## Purpose
-TBD - created by archiving change fx-multi-currency. Update Purpose after archive.
+FX Rate Store: The system SHALL persist dated exchange rates in an `fx_rates` table with columns `(base_currency, quote_currency, rate, rate_date, source)` where `rate` is the amount of `quote_currency` per one unit of `base_currency`, stored as DECIMAL(24,12).
 ## Requirements
 ### Requirement: FX Rate Store
 

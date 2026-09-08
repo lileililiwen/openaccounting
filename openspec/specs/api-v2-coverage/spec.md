@@ -1,7 +1,7 @@
 # api-v2-coverage Specification
 
 ## Purpose
-TBD - created by archiving change api-expansion. Update Purpose after archive.
+Resource Endpoints: The `/api/v1` surface SHALL include, per ledger and subject to the existing role rules (owner/editor write, viewer read):.
 ## Requirements
 ### Requirement: Resource Endpoints
 

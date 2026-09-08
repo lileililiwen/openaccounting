@@ -1,7 +1,7 @@
 # reversible-migrations Specification
 
 ## Purpose
-TBD - created by archiving change o3-reversible-migrations. Update Purpose after archive.
+Reversibility: MUST support `sqlx migrate revert` for every migration shipped in this repo; each migration MUST end with a `-- !DOWN` marker followed by a downward migration.
 ## Requirements
 ### Requirement: Reversibility
 

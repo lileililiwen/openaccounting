@@ -1,7 +1,7 @@
 # scheduled-backups Specification
 
 ## Purpose
-TBD - created by archiving change o2-scheduled-backups. Update Purpose after archive.
+Cron Schedule: MUST accept a cron expression via `BACKUP_CRON` and execute the backup at each tick.
 ## Requirements
 ### Requirement: Cron Schedule
 

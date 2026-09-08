@@ -1,7 +1,7 @@
 # admin Specification
 
 ## Purpose
-TBD - created by archiving change add-admin-role-and-dashboard. Update Purpose after archive.
+Role-Based Access Control: The system SHALL support a `role` column on the `users` table with two possible values: `'user'` (default) and `'admin'`.
 ## Requirements
 ### Requirement: Role-Based Access Control
 

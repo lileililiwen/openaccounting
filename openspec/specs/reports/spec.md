@@ -1,7 +1,7 @@
 # reports Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Trial Balance: The trial balance report at `GET /ledgers/{id}/reports/trial-balance?as_of=YYYY-MM-DD` SHALL list every account in the ledger that has any non-zero movement on or before `as_of`, showing:.
 ## Requirements
 ### Requirement: Trial Balance
 

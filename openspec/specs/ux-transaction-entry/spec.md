@@ -1,7 +1,7 @@
 # ux-transaction-entry Specification
 
 ## Purpose
-The "New transaction" form is the core data-entry surface of the app. A novice user must be able to record a meaningful transaction without accounting knowledge, and the form MUST NOT silently accept entries that are balanced but economically nonsensical. Found by a novice-user form submission test on 2026-08-19; evidence in `docs/ux-novice-form-test/*.png`.
+Honest Balance Indicator: MUST NOT display a "balanced" success state until at least one posting line carries an amount; before any amount is entered the indicator SHALL show a neutral placeholder (e.g.
 
 ## Requirements
 

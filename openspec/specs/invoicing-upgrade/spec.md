@@ -1,7 +1,7 @@
 # invoicing-upgrade Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a18-invoicing-upgrade. Update Purpose after archive.
+Invoice line items: MUST allow creating an invoice from one or more line items (description, quantity, unit price, amount), with the invoice total computed as the sum of line amounts and stored in `invoice_lines`.
 ## Requirements
 ### Requirement: Invoice line items
 

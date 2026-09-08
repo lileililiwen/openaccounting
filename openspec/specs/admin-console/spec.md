@@ -1,7 +1,7 @@
 # admin-console Specification
 
 ## Purpose
-TBD - created by archiving change a11-admin-console. Update Purpose after archive.
+Admin Only: MUST restrict every page and mutation in this change to users whose `role` is `admin`; non-admin users SHALL receive 403.
 ## Requirements
 ### Requirement: Admin Only
 

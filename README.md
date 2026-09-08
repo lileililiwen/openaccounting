@@ -55,36 +55,109 @@ balance sheet; double-entry can, automatically.
 
 ## Features
 
-- **Double-entry bookkeeping** — every transaction is balanced; cannot be saved otherwise.
-- **Chart of Accounts** — five account types (Asset, Liability, Equity, Income, Expense); default chart seeded. Edit/rename accounts and archive unused ones (they stay in reports); record **opening balances** when starting the books.
-- **Transactions** — dated, described, with 2+ postings. Multi-leg splits supported.
-- **Document upload** — attach receipts, invoices, payment slips (images + PDFs) to any transaction.
-- **Tax on transactions** — define tax rates per ledger (sales/purchase),
-  attach a rate to any posting line, and the tax leg is posted to the
-  rate's account automatically. The tax report shows net / tax / gross
-  per rate.
-- **Reports** — every rendered report is discoverable from the report index (trial balance, balance sheet, income statement, cash flow, general ledger, AR/AP aging, cash-flow forecast, budget vs actual, tax summary, amortization), and closed fiscal periods show a "FY… is closed — these figures are final." banner.
-- **Cash-basis toggle** — each ledger is created as either
-  accrual or cash. The income-statement and cash-flow reports
-  accept `?basis=…`; the cash variant only counts postings
-  whose peer leg is a cash / bank account (i.e. revenue when
-  received, expense when paid). The default is accrual, which
-  preserves the double-entry A = L + E invariant.
-- **Visualizations** (server-rendered SVG, zero JS chart library)
-  - Income vs. expense over time
-  - Expense breakdown by category
-  - Account balance trends
-- **Responsive web UI** — mobile-first, fluid layout, tables become cards on small screens.
-- **Multi-currency** — per-ledger base currency, per-transaction currency.
-- **CSV export** — transactions and reports.
-- **Plain-text accounting (PTA)** — Beancount export/import plus a
-  hledger-style CSV, both as `openaccounting export` /
-  `openaccounting import` subcommands for scripted round-trips
-  (see below).
-- **Onboarding setup checklist** — a data-driven five-step guide (opening balances, first transaction, a document, a bank feed, an invite) shown on the dashboard and at `/ledgers/{id}/setup`, so a new user knows exactly what to do first.
-- **Invoices** — multi-line invoices with computed totals, a printable per-invoice detail page with mark-paid / void actions, and a computed overdue flag for unpaid past-due invoices.
-- **REST API** — personal API tokens (manageable from the account page) for the `/api/v1/*` endpoints; bank-feed webhooks verify Plaid's HMAC-SHA256 signature.
-- **Single binary**, no JS build step, no Node.js required.
+Status legend: ✅ shipped · 🧪 experimental · 🔌 provider-dependent · 📦 optional
+
+Core bookkeeping
+- ✅ **Double-entry bookkeeping** — every transaction is balanced; cannot be saved otherwise.
+- ✅ **Chart of Accounts** — five account types (Asset, Liability, Equity, Income, Expense); default chart seeded. Edit/rename accounts and archive unused ones (they stay in reports); record **opening balances** when starting the books.
+- ✅ **Transactions** — dated, described, with 2+ postings. Multi-leg splits supported.
+- ✅ **Document upload** — attach receipts, invoices, payment slips (images + PDFs) to any transaction.
+- ✅ **Reports** — every rendered report is discoverable from the report index (trial balance, balance sheet, income statement, cash flow, general ledger, AR/AP aging, cash-flow forecast, budget vs actual, tax summary, amortization), and closed fiscal periods show a "FY… is closed — these figures are final." banner.
+- ✅ **Visualizations** (server-rendered SVG, zero JS chart library) — income vs. expense over time, expense breakdown by category, account balance trends.
+- ✅ **Responsive web UI** — mobile-first, fluid layout, tables become cards on small screens.
+- ✅ **Multi-currency** — per-ledger base currency, per-transaction currency, ECB rate refresh.
+- ✅ **Single binary**, no JS build step, no Node.js required.
+
+Advanced accounting
+- ✅ **Invoices** — multi-line invoices with computed totals, a printable per-invoice detail page with mark-paid / void actions, and a computed overdue flag for unpaid past-due invoices.
+- ✅ **Tax on transactions** — define tax rates per ledger (sales/purchase), attach a rate to any posting line, and the tax leg is posted to the rate's account automatically. The tax report shows net / tax / gross per rate.
+- ✅ **AR / AP aging** — outstanding receivables and payables bucketed by age.
+- ✅ **Amortization schedules** — recurring journal entries with skip / forecast.
+- ✅ **Cash-basis toggle** — each ledger is accrual or cash; the income-statement and cash-flow reports accept `?basis=…`; the cash variant only counts postings whose peer leg is a cash / bank account. The default is accrual, which preserves the double-entry A = L + E invariant.
+- ✅ **Closing entries** — fiscal-year close transfers net income to retained earnings and locks the period.
+- ✅ **Investment lots** — cost-basis tracking for securities with realized-gains reports.
+- ✅ **Multi-entity consolidation** — inter-ledger transfers and consolidated reports.
+- ✅ **Inventory** — purchases, adjustments, valuation.
+- ✅ **Fixed assets** — depreciation schedules and disposal.
+- ✅ **Budgets** — budget vs. actual reporting.
+- 🧪 **Factur-X e-invoicing** — XML export of invoices for EU compliance; not a certified access point.
+
+Data import / export
+- ✅ **CSV export** — transactions and reports.
+- ✅ **Plain-text accounting (PTA)** — Beancount export/import plus a hledger-style CSV, both as `openaccounting export` / `openaccounting import` subcommands for scripted round-trips (see below).
+- ✅ **CSV import wizard** — auto-detects columns, previews, lets you map, then commits.
+- ✅ **Bank statement imports** — WeChat Pay and Alipay CSV formats.
+- 🔌 **Bank feeds** — Plaid link + sync; HMAC-SHA256 verified webhook. Plaid availability is provider-dependent.
+
+Onboarding & UX
+- ✅ **Onboarding setup checklist** — a data-driven five-step guide (opening balances, first transaction, a document, a bank feed, an invite) shown on the dashboard and at `/ledgers/{id}/setup`, so a new user knows exactly what to do first.
+
+API & integrations
+- ✅ **REST API** — personal API tokens (manageable from the account page) for the `/api/v1/*` endpoints.
+- 🔌 **OIDC SSO** — single sign-on for self-hosted deployments; configured per environment.
+- ✅ **Outgoing webhooks** — subscriptions with HMAC-SHA256 payload signing, secret rotation, and replay.
+- 🧪 **OCR feedback** — document OCR with a feedback loop to improve extracted fields.
+
+Operations
+- ✅ **Health and metrics endpoints** — `/healthz`, `/readyz`, `/metrics` (Prometheus).
+- ✅ **Scheduled backups** — configurable cron schedule with retention.
+- ✅ **Audit chain** — append-only hash chain with verification.
+- ✅ **Reproducible builds** — pinned toolchain, cosign-signed release artifacts.
+- 📦 **S3 document storage** — opt-in `storage-s3` Cargo feature; default is filesystem.
+- 📦 **SQLite backend** — opt-in `db-sqlite` Cargo feature; default is PostgreSQL.
+
+## Non-Goals (for v1)
+
+- Native mobile apps (iOS / Android) — responsive web UI only.
+- Multi-tenant SaaS hosting — single-tenant per deployment.
+- Jurisdiction-specific tax rule packs (US 1099, EU VAT MOSS, etc.) — the tax feature records rates and postings; it does not pick rules by jurisdiction.
+- Bank reconciliation auto-matching beyond the line-level match helper.
+- Formal SOC 2 / ISO 27001 certification.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Browser (HTMX + Tailwind; vendored htmx.min.js +        │
+│          hand-written app.css in static/)               │
+│   - Server-rendered HTML, partial updates via HTMX      │
+└────────────────────────┬────────────────────────────────┘
+                         │ HTTP
+┌────────────────────────▼────────────────────────────────┐
+│ Axum application (single Rust binary)                   │
+│   - src/lib.rs: composition root                        │
+│       build_router(state, config) -> axum::Router       │
+│       run() -> anyhow::Result<()>                        │
+│   - src/main.rs: thin shell calling run()               │
+│   - tower-sessions (Postgres-backed)                    │
+│   - axum-login + Argon2                                 │
+│   - askama templates                                    │
+│   - Hand-written SVG charts                             │
+└────────────────────────┬────────────────────────────────┘
+                         │ sqlx
+┌────────────────────────▼────────────────────────────────┐
+│ PostgreSQL                                              │
+│   - ledgers, accounts, transactions, postings,          │
+│     documents, tags, audit_chain                        │
+│ Document storage                                        │
+│   - Filesystem: ./data/documents/{transaction_id}/...   │
+│   - or S3: storage-s3 Cargo feature                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tech stack
+
+Pinned in `Cargo.toml` and `rust-toolchain.toml` (channel `1.95.0`):
+
+- **Backend:** Rust 1.95, Axum 0.8.1, sqlx 0.8.3, axum-login 0.17, Argon2 0.5.3
+- **Sessions:** `tower-sessions` 0.14 (Postgres-backed, no Redis)
+- **Templates:** Askama 0.13 (pure Rust, type-safe, Jinja-like)
+- **Money:** `rust_decimal` 1.36 (exact decimal arithmetic)
+- **Frontend:** Server-rendered HTML + HTMX (vendored) + hand-written CSS on top of Tailwind
+- **DB:** PostgreSQL (SQLite optional via `db-sqlite` feature)
+- **Charts:** Hand-written SVG, server-rendered
+
+---
 
 ## Plain-text CLI
 
@@ -108,56 +181,13 @@ openaccounting import --ledger=<ledger-uuid> --format=hledger-csv --dry-run < bo
 Both subcommands read `DATABASE_URL` from the environment or
 `.env` (the same connection settings the server uses).
 
-## Non-Goals (for v1)
-
-- Multi-user permissions / audit trail beyond per-user ownership
-- Bank feeds / OFX import
-- Invoicing / AR / AP workflows
-- Mobile native apps
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ Browser (HTMX + Tailwind via Play CDN in dev)           │
-│   - Server-rendered HTML, partial updates via HTMX      │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTP
-┌────────────────────────▼────────────────────────────────┐
-│ Axum application (single Rust binary)                   │
-│   - tower-sessions (Postgres-backed)                    │
-│   - axum-login + Argon2                                 │
-│   - askama templates                                    │
-│   - Hand-written SVG charts                             │
-└────────────────────────┬────────────────────────────────┘
-                         │ sqlx
-┌────────────────────────▼────────────────────────────────┐
-│ PostgreSQL                                              │
-│   - ledgers, accounts, transactions, postings,          │
-│     documents, tags                                     │
-│ Local filesystem                                        │
-│   - ./data/documents/{transaction_id}/{filename}        │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Tech stack
-
-- **Backend:** Rust, Axum 0.8, sqlx, axum-login, Argon2
-- **Templates:** Askama (pure Rust, type-safe, Jinja-like)
-- **Frontend:** Server-rendered HTML + HTMX (partials) + Tailwind Play CDN
-- **DB:** PostgreSQL
-- **Sessions:** `tower-sessions` backed by sqlx (no Redis)
-- **Charts:** Hand-written SVG, server-rendered
-
 ---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Rust 1.78+
+- Rust 1.95+ (pinned via `rust-toolchain.toml`; `rustup` will pick it up automatically)
 - PostgreSQL 14+ (or `docker compose up -d postgres`)
 
 ### Run
@@ -266,7 +296,7 @@ To verify a downloaded binary:
 sha256sum openaccounting
 cosign verify-blob \
   --bundle openaccounting.bundle \
-  --certificate-identity-regexp 'https://github.com/anomalyco/openaccounting/.github/workflows/release.yml@refs/tags/<TAG>' \
+  --certificate-identity-regexp 'https://github.com/lileililiwen/openaccounting/.github/workflows/release.yml@refs/tags/<TAG>' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   openaccounting
 ```

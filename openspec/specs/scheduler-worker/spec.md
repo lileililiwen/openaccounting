@@ -1,7 +1,7 @@
 # scheduler-worker Specification
 
 ## Purpose
-TBD - created by archiving change automation-platform. Update Purpose after archive.
+DB-Backed Job Queue: The system SHALL implement a `jobs` table `(id, kind, payload JSONB, run_at, attempts, max_attempts, status, last_error, created_at)` processed by a tokio worker spawned at startup.
 ## Requirements
 ### Requirement: DB-Backed Job Queue
 

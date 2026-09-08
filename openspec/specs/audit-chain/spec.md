@@ -1,7 +1,7 @@
 # audit-chain Specification
 
 ## Purpose
-TBD - created by archiving change d1-audit-chain. Update Purpose after archive.
+Hash Computation: MUST compute `hash = SHA256(prev_hash || canonical_row_bytes)` for every audit insert; the canonical form MUST be a deterministic JSON serialization.
 ## Requirements
 ### Requirement: Hash Computation
 

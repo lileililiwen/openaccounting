@@ -1,7 +1,7 @@
 # ledger-export Specification
 
 ## Purpose
-TBD - created by archiving change o1-ledger-export. Update Purpose after archive.
+JSON Export: MUST export the full ledger as a single JSON document containing every account, transaction, posting, tag, document reference, and budget the user has access to; the format MUST be round-trippable (re-import produces identical rows).
 ## Requirements
 ### Requirement: JSON Export
 

@@ -1,7 +1,7 @@
 # onboarding-checklist Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-20-a16-onboarding-quickstart. Update Purpose after archive.
+Setup checklist: MUST provide a ledger setup checklist derived from the ledger's data, with five milestones — opening balances, first transaction, a document, a bank feed, and a collaborator — each with a completion status and a link to the page that completes it.
 ## Requirements
 ### Requirement: Setup checklist
 

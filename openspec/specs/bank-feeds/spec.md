@@ -1,7 +1,7 @@
 # bank-feeds Specification
 
 ## Purpose
-TBD - created by archiving change 2026-08-14-bank-feeds. Update Purpose after archive.
+Provider Trait: The system SHALL expose a `Provider` trait:.
 ## Requirements
 ### Requirement: Provider Trait
 

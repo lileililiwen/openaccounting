@@ -1,7 +1,7 @@
 # notification-channels Specification
 
 ## Purpose
-TBD - created by archiving change automation-platform. Update Purpose after archive.
+Channel Registry: Notifications SHALL be delivered through a channel registry with at least: `push` (existing), `email` (SMTP via new optional config: `SMTP_URL`, `SMTP_FROM`), and `http` (generic POST to a user-supplied URL, ntfy/Gotify-compatible body).
 ## Requirements
 ### Requirement: Channel Registry
 

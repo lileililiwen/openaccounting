@@ -1,7 +1,7 @@
 # architecture Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-double-entry-bookkeeping-engine. Update Purpose after archive.
+Layered Architecture: The system SHALL be organized into the following layers with strict dependency direction.
 ## Requirements
 ### Requirement: Layered Architecture
 

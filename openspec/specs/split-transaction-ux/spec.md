@@ -1,7 +1,7 @@
 # split-transaction-ux Specification
 
 ## Purpose
-TBD - created by archiving change a4-split-transaction-ux. Update Purpose after archive.
+Add Split: MUST allow the user to add additional rows to a transaction; the rows are persisted as multiple postings.
 ## Requirements
 ### Requirement: Add Split
 

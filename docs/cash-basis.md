@@ -94,5 +94,5 @@ leg is the bank account.
   infrastructure reused for recognition schedules.
 - `src/reports/income_statement.rs` — implementation of the
   cash-basis filter.
-- `openspec/changes/a9-cash-basis-docs/specs/cash-basis-docs/spec.md`
+- `openspec/specs/cash-basis-docs/spec.md`
 - `openspec/specs/reports/spec.md` — basis semantics for reports.

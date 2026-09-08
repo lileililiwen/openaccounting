@@ -1,7 +1,7 @@
 # wasm-demo Specification
 
 ## Purpose
-TBD - created by archiving change d6-wasm-demo. Update Purpose after archive.
+Browser-Only Execution: MUST run end-to-end in the browser with no network calls after initial load.
 ## Requirements
 ### Requirement: Browser-Only Execution
 

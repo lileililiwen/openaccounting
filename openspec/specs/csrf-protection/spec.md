@@ -1,7 +1,7 @@
 # csrf-protection Specification
 
 ## Purpose
-TBD - created by archiving change s1-csrf-protection. Update Purpose after archive.
+CSRF Token Issuance: MUST Every authenticated HTML response (`GET /ledgers/*`, `/dashboard`, `/account`, `/admin/*`, etc.) MUST contain a `<input type="hidden" name="csrf_token" value="...">` field rendered from a session-bound secret.
 ## Requirements
 ### Requirement: CSRF Token Issuance
 
