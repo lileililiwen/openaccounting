@@ -59,6 +59,16 @@ pub async fn show_upload(
 
 /// Heuristic header → field mapping. Returns the column
 /// index that best matches the canonical field.
+///
+/// Precedence rules:
+/// - If separate debit/credit columns are found, `amount_in`
+///   stays at `-1` (the transform uses debit - credit).
+/// - If no debit/credit columns are found but a single amount
+///   column exists, map it to `amount_in`.
+/// - Headers containing "amount in", "deposit", "credit" are
+///   credit candidates; "amount out", "withdrawal", "debit"
+///   are debit candidates. A bare "amount" is only mapped to
+///   `amount_in` when no debit/credit column is found.
 pub fn auto_detect(headers: &[String]) -> ColumnMap {
     let lc: Vec<String> = headers.iter().map(|h| h.to_ascii_lowercase()).collect();
     let find = |candidates: &[&str]| -> i32 {
@@ -69,15 +79,30 @@ pub fn auto_detect(headers: &[String]) -> ColumnMap {
         }
         -1
     };
+
+    let debit = find(&["debit", "withdrawal", "amount out"]);
+    let credit = find(&["credit", "deposit", "amount in"]);
+
+    // Map single-amount headers ("amount", "value", "total",
+    // "sum") to `amount_in` only when no debit/credit columns
+    // are detected. This preserves the sentinel contract: when
+    // debit or credit is mapped, `amount_in` stays at `-1` and
+    // the transform uses debit - credit.
+    let amount_in = if debit == -1 && credit == -1 {
+        find(&["amount", "value", "total", "sum"])
+    } else {
+        -1
+    };
+
     ColumnMap {
         date: find(&["date", "txn_date", "transaction date"]),
         description: find(&["description", "memo", "narrative", "details"]),
-        debit: find(&["debit", "withdrawal", "amount out"]),
-        credit: find(&["credit", "deposit", "amount in"]),
+        debit,
+        credit,
         account: find(&["account", "acct"]),
         payee: find(&["payee", "vendor", "merchant"]),
         reference: find(&["reference", "ref", "check", "memo"]),
-        amount_in: -1,
+        amount_in,
     }
 }
 
@@ -694,6 +719,85 @@ mod tests {
         assert_eq!(m.date, 0);
         assert_eq!(m.description, 1);
         assert_eq!(m.amount_in, 2);
+    }
+
+    #[test]
+    fn auto_detect_single_amount_column() {
+        let headers = vec!["Date".into(), "Description".into(), "Amount".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.date, 0);
+        assert_eq!(m.description, 1);
+        assert_eq!(m.amount_in, 2);
+        assert_eq!(m.debit, -1);
+        assert_eq!(m.credit, -1);
+    }
+
+    #[test]
+    fn auto_detect_debit_credit_takes_precedence_over_amount() {
+        let headers = vec![
+            "Date".into(),
+            "Description".into(),
+            "Debit".into(),
+            "Credit".into(),
+            "Amount".into(),
+        ];
+        let m = auto_detect(&headers);
+        assert_eq!(m.debit, 2);
+        assert_eq!(m.credit, 3);
+        assert_eq!(
+            m.amount_in, -1,
+            "amount_in must stay at sentinel when debit/credit present"
+        );
+    }
+
+    #[test]
+    fn auto_detect_value_header_maps_to_amount_in() {
+        let headers = vec!["Date".into(), "Desc".into(), "Value".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.amount_in, 2);
+        assert_eq!(m.debit, -1);
+        assert_eq!(m.credit, -1);
+    }
+
+    #[test]
+    fn auto_detect_total_header_maps_to_amount_in() {
+        let headers = vec!["Date".into(), "Desc".into(), "Total".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.amount_in, 2);
+    }
+
+    #[test]
+    fn auto_detect_sum_header_maps_to_amount_in() {
+        let headers = vec!["Date".into(), "Desc".into(), "Sum".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.amount_in, 2);
+    }
+
+    #[test]
+    fn auto_detect_preserves_sentinel_for_unmapped() {
+        let headers = vec!["Date".into(), "Description".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.debit, -1);
+        assert_eq!(m.credit, -1);
+        assert_eq!(m.amount_in, -1);
+        assert_eq!(m.account, -1);
+        assert_eq!(m.payee, -1);
+        assert_eq!(m.reference, -1);
+    }
+
+    #[test]
+    fn auto_detect_amount_in_and_deposit_precedence() {
+        // "Amount In" matches credit candidates, "Deposit" also
+        // matches credit. Bare "Amount" should not map when
+        // credit is found.
+        let headers = vec!["Date".into(), "Amount In".into(), "Amount".into()];
+        let m = auto_detect(&headers);
+        assert_eq!(m.credit, 1, "Amount In should map to credit");
+        assert_eq!(m.debit, -1);
+        assert_eq!(
+            m.amount_in, -1,
+            "amount_in must stay sentinel when credit found"
+        );
     }
 
     #[test]
