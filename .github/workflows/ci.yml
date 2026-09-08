@@ -57,6 +57,10 @@ jobs:
           workspaces: "."
       - run: cargo test --features test-support --lib
       - run: cargo test --features test-support --test integration
+      - run: cargo test --features test-support --test property_postings
+      - run: cargo test --features test-support --test property_filenames
+      - run: cargo test --features test-support --test smoke
+      - run: cargo test --features test-support --test http_coverage
 
   migrations-reversible:
     # Proves the `-- !DOWN` blocks for every migration are correct:
