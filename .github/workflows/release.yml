@@ -20,20 +20,138 @@ env:
   CARGO_TERM_COLOR: always
   # Strip source-info paths and timestamps so two builds of the
   # same source produce identical SHA256s (see
-  # openspec/changes/d4-reproducible-builds).
+  # openspec/specs/reproducible-builds/spec.md).
   SOURCE_DATE_EPOCH: "1700000000"
   RUSTFLAGS: "-C link-arg=-Wl,--build-id=none -C debuginfo=0"
   CARGO_INCREMENTAL: "0"
+  # Tag format: vMAJOR.MINOR.PATCH with optional pre-release suffix
+  # (e.g. v0.1.0, v1.0.0-rc.1). Enforced in the validate-tag job.
+  TAG_REGEX: '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'
 
 jobs:
+  # -----------------------------------------------------------------------
+  # Gate 1: tag format and tag-to-commit consistency
+  # -----------------------------------------------------------------------
+  validate-tag:
+    name: Validate tag format and commit
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      commit: ${{ steps.resolve.outputs.commit }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag and commit
+        id: resolve
+        run: |
+          set -euo pipefail
+          # For tag pushes, github.ref_name is the tag.
+          # For workflow_dispatch, use the input if provided, else the
+          # default branch HEAD.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          else
+            TAG="${{ inputs.tag }}"
+            if [ -z "$TAG" ]; then
+              echo "FAIL: workflow_dispatch requires a tag input" >&2
+              exit 1
+            fi
+            # Verify the tag exists and resolve it to a commit
+            if ! git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+              echo "FAIL: tag '${TAG}' does not exist in this repository" >&2
+              exit 1
+            fi
+            TAG_COMMIT=$(git rev-parse "refs/tags/${TAG}^{commit}")
+            CHECKOUT_COMMIT="${{ github.sha }}"
+            if [ "$TAG_COMMIT" != "$CHECKOUT_COMMIT" ]; then
+              echo "FAIL: tag '${TAG}' resolves to ${TAG_COMMIT}" >&2
+              echo "      but workflow is checked out at ${CHECKOUT_COMMIT}" >&2
+              echo "      Refusing to build a release from a mismatched commit." >&2
+              exit 1
+            fi
+            COMMIT="$TAG_COMMIT"
+          fi
+          # Validate tag format
+          if ! echo "$TAG" | grep -qE "$TAG_REGEX"; then
+            echo "FAIL: tag '${TAG}' does not match expected format ${TAG_REGEX}" >&2
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag=${TAG} commit=${COMMIT}"
+
+  # -----------------------------------------------------------------------
+  # Gate 2: quality gates (fmt, clippy, tests, migrations, audit)
+  # -----------------------------------------------------------------------
+  quality:
+    name: Quality gates
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      APP_SECRET: test-secret-for-ci-only-not-used-in-production-1234
+      RUST_LOG: warn
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
+        with:
+          workspaces: "."
+      - run: cargo fmt -- --check
+      - run: cargo clippy --features test-support --all-targets -- -D warnings
+      - run: cargo test --features test-support
+      - name: Install cargo-audit
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
+        with:
+          tool: cargo-audit
+      - name: Dependency audit (known vulnerabilities)
+        run: cargo audit --deny warnings
+      - name: Verify Cargo.lock present
+        run: |
+          if [ ! -f Cargo.lock ]; then
+            echo "FAIL: Cargo.lock required for release audit"
+            exit 1
+          fi
+      - name: Migration reversibility
+        run: |
+          set -euo pipefail
+          for f in migrations/*.sql; do
+            if ! grep -q "^-- Reversible:" "$f"; then
+              echo "FAIL: $f has no Reversible header"
+              exit 1
+            fi
+            if ! grep -q "^-- !DOWN" "$f" && ! grep -q "Reversible: no" "$f"; then
+              echo "FAIL: $f has no DOWN block and isn't marked irreversible"
+              exit 1
+            fi
+          done
+          echo "OK: $(ls migrations/*.sql | wc -l) migrations verified"
+
+  # -----------------------------------------------------------------------
+  # Gate 3: reproducibility check (two builds must match)
+  # -----------------------------------------------------------------------
   test-reproducibility:
     name: Reproducibility check
+    needs: [validate-tag, quality]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache cargo registry & build artefacts
-        uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
         with:
           workspaces: "."
 
@@ -68,16 +186,18 @@ jobs:
             exit 1
           fi
           echo "Reproducible ✓ ($H1)"
+          echo "sha256=$H1" >> "$GITHUB_OUTPUT"
 
+  # -----------------------------------------------------------------------
+  # Publish: build, sign, and create the GitHub release
+  # -----------------------------------------------------------------------
   build-release:
     name: Build signed release binary
-    needs: test-reproducibility
+    needs: [validate-tag, quality, test-reproducibility]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache cargo registry & build artefacts
-        uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
         with:
           workspaces: "."
 
@@ -88,14 +208,34 @@ jobs:
         id: sha
         run: |
           set -euo pipefail
+          sha256sum target/release/openaccounting | awk '{print "sha256="$1}' >> "$GITHUB_OUTPUT"
+
+      - name: Write provenance manifest
+        run: |
+          set -euo pipefail
+          cat > openaccounting.manifest.json <<EOF
           {
-            echo "name=openaccounting"
-            sha256sum target/release/openaccounting | awk '{print "sha256="$1}'
-            echo "version=${GITHUB_REF_NAME}"
-          } >> "$GITHUB_OUTPUT"
+            "name": "openaccounting",
+            "version": "${{ needs.validate-tag.outputs.tag }}",
+            "commit": "${{ needs.validate-tag.outputs.commit }}",
+            "toolchain": "$(rustc --version | awk '{print $2}')",
+            "source_date_epoch": "${SOURCE_DATE_EPOCH}",
+            "sha256": "$(sha256sum target/release/openaccounting | awk '{print $1}')",
+            "artifacts": [
+              "openaccounting",
+              "openaccounting.sig",
+              "openaccounting.cert",
+              "openaccounting.bundle",
+              "openaccounting.manifest.json"
+            ],
+            "repository": "${{ github.repository }}",
+            "workflow": ".github/workflows/release.yml"
+          }
+          EOF
+          cat openaccounting.manifest.json
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@59fbe9c4dd3f9d83b1d3167e0ae2e4504844b53a # v3.5.0
 
       - name: Sign with cosign (keyless OIDC)
         env:
@@ -109,62 +249,34 @@ jobs:
             target/release/openaccounting
 
       - name: Create / update GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@9d8ed2d2dd7c8c5d2d8c5e0b2d4f6a8c3e1d9f7b # v2.0.6
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.validate-tag.outputs.tag }}
           generate_release_notes: true
           files: |
             target/release/openaccounting
             openaccounting.sig
             openaccounting.cert
             openaccounting.bundle
+            openaccounting.manifest.json
           body: |
             ## Verification
 
             Verify the binary's signature with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
             ```sh
-            # Download the artifact + .bundle from this release.
+            # Download the artifacts from this release.
             cosign verify-blob \
               --bundle openaccounting.bundle \
-              --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ github.ref_name }}' \
+              --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ needs.validate-tag.outputs.tag }}' \
               --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
               openaccounting
             ```
 
             Expected output ends with `Verified OK`.
 
-            Also confirm the SHA256 matches the one printed in the build log:
+            Also confirm the SHA256 matches `openaccounting.manifest.json`:
 
             ```sh
             sha256sum openaccounting
             ```
-
-  test:
-    name: cargo test
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-      APP_SECRET: test-secret-for-ci-only-not-used-in-production-1234
-      RUST_LOG: warn
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "."
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets --features test-support -- -D warnings
-      - run: cargo test --features test-support

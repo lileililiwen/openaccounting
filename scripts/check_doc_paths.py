@@ -53,7 +53,7 @@ SKIP_PATTERNS = [
     re.compile(r'^\.md$'),
     re.compile(r'^\.html$'),
     re.compile(r'\.rs$'),  # Rust source references
-    re.compile(r'^openaccounting\.(sig|cert|bundle)$'),  # release artifacts
+    re.compile(r'^openaccounting\.(sig|cert|bundle|manifest\.json)$'),  # release artifacts
     re.compile(r'^[a-z_]+\.(sig|cert|bundle|tar|gz)$'),  # other release artifacts
 ]
 

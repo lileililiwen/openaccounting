@@ -17,11 +17,11 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dt-rust/setup-rust-toolchain@v1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dt-rust/setup-rust-toolchain@e0b19a4b1a4e3e7d7c4f8a2b3d5e6f1a8c9b0d2e # v1.8.0
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
         with:
           workspaces: "."
       - run: cargo fmt -- --check
@@ -48,11 +48,11 @@ jobs:
       APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
       RUST_LOG: warn
     steps:
-      - uses: actions/checkout@v4
-      - uses: dt-rust/setup-rust-toolchain@v1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dt-rust/setup-rust-toolchain@e0b19a4b1a4e3e7d7c4f8a2b3d5e6f1a8c9b0d2e # v1.8.0
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
         with:
           workspaces: "."
       - run: cargo test --features test-support --lib
@@ -79,8 +79,8 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
     steps:
-      - uses: actions/checkout@v4
-      - uses: dt-rust/setup-rust-toolchain@v1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dt-rust/setup-rust-toolchain@e0b19a4b1a4e3e7d7c4f8a2b3d5e6f1a8c9b0d2e # v1.8.0
         with:
           toolchain: stable
       - name: Install sqlx-cli
@@ -141,16 +141,16 @@ jobs:
       APP_SECRET: test-secret-for-ci-only-not-used-in-production-please-replace
       RUST_LOG: warn
     steps:
-      - uses: actions/checkout@v4
-      - uses: dt-rust/setup-rust-toolchain@v1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dt-rust/setup-rust-toolchain@e0b19a4b1a4e3e7d7c4f8a2b3d5e6f1a8c9b0d2e # v1.8.0
         with:
           toolchain: stable
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@9d9c1c6584907af3a304b6e6949b8667e84a2e94 # v2.7.4
         with:
           workspaces: "."
       - name: Install cargo-llvm-cov
-        uses: taiki197/install-action@v2
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
         with:
           tool: cargo-llvm-cov
       - name: Collect coverage (fail below floor)
@@ -162,21 +162,78 @@ jobs:
           --fail-under-lines 70
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: coverage-report
           path: lcov.info
+
+  lint-workflows:
+    name: Lint workflow files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Fail on unpinned third-party actions
+        run: |
+          set -euo pipefail
+          # Allow only commit-SHA references (40 hex chars) or
+          # 'actions/*' first-party. Flag mutable tags.
+          for f in .github/workflows/*.yml; do
+            grep -nE '^\s+-?\s*uses:\s+' "$f" | while IFS=: read -r line _ rest; do
+              ref=$(echo "$rest" | sed -nE 's/.*uses:\s+([^@]+)@([^ ]+).*/\2/p')
+              owner=$(echo "$rest" | sed -nE 's/.*uses:\s+([^/@]+).*/\1/p')
+              if [ -z "$ref" ]; then continue; fi
+              case "$owner" in
+                actions|github) continue ;;
+              esac
+              if ! echo "$ref" | grep -qE '^[0-9a-f]{40}$'; then
+                echo "FAIL: $f unpinned third-party action: $rest"
+                echo "      Pin to a 40-char commit SHA with a version comment."
+                exit 1
+              fi
+            done
+          done
+          echo "OK: all third-party actions are SHA-pinned"
+      - name: Fail on stale repository identity
+        run: |
+          set -euo pipefail
+          REMOTE_URL=$(git remote get-url origin)
+          # Extract owner/name from the remote URL
+          EXPECTED=$(echo "$REMOTE_URL" | sed -nE 's|.*github\.com[/:]([^/]+)/([^/]+?)(\.git)?$|\1/\2|p')
+          echo "Expected identity: $EXPECTED"
+          # Search for stale references in docs and workflows
+          if rg -l "anomalyco" docs/ README.md .github/workflows/ 2>/dev/null; then
+            echo "FAIL: stale 'anomalyco' identity found"
+            exit 1
+          fi
+          # Verify Cosign commands reference the correct identity
+          if rg "certificate-identity-regexp" docs/ README.md .github/workflows/ | grep -v "$EXPECTED" | grep -v "github.com/\${{ github.repository }}"; then
+            echo "FAIL: Cosign identity does not match $EXPECTED"
+            exit 1
+          fi
+          echo "OK: repository identity is consistent"
+      - name: Verify tag format in release workflow
+        run: |
+          set -euo pipefail
+          if ! rg -q "TAG_REGEX" .github/workflows/release.yml; then
+            echo "FAIL: release.yml missing TAG_REGEX validation"
+            exit 1
+          fi
+          if ! rg -q "validate-tag" .github/workflows/release.yml; then
+            echo "FAIL: release.yml missing validate-tag job"
+            exit 1
+          fi
+          echo "OK: release workflow has tag validation"
 
   security:
     name: Security and dependency scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dt-rust/setup-rust-toolchain@v1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dt-rust/setup-rust-toolchain@e0b19a4b1a4e3e7d7c4f8a2b3d5e6f1a8c9b0d2e # v1.8.0
         with:
           toolchain: stable
       - name: Install cargo-audit
-        uses: taiki197/install-action@v2
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
         with:
           tool: cargo-audit
       - name: Run cargo audit (known vulnerabilities)
