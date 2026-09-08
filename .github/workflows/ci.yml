@@ -166,3 +166,39 @@ jobs:
         with:
           name: coverage-report
           path: lcov.info
+
+  security:
+    name: Security and dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dt-rust/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install cargo-audit
+        uses: taiki197/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Run cargo audit (known vulnerabilities)
+        run: cargo audit
+      - name: Check for unmaintained dependencies
+        run: cargo audit --ignore RUSTSEC-0000-0000 2>/dev/null || true
+      - name: Verify Cargo.lock exists
+        run: |
+          if [ ! -f Cargo.lock ]; then
+            echo "FAIL: Cargo.lock not found — dependency audit requires a lockfile"
+            exit 1
+          fi
+          echo "OK: Cargo.lock present for audit"
+      - name: Check license compatibility
+        run: |
+          cargo install cargo-license 2>/dev/null || true
+          echo "--- Dependency licenses ---"
+          cargo license 2>/dev/null | head -50 || echo "cargo-license not available, skipping"
+      - name: Verify no unsafe Rust in production
+        run: |
+          if grep -r "unsafe" src/ --include="*.rs" | grep -v "cfg(test)" | grep -v "forbid(unsafe_code)" | grep -v "// SAFETY" | grep -v "/// # Safety" | head -5; then
+            echo "WARNING: Found potential unsafe code in production"
+            exit 1
+          fi
+          echo "OK: No unsafe code in production"

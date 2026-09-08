@@ -118,6 +118,14 @@ impl Config {
             anyhow::bail!("UPLOAD_MAX_BYTES must be > 0");
         }
 
+        // Production/staging safety: reject known placeholder
+        // secrets that ship with docker-compose.yml or the
+        // default .env.
+        if matches!(app_env, AppEnv::Production | AppEnv::Staging) {
+            validate_production_secret(&app_secret, app_env)?;
+            validate_production_database_url(&database_url, app_env)?;
+        }
+
         Ok(Self {
             app_host,
             app_port,
@@ -217,4 +225,51 @@ mod tests {
         let bad = database_url_scheme("not-a-url");
         assert!(matches!(bad, DbScheme::Other(_)));
     }
+}
+
+/// Validate that the secret is not a known placeholder in
+/// production/staging mode. Returns Ok(()) if valid.
+pub fn validate_production_secret(secret: &str, env: AppEnv) -> anyhow::Result<()> {
+    if !matches!(env, AppEnv::Production | AppEnv::Staging) {
+        return Ok(());
+    }
+    let lower = secret.to_lowercase();
+    let blocked = [
+        "please-change-me",
+        "dev-only-secret",
+        "dev-secret-do-not-use",
+        "replace-with-64-random",
+        "replace-with-a-long",
+        "changeme",
+    ];
+    for prefix in &blocked {
+        if lower.contains(prefix) {
+            anyhow::bail!(
+                "APP_SECRET in {env} mode contains a known placeholder \
+                 ({prefix:?}). Set APP_SECRET to a random string ≥ 64 \
+                 characters. See SECURITY.md for guidance.",
+                env = env.as_str()
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Validate that the database URL does not contain default
+/// Compose credentials in production/staging mode.
+pub fn validate_production_database_url(url: &str, env: AppEnv) -> anyhow::Result<()> {
+    if !matches!(env, AppEnv::Production | AppEnv::Staging) {
+        return Ok(());
+    }
+    let lower = url.to_lowercase();
+    if (lower.contains("openaccounting:openaccounting") || lower.contains("postgres:postgres"))
+        && (lower.contains(":openaccounting@") || lower.contains(":postgres@"))
+    {
+        anyhow::bail!(
+            "DATABASE_URL in {env} mode uses default Compose credentials. \
+             Set strong, unique database credentials. See SECURITY.md.",
+            env = env.as_str()
+        );
+    }
+    Ok(())
 }

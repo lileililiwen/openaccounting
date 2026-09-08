@@ -1,0 +1,29 @@
+# Default owners for everything in the repo.
+# Each line is a file pattern followed by one or more owners.
+
+# Domain and architecture
+AGENTS.md @paul
+README.md @paul
+NOTICE @paul
+
+# Security-sensitive files
+SECURITY.md @paul
+src/auth/ @paul
+src/config.rs @paul
+docker-compose.yml @paul
+Dockerfile @paul
+.env.example @paul
+
+# CI/CD
+.github/ @paul
+Makefile @paul
+
+# Database migrations
+migrations/ @paul
+
+# Specs and documentation
+openspec/ @paul
+docs/ @paul
+
+# Everything else — default to the repo owner
+* @paul

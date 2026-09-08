@@ -62,6 +62,7 @@ mod s3_store;
 mod saved_searches;
 mod scheduled_backup;
 mod secure_cookie;
+mod security_operations;
 mod session_timeout;
 mod signed_cookies;
 mod smoke;

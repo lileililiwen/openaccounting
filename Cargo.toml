@@ -29,6 +29,9 @@ storage-s3 = [
 # `sqlite` feature into sqlx so migrations run against an
 # embedded SQLite file when `DATABASE_URL=sqlite://…`.
 db-sqlite = []
+# Optional Have I Been Pwned online check. NOT enabled by
+# default; opt in with `--features hibp-online`.
+hibp-online = []
 
 [profile.release]
 opt-level = "z"
