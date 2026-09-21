@@ -658,6 +658,55 @@ fn build_router_inner(
             get(handlers::inventory::valuation),
         )
         .route(
+            "/ledgers/{id}/inventory/method",
+            post(handlers::inventory::set_method),
+        )
+        .route("/ledgers/{id}/dimensions", get(handlers::dimensions::list))
+        .route(
+            "/ledgers/{id}/dimensions/cost-centers",
+            post(handlers::dimensions::create_cost_center),
+        )
+        .route(
+            "/ledgers/{id}/dimensions/cost-centers/{cid}/delete",
+            post(handlers::dimensions::delete_cost_center),
+        )
+        .route(
+            "/ledgers/{id}/dimensions/projects",
+            post(handlers::dimensions::create_project),
+        )
+        .route(
+            "/ledgers/{id}/dimensions/projects/{pid}/delete",
+            post(handlers::dimensions::delete_project),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals",
+            get(handlers::recurring_journals::list).post(handlers::recurring_journals::create),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/new",
+            get(handlers::recurring_journals::new_page),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/run-due",
+            post(handlers::recurring_journals::run_due),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/{template_id}/preview",
+            post(handlers::recurring_journals::preview),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/{template_id}/skip",
+            post(handlers::recurring_journals::skip),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/{template_id}/paused",
+            post(handlers::recurring_journals::set_paused),
+        )
+        .route(
+            "/ledgers/{id}/recurring-journals/runs/{run_id}/post",
+            post(handlers::recurring_journals::post_run),
+        )
+        .route(
             "/ledgers/{id}/fixed-assets/new",
             get(handlers::fixed_assets::new_page).post(handlers::fixed_assets::create),
         )

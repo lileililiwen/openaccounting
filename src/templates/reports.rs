@@ -37,6 +37,13 @@ pub struct TrialBalancePage {
     pub totals_debit: Decimal,
     pub totals_credit: Decimal,
     pub balanced: bool,
+    /// Unassigned bucket + active filter echo (`accounting-dimensions`).
+    pub unassigned_debit: Option<Decimal>,
+    pub unassigned_credit: Option<Decimal>,
+    pub cost_center_id: String,
+    pub project_id: String,
+    pub cost_centers: Vec<(Uuid, String)>,
+    pub projects: Vec<(Uuid, String)>,
     pub closed_notice: String,
 }
 
@@ -84,6 +91,13 @@ pub struct IncomeStatementPage {
     pub tax_expense: Option<IncomeStatementSection>,
     pub net_income: Decimal,
     pub excluded: Option<ExcludedTotals>,
+    /// Unassigned bucket + active filter echo (`accounting-dimensions`).
+    pub unassigned_revenue: Option<Decimal>,
+    pub unassigned_expense: Option<Decimal>,
+    pub cost_center_id: String,
+    pub project_id: String,
+    pub cost_centers: Vec<(Uuid, String)>,
+    pub projects: Vec<(Uuid, String)>,
     pub closed_notice: String,
 }
 

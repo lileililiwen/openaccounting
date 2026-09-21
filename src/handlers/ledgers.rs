@@ -88,6 +88,10 @@ pub struct NewLedgerForm {
     /// form template posts a valid value.
     #[serde(default)]
     pub basis: String,
+    /// Optional; defaults to "average". "fifo" is also accepted.
+    /// (`accounting-dimensions` valuation method, set at creation.)
+    #[serde(default)]
+    pub inventory_method: String,
 }
 
 pub async fn create(
@@ -132,11 +136,15 @@ pub async fn create(
         "cash" => "cash",
         _ => "accrual",
     };
+    let inventory_method = match form.inventory_method.trim() {
+        "fifo" => "fifo",
+        _ => "average",
+    };
 
     let mut tx = state.pool.begin().await?;
     let ledger = sqlx::query_as::<_, Ledger>(
-        r#"INSERT INTO ledgers (owner_id, name, base_currency, timezone, basis)
-           VALUES ($1, $2, $3, $4, $5)
+        r#"INSERT INTO ledgers (owner_id, name, base_currency, timezone, basis, inventory_method)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING id, owner_id, name, base_currency, timezone, basis, append_only, created_at, updated_at"#,
     )
     .bind(user.id)
@@ -144,6 +152,7 @@ pub async fn create(
     .bind(&currency)
     .bind(&timezone)
     .bind(basis)
+    .bind(inventory_method)
     .fetch_one(&mut *tx)
     .await?;
 

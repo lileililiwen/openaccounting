@@ -17,8 +17,11 @@ pub use cash_flow_forecast::{
     ForecastResult,
 };
 pub use general_ledger::{build_general_ledger, GeneralLedgerEntry};
-pub use income_statement::{build_income_statement, IncomeStatementSection};
-pub use trial_balance::{build_trial_balance, TrialBalanceRow};
+pub use income_statement::{
+    build_income_statement, build_income_statement_filtered, IncomeStatementSection,
+    UnassignedTotals,
+};
+pub use trial_balance::{build_trial_balance, build_trial_balance_filtered, TrialBalanceRow};
 
 use crate::error::{AppError, AppResult};
 use rust_decimal::Decimal;

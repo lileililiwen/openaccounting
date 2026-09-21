@@ -519,9 +519,9 @@ const TREATMENT_RECORDS: &[TreatmentRecord] = &[
     TreatmentRecord {
         workflow: "inventory",
         jurisdiction: "generic",
-        scope: "FIFO inventory cost tracking and COGS recognition",
-        assumptions: "Single-currency only; no weighted average or LIFO; no physical count reconciliation",
-        disclaimer: "Inventory valuation is FIFO only. Other methods (LIFO, weighted average) are not supported.",
+        scope: "FIFO and weighted-average inventory cost tracking and COGS recognition",
+        assumptions: "Single-currency only; no LIFO; no physical count reconciliation; method switch blocked with stock on hand",
+        disclaimer: "Inventory valuation follows the ledger's disclosed method (FIFO or weighted average). LIFO is not supported.",
     },
     TreatmentRecord {
         workflow: "closing-entries",

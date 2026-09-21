@@ -42,6 +42,14 @@ pub struct TxnLineInput {
     /// posting; the supplied `signed_amount` is ignored.
     #[serde(default)]
     pub foreign: Option<ForeignLeg>,
+    /// Optional analysis dimensions (`accounting-dimensions`). Posting-
+    /// level so one transaction can split across cost centers/projects.
+    /// Each id must belong to this ledger; the balance invariant is
+    /// unchanged (dimensions never affect amounts).
+    #[serde(default)]
+    pub cost_center_id: Option<Uuid>,
+    #[serde(default)]
+    pub project_id: Option<Uuid>,
 }
 
 /// A foreign-currency leg: signed amount in `currency` (positive =

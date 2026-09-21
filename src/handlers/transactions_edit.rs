@@ -194,6 +194,11 @@ pub async fn edit(
             },
             tax_rate_id: None,
             foreign: None,
+            cost_center_id: super::transactions::parse_line_dimension(
+                &l.cost_center_id,
+                "cost center",
+            )?,
+            project_id: super::transactions::parse_line_dimension(&l.project_id, "project")?,
         });
     }
 

@@ -376,6 +376,8 @@ async fn insert_simple_txn(
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id: cash_id,
@@ -383,6 +385,8 @@ async fn insert_simple_txn(
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
         _ => vec![
@@ -397,6 +401,8 @@ async fn insert_simple_txn(
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id,
@@ -404,6 +410,8 @@ async fn insert_simple_txn(
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
     };

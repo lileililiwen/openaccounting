@@ -14,6 +14,24 @@
         <span class="block text-xs text-slate-500">As of</span>
         <input type="date" name="as_of" value="{{ as_of }}" class="rounded border border-slate-300 px-2 py-1" />
       </label>
+      <label>
+        <span class="block text-xs text-slate-500">Cost center</span>
+        <select name="cost_center_id" class="rounded border border-slate-300 px-2 py-1">
+          <option value="">All</option>
+          {% for c in cost_centers %}
+            <option value="{{ c.0 }}" {% if c.0.to_string() == cost_center_id %}selected{% endif %}>{{ c.1 }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">Project</span>
+        <select name="project_id" class="rounded border border-slate-300 px-2 py-1">
+          <option value="">All</option>
+          {% for p in projects %}
+            <option value="{{ p.0 }}" {% if p.0.to_string() == project_id %}selected{% endif %}>{{ p.1 }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
       <a href="/ledgers/{{ ledger_id }}/reports/export.csv?report=trial_balance&as_of={{ as_of }}" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Export CSV</a>
     </form>
@@ -45,6 +63,15 @@
           <td class="px-4 py-2 text-right tabular">{{ totals_debit }}</td>
           <td class="px-4 py-2 text-right tabular">{{ totals_credit }}</td>
         </tr>
+        {% if let Some(d) = unassigned_debit %}
+          {% if let Some(c) = unassigned_credit %}
+            <tr>
+              <td class="px-4 py-2 font-normal text-slate-600" colspan="2">Unassigned (untagged postings)</td>
+              <td class="px-4 py-2 text-right tabular font-normal">{{ d }}</td>
+              <td class="px-4 py-2 text-right tabular font-normal">{{ c }}</td>
+            </tr>
+          {% endif %}
+        {% endif %}
       </tfoot>
     </table>
   </section>

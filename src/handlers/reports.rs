@@ -14,7 +14,8 @@ use crate::{
     handlers::ledgers,
     reports::{
         build_balance_sheet, build_cash_flow, build_forecast, build_general_ledger,
-        build_income_statement, build_trial_balance, ReportBasis,
+        build_income_statement, build_income_statement_filtered, build_trial_balance,
+        build_trial_balance_filtered, ReportBasis,
     },
     templates::reports::{
         BalanceSheetPage, CashFlowForecastPage, CashFlowPage, GeneralLedgerPage,
@@ -170,9 +171,22 @@ pub async fn trial_balance(
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_owner(&state, user.id, ledger_id).await?;
     let as_of = parse_or(q.get("as_of"), today());
-    let result = build_trial_balance(&state.pool, ledger_id, as_of).await?;
+    let filter = crate::domain::dimensions::DimensionFilter {
+        cost_center_id: crate::domain::dimensions::parse_optional_id(
+            q.get("cost_center_id").map(String::as_str),
+            "cost_center_id",
+        )
+        .map_err(AppError::Validation)?,
+        project_id: crate::domain::dimensions::parse_optional_id(
+            q.get("project_id").map(String::as_str),
+            "project_id",
+        )
+        .map_err(AppError::Validation)?,
+    };
+    let result = build_trial_balance_filtered(&state.pool, ledger_id, as_of, &filter).await?;
     let balanced = result.total_debit == result.total_credit;
     let years = closed_years(&state.pool, ledger_id).await?;
+    let dimensions = dimension_options(&state.pool, ledger_id).await?;
     Ok(render_response(TrialBalancePage {
         user_id: user.id,
         username: user.username.clone(),
@@ -185,6 +199,12 @@ pub async fn trial_balance(
         totals_debit: result.total_debit,
         totals_credit: result.total_credit,
         balanced,
+        unassigned_debit: result.unassigned.map(|(d, _)| d),
+        unassigned_credit: result.unassigned.map(|(_, c)| c),
+        cost_center_id: q.get("cost_center_id").cloned().unwrap_or_default(),
+        project_id: q.get("project_id").cloned().unwrap_or_default(),
+        cost_centers: dimensions.0,
+        projects: dimensions.1,
         closed_notice: closed_notice(&years, |y| y <= as_of.year()),
     }))
 }
@@ -242,8 +262,22 @@ pub async fn income_statement(
     let to = parse_or(q.get("to"), today());
     validate_date_range(from, to)?;
     let basis = parse_basis(&q, &ledger)?;
-    let is = build_income_statement(&state.pool, ledger_id, from, to, basis).await?;
+    let filter = crate::domain::dimensions::DimensionFilter {
+        cost_center_id: crate::domain::dimensions::parse_optional_id(
+            q.get("cost_center_id").map(String::as_str),
+            "cost_center_id",
+        )
+        .map_err(AppError::Validation)?,
+        project_id: crate::domain::dimensions::parse_optional_id(
+            q.get("project_id").map(String::as_str),
+            "project_id",
+        )
+        .map_err(AppError::Validation)?,
+    };
+    let is =
+        build_income_statement_filtered(&state.pool, ledger_id, from, to, basis, &filter).await?;
     let years = closed_years(&state.pool, ledger_id).await?;
+    let dimensions = dimension_options(&state.pool, ledger_id).await?;
     Ok(render_response(IncomeStatementPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -264,8 +298,31 @@ pub async fn income_statement(
         tax_expense: is.tax_expense,
         net_income: is.net_income,
         excluded: is.excluded,
+        unassigned_revenue: is.unassigned.as_ref().map(|u| u.revenue),
+        unassigned_expense: is.unassigned.as_ref().map(|u| u.expense),
+        cost_center_id: q.get("cost_center_id").cloned().unwrap_or_default(),
+        project_id: q.get("project_id").cloned().unwrap_or_default(),
+        cost_centers: dimensions.0,
+        projects: dimensions.1,
         closed_notice: closed_notice(&years, |y| y >= from.year() && y <= to.year()),
     }))
+}
+
+/// Dimension selects for the report filter bars.
+async fn dimension_options(
+    pool: &sqlx::PgPool,
+    ledger_id: Uuid,
+) -> AppResult<(Vec<(Uuid, String)>, Vec<(Uuid, String)>)> {
+    Ok((
+        sqlx::query_as("SELECT id, name FROM cost_centers WHERE ledger_id = $1 ORDER BY name")
+            .bind(ledger_id)
+            .fetch_all(pool)
+            .await?,
+        sqlx::query_as("SELECT id, name FROM projects WHERE ledger_id = $1 ORDER BY name")
+            .bind(ledger_id)
+            .fetch_all(pool)
+            .await?,
+    ))
 }
 
 pub async fn cash_flow(

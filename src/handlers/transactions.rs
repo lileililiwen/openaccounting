@@ -255,6 +255,21 @@ pub struct ParsedLine {
     pub memo: String,
     /// Optional active tax rate id (`a14-tax-on-transactions`).
     pub tax_rate_id: String,
+    /// Optional dimension ids per line (`accounting-dimensions`).
+    /// Empty = untagged (lands in the Unassigned bucket).
+    pub cost_center_id: String,
+    pub project_id: String,
+}
+
+/// Parse an optional per-line dimension UUID. Empty = untagged.
+pub fn parse_line_dimension(raw: &str, what: &str) -> AppResult<Option<Uuid>> {
+    let s = raw.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    Uuid::parse_str(s)
+        .map(Some)
+        .map_err(|_| AppError::Validation(format!("Invalid {what} on a posting")))
 }
 
 fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLine> {
@@ -283,6 +298,8 @@ fn parse_lines(raw: &std::collections::HashMap<String, String>) -> Vec<ParsedLin
             "amount" => entry.amount = value.clone(),
             "memo" => entry.memo = value.clone(),
             "tax_rate_id" => entry.tax_rate_id = value.clone(),
+            "cost_center_id" => entry.cost_center_id = value.clone(),
+            "project_id" => entry.project_id = value.clone(),
             _ => {}
         }
     }
@@ -557,6 +574,8 @@ pub async fn create(
             },
             tax_rate_id,
             foreign: None,
+            cost_center_id: parse_line_dimension(&l.cost_center_id, "cost center")?,
+            project_id: parse_line_dimension(&l.project_id, "project")?,
         });
     }
 
@@ -618,6 +637,8 @@ pub async fn create(
                 memo: Some(format!("{} tax", rate.name)),
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             });
             tax_links.push(crate::domain::posting_service::TaxLink {
                 posting_idx: i,
@@ -696,6 +717,12 @@ pub async fn create(
             return Err(AppError::Validation(format!(
                 "account belongs to a different ledger"
             )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::UnknownCostCenter(id)) => {
+            return Err(AppError::Validation(format!("unknown cost center {id}")));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::UnknownProject(id)) => {
+            return Err(AppError::Validation(format!("unknown project {id}")));
         }
         Err(crate::domain::posting_service::PostingServiceError::DuplicateNumber {
             year,

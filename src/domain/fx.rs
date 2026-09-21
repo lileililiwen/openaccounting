@@ -40,6 +40,11 @@ pub enum FxError {
 /// Returns the rate as quote-per-base. Tries the direct pair first,
 /// then the inverse (computed, never stored). Rates are committed data,
 /// so reading from the pool outside the write transaction is safe.
+///
+/// Precedence (`accounting-dimensions` FX override audit): the most
+/// recent rate on or before the date wins, unchanged — except that a
+/// manual (audited override) rate wins ties on the same date, so
+/// revaluation uses the audited manual rate for that day.
 pub async fn lookup(
     pool: &PgPool,
     base: &str,
@@ -55,7 +60,7 @@ pub async fn lookup(
          WHERE ((base_currency = $1 AND quote_currency = $2)
                 OR (base_currency = $2 AND quote_currency = $1))
                AND rate_date <= $3
-         ORDER BY rate_date DESC
+         ORDER BY rate_date DESC, CASE WHEN source = 'manual' THEN 0 ELSE 1 END
          LIMIT 1",
     )
     .bind(base)
@@ -84,7 +89,7 @@ pub async fn lookup(
          WHERE ((base_currency = $1 AND quote_currency = $2)
                 OR (base_currency = $2 AND quote_currency = $1))
                AND rate_date <= $3
-         ORDER BY rate_date DESC
+         ORDER BY rate_date DESC, CASE WHEN source = 'manual' THEN 0 ELSE 1 END
          LIMIT 1",
     )
     .bind(base)
@@ -365,6 +370,8 @@ pub async fn run_revaluation(
                         memo: Some(format!("FX revaluation {currency}")),
                         tax_rate_id: None,
                         foreign: None,
+                        cost_center_id: None,
+                        project_id: None,
                     },
                     crate::domain::TxnLineInput {
                         account_id: credit_account,
@@ -372,6 +379,8 @@ pub async fn run_revaluation(
                         memo: Some(format!("FX revaluation {currency}")),
                         tax_rate_id: None,
                         foreign: None,
+                        cost_center_id: None,
+                        project_id: None,
                     },
                 ],
             },

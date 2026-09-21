@@ -7,6 +7,7 @@ use crate::error::AppResult;
 
 use super::AccountTotal;
 use super::ReportBasis;
+use crate::domain::dimensions::DimensionFilter;
 
 #[derive(Clone, Debug)]
 pub struct IncomeStatementSection {
@@ -39,6 +40,17 @@ pub struct IncomeStatementResult {
     /// Totals excluded by the cash-basis filter (only set when
     /// `basis = Cash`).
     pub excluded: Option<ExcludedTotals>,
+    /// Untagged revenue/expense in scope when a dimension filter is
+    /// active — the Unassigned bucket (`accounting-dimensions`).
+    /// `None` without a filter.
+    pub unassigned: Option<UnassignedTotals>,
+}
+
+/// Revenue/expense sums of in-scope untagged postings.
+#[derive(Clone, Debug, Default)]
+pub struct UnassignedTotals {
+    pub revenue: Decimal,
+    pub expense: Decimal,
 }
 
 #[derive(sqlx::FromRow)]
@@ -67,6 +79,21 @@ pub async fn build_income_statement(
     to: NaiveDate,
     basis: ReportBasis,
 ) -> AppResult<IncomeStatementResult> {
+    build_income_statement_filtered(pool, ledger_id, from, to, basis, &DimensionFilter::empty())
+        .await
+}
+
+/// Dimension-sliced income statement (`accounting-dimensions`).
+/// The filter restricts postings to one cost center / project;
+/// untagged postings aggregate under Unassigned.
+pub async fn build_income_statement_filtered(
+    pool: &PgPool,
+    ledger_id: Uuid,
+    from: NaiveDate,
+    to: NaiveDate,
+    basis: ReportBasis,
+    filter: &DimensionFilter,
+) -> AppResult<IncomeStatementResult> {
     // One round-trip computes both totals: every row carries
     // its accrual net movement AND its cash-basis net movement
     // (the latter is zero when the peer leg is not a cash
@@ -94,6 +121,8 @@ pub async fn build_income_statement(
              - COALESCE(SUM(CASE WHEN p.direction='CREDIT' AND peer.peer_is_cash THEN p.amount ELSE 0 END), 0) AS cash_raw_net
         FROM accounts a
         JOIN postings p ON p.account_id = a.id
+            AND ($4 IS NULL OR p.cost_center_id = $4)
+            AND ($5 IS NULL OR p.project_id = $5)
         JOIN transactions t ON t.id = p.transaction_id AND t.txn_date BETWEEN $2 AND $3 AND t.kind != 'draft'
         JOIN peer ON peer.posting_id = p.id
         WHERE a.ledger_id = $1
@@ -105,6 +134,8 @@ pub async fn build_income_statement(
     .bind(ledger_id)
     .bind(from)
     .bind(to)
+    .bind(filter.cost_center_id)
+    .bind(filter.project_id)
     .fetch_all(pool)
     .await?;
 
@@ -210,6 +241,12 @@ pub async fn build_income_statement(
         None
     };
 
+    let unassigned = if filter.is_active() {
+        Some(unassigned_totals(pool, ledger_id, from, to, basis, filter).await?)
+    } else {
+        None
+    };
+
     Ok(IncomeStatementResult {
         basis,
         revenue: IncomeStatementSection {
@@ -234,5 +271,67 @@ pub async fn build_income_statement(
         tax_expense,
         net_income,
         excluded,
+        unassigned,
     })
+}
+
+/// Revenue/expense of in-scope postings untagged on any filtered
+/// dimension, honoring the active basis (cash uses the peer-is-cash
+/// rule, accrual counts everything).
+async fn unassigned_totals(
+    pool: &PgPool,
+    ledger_id: Uuid,
+    from: NaiveDate,
+    to: NaiveDate,
+    basis: ReportBasis,
+    filter: &DimensionFilter,
+) -> AppResult<UnassignedTotals> {
+    let rows: Vec<(String, Decimal, Decimal)> = sqlx::query_as(
+        r#"
+        WITH peer AS (
+            SELECT p.id AS posting_id,
+                    EXISTS (
+                        SELECT 1 FROM postings p2
+                        JOIN accounts a2 ON a2.id = p2.account_id
+                        WHERE p2.transaction_id = p.transaction_id
+                          AND p2.id <> p.id
+                          AND (LOWER(a2.name) LIKE '%cash%' OR LOWER(a2.name) LIKE '%bank%')
+                    ) AS peer_is_cash
+            FROM postings p
+        )
+        SELECT a.type,
+               COALESCE(SUM(CASE WHEN p.direction='DEBIT' THEN p.amount ELSE 0 END), 0)
+             - COALESCE(SUM(CASE WHEN p.direction='CREDIT' THEN p.amount ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN p.direction='DEBIT' AND peer.peer_is_cash THEN p.amount ELSE 0 END), 0)
+             - COALESCE(SUM(CASE WHEN p.direction='CREDIT' AND peer.peer_is_cash THEN p.amount ELSE 0 END), 0)
+        FROM accounts a
+        JOIN postings p ON p.account_id = a.id
+        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date BETWEEN $2 AND $3 AND t.kind != 'draft'
+        JOIN peer ON peer.posting_id = p.id
+        WHERE a.ledger_id = $1
+          AND a.type IN ('INCOME','EXPENSE')
+          AND (($4 AND p.cost_center_id IS NULL) OR ($5 AND p.project_id IS NULL))
+        GROUP BY a.type
+        "#,
+    )
+    .bind(ledger_id)
+    .bind(from)
+    .bind(to)
+    .bind(filter.cost_center_id.is_some())
+    .bind(filter.project_id.is_some())
+    .fetch_all(pool)
+    .await?;
+    let mut out = UnassignedTotals::default();
+    for (ty, accrual, cash) in rows {
+        let net = match basis {
+            ReportBasis::Accrual => accrual,
+            ReportBasis::Cash => cash,
+        };
+        if ty == "INCOME" {
+            out.revenue += -net;
+        } else {
+            out.expense += net;
+        }
+    }
+    Ok(out)
 }

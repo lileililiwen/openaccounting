@@ -159,6 +159,12 @@ erDiagram
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
+    cost_centers {
+        UUID id
+        UUID ledger_id
+        TEXT name
+        TIMESTAMPTZ created_at
+    }
     csv_import_mappings {
         UUID id
         UUID ledger_id
@@ -244,6 +250,18 @@ erDiagram
         NUMERIC disposed_amount
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+    fx_override_audit {
+        UUID id
+        UUID ledger_id
+        UUID actor_id
+        CHAR base_currency
+        CHAR quote_currency
+        DATE rate_date
+        NUMERIC old_rate
+        NUMERIC new_rate
+        TEXT reason
+        TIMESTAMPTZ created_at
     }
     fx_rates {
         UUID id
@@ -508,6 +526,12 @@ erDiagram
         TEXT memo
         TIMESTAMPTZ created_at
     }
+    projects {
+        UUID id
+        UUID ledger_id
+        TEXT name
+        TIMESTAMPTZ created_at
+    }
     rec_lines {
         UUID id
         UUID session_id
@@ -576,6 +600,39 @@ erDiagram
         UUID created_by
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+    recurring_journal_lines {
+        UUID id
+        UUID template_id
+        UUID account_id
+        TEXT direction
+        NUMERIC amount
+        TEXT memo
+        UUID cost_center_id
+        UUID project_id
+    }
+    recurring_journal_runs {
+        UUID id
+        UUID template_id
+        TEXT period_key
+        UUID draft_txn_id
+        UUID posted_txn_id
+        TEXT status
+        TIMESTAMPTZ created_at
+    }
+    recurring_journal_templates {
+        UUID id
+        UUID ledger_id
+        TEXT name
+        TEXT description
+        TEXT frequency
+        DATE start_date
+        DATE end_date
+        INT max_occurrences
+        BOOLEAN is_paused
+        DATE next_period
+        UUID created_by
+        TIMESTAMPTZ created_at
     }
     reimbursement_approval_policies {
         UUID id
@@ -765,6 +822,7 @@ erDiagram
     closed_periods }|--|| ledgers : "ledger_id"
     closed_periods }|--|| users : "closed_by"
     contacts }|--|| ledgers : "ledger_id"
+    cost_centers }|--|| ledgers : "ledger_id"
     csv_import_mappings }|--|| ledgers : "ledger_id"
     csv_import_mappings }|--|| users : "user_id"
     dashboard_layouts }|--|| users : "user_id"
@@ -777,6 +835,8 @@ erDiagram
     entities }|--|| users : "owner_id"
     fixed_assets }|--|| ledgers : "ledger_id"
     fixed_assets }|--|| accounts : "account_id"
+    fx_override_audit }|--|| ledgers : "ledger_id"
+    fx_override_audit }|--|| users : "actor_id"
     fx_revaluations }|--|| ledgers : "ledger_id"
     fx_revaluations }|--|| accounts : "account_id"
     fx_revaluations }|--|| transactions : "transaction_id"
@@ -831,6 +891,7 @@ erDiagram
     posting_taxes }|--|| tax_rates : "tax_rate_id"
     postings }|--|| transactions : "transaction_id"
     postings }|--|| accounts : "account_id"
+    projects }|--|| ledgers : "ledger_id"
     rec_lines }|--|| rec_sessions : "session_id"
     rec_lines }|--|| bank_statement_lines : "bank_line_id"
     rec_sessions }|--|| ledgers : "ledger_id"
@@ -846,6 +907,15 @@ erDiagram
     recurring_invoice_templates }|--|| ledgers : "ledger_id"
     recurring_invoice_templates }|--|| contacts : "contact_id"
     recurring_invoice_templates }|--|| users : "created_by"
+    recurring_journal_lines }|--|| recurring_journal_templates : "template_id"
+    recurring_journal_lines }|--|| accounts : "account_id"
+    recurring_journal_lines }|--|| cost_centers : "cost_center_id"
+    recurring_journal_lines }|--|| projects : "project_id"
+    recurring_journal_runs }|--|| recurring_journal_templates : "template_id"
+    recurring_journal_runs }|--|| transactions : "draft_txn_id"
+    recurring_journal_runs }|--|| transactions : "posted_txn_id"
+    recurring_journal_templates }|--|| ledgers : "ledger_id"
+    recurring_journal_templates }|--|| users : "created_by"
     reimbursement_approval_policies }|--|| ledgers : "ledger_id"
     reimbursement_approval_steps }|--|| reimbursement_claims : "claim_id"
     reimbursement_approval_steps }|--|| users : "approver_id"

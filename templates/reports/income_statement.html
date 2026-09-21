@@ -19,6 +19,24 @@
         <input type="date" name="to" value="{{ to }}" class="rounded border border-slate-300 px-2 py-1" />
       </label>
       <input type="hidden" name="basis" value="{{ basis.as_str() }}" />
+      <label>
+        <span class="block text-xs text-slate-500">Cost center</span>
+        <select name="cost_center_id" class="rounded border border-slate-300 px-2 py-1">
+          <option value="">All</option>
+          {% for c in cost_centers %}
+            <option value="{{ c.0 }}" {% if c.0.to_string() == cost_center_id %}selected{% endif %}>{{ c.1 }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span class="block text-xs text-slate-500">Project</span>
+        <select name="project_id" class="rounded border border-slate-300 px-2 py-1">
+          <option value="">All</option>
+          {% for p in projects %}
+            <option value="{{ p.0 }}" {% if p.0.to_string() == project_id %}selected{% endif %}>{{ p.1 }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button class="rounded bg-slate-800 text-white px-3 py-1.5">Apply</button>
     </form>
   </header>
@@ -141,5 +159,13 @@
     <span class="font-semibold">Net Income</span>
     <span class="tabular text-lg font-semibold text-emerald-300">{{ net_income }}</span>
   </section>
+
+  {% if let Some(r) = unassigned_revenue %}
+    {% if let Some(e) = unassigned_expense %}
+      <p class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
+        Unassigned (untagged postings): revenue {{ r }}, expense {{ e }}.
+      </p>
+    {% endif %}
+  {% endif %}
 </main>
 {% endblock %}

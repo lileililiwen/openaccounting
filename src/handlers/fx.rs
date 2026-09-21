@@ -29,6 +29,9 @@ pub struct NewRateForm {
     pub quote_currency: String,
     pub rate: String,
     pub rate_date: String,
+    /// Manual override reason (`accounting-dimensions` FX override
+    /// audit): required, audited with actor/old/new.
+    pub reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -69,6 +72,19 @@ pub async fn rates_page(
     .fetch_all(&state.pool)
     .await?;
 
+    let overrides = sqlx::query_as::<_, crate::templates::fx::FxOverrideRow>(
+        r#"SELECT o.base_currency, o.quote_currency, o.rate_date, o.old_rate, o.new_rate,
+                  o.reason, COALESCE(u.username, '') AS actor_name
+           FROM fx_override_audit o
+           LEFT JOIN users u ON u.id = o.actor_id
+           WHERE o.ledger_id = $1
+           ORDER BY o.created_at DESC
+           LIMIT 100"#,
+    )
+    .bind(ledger_id)
+    .fetch_all(&state.pool)
+    .await?;
+
     Ok(render_response(FxRatesPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -78,6 +94,7 @@ pub async fn rates_page(
         current_section: "transactions".to_string(),
         base_currency: ledger.base_currency.clone(),
         rates,
+        overrides,
         error: String::new(),
     }))
 }
@@ -108,6 +125,24 @@ pub async fn create_rate(
     }
     let date = parse_date(&form.rate_date)?;
 
+    // Override audit gate: manual entries require a reason.
+    let reason = form.reason.as_deref().map(str::trim).unwrap_or_default();
+    if reason.is_empty() {
+        return Err(AppError::Validation(
+            "a reason is required for a manual FX rate (override audit)".into(),
+        ));
+    }
+
+    let old_rate: Option<Decimal> = sqlx::query_scalar(
+        "SELECT rate FROM fx_rates WHERE base_currency = $1 AND quote_currency = $2 AND rate_date = $3",
+    )
+    .bind(&base)
+    .bind(&quote)
+    .bind(date)
+    .fetch_optional(&state.pool)
+    .await?
+    .flatten();
+
     sqlx::query(
         r#"INSERT INTO fx_rates (base_currency, quote_currency, rate, rate_date, source)
            VALUES ($1, $2, $3, $4, 'manual')
@@ -118,6 +153,22 @@ pub async fn create_rate(
     .bind(&quote)
     .bind(rate)
     .bind(date)
+    .execute(&state.pool)
+    .await?;
+
+    sqlx::query(
+        r#"INSERT INTO fx_override_audit
+           (ledger_id, actor_id, base_currency, quote_currency, rate_date, old_rate, new_rate, reason)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+    )
+    .bind(ledger_id)
+    .bind(user.id)
+    .bind(&base)
+    .bind(&quote)
+    .bind(date)
+    .bind(old_rate)
+    .bind(rate)
+    .bind(reason)
     .execute(&state.pool)
     .await?;
 

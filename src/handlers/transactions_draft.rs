@@ -113,6 +113,8 @@ pub async fn post_draft(
         Err(PostingServiceError::LedgerNotFound) => Err(AppError::NotFound),
         Err(PostingServiceError::UnknownAccount(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::WrongLedger(_)) => Err(AppError::NotFound),
+        Err(PostingServiceError::UnknownCostCenter(_)) => Err(AppError::NotFound),
+        Err(PostingServiceError::UnknownProject(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::DuplicateNumber { .. }) => Err(AppError::Conflict(
             "promotion would create a duplicate number".into(),
         )),
@@ -144,6 +146,8 @@ pub async fn discard_draft(
         Err(PostingServiceError::LedgerNotFound) => Err(AppError::NotFound),
         Err(PostingServiceError::UnknownAccount(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::WrongLedger(_)) => Err(AppError::NotFound),
+        Err(PostingServiceError::UnknownCostCenter(_)) => Err(AppError::NotFound),
+        Err(PostingServiceError::UnknownProject(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::PeriodClosed { .. }) => {
             Err(AppError::Validation("period closed".into()))
         }

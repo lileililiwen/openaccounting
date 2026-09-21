@@ -41,6 +41,8 @@ pub struct InventoryValuation {
     pub current_section: String,
     pub items: Vec<InventoryItem>,
     pub total_value: Decimal,
+    /// Valuation method disclosure (`accounting-dimensions`).
+    pub inventory_method: String,
 }
 
 #[derive(Clone, Debug, sqlx::FromRow)]

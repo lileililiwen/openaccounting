@@ -92,6 +92,10 @@ pub enum PostingServiceError {
     UnknownAccount(Uuid),
     #[error("Account belongs to a different ledger: {0}")]
     WrongLedger(Uuid),
+    #[error("Unknown cost center in postings: {0}")]
+    UnknownCostCenter(Uuid),
+    #[error("Unknown project in postings: {0}")]
+    UnknownProject(Uuid),
     #[error("Transaction number already used in {year}: {number}")]
     DuplicateNumber { year: i32, number: String },
     #[error("{0}")]
@@ -399,6 +403,33 @@ impl PostingService {
             }
         }
 
+        // Validate dimension ids are ledger-scoped (`accounting-dimensions`).
+        // NULL stays NULL for existing data; unknown ids are a hard error.
+        for l in &new.lines {
+            if let Some(cc) = l.cost_center_id {
+                let ok: Option<(Uuid,)> =
+                    sqlx::query_as("SELECT id FROM cost_centers WHERE id = $1 AND ledger_id = $2")
+                        .bind(cc)
+                        .bind(new.ledger_id)
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                if ok.is_none() {
+                    return Err(PostingServiceError::UnknownCostCenter(cc));
+                }
+            }
+            if let Some(p) = l.project_id {
+                let ok: Option<(Uuid,)> =
+                    sqlx::query_as("SELECT id FROM projects WHERE id = $1 AND ledger_id = $2")
+                        .bind(p)
+                        .bind(new.ledger_id)
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                if ok.is_none() {
+                    return Err(PostingServiceError::UnknownProject(p));
+                }
+            }
+        }
+
         // Resolve the transaction number. If the caller supplied
         // one, validate uniqueness via the UNIQUE index and use
         // it. Otherwise count existing rows for this ledger/year
@@ -489,8 +520,9 @@ impl PostingService {
             };
             let posting_id: Uuid = sqlx::query_scalar(
                 "INSERT INTO postings (transaction_id, account_id, amount, direction, memo,
-                                        foreign_amount, foreign_currency)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                                        foreign_amount, foreign_currency,
+                                        cost_center_id, project_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING id",
             )
             .bind(txn_id)
@@ -500,6 +532,8 @@ impl PostingService {
             .bind(l.memo.as_deref())
             .bind(foreign_amount)
             .bind(foreign_currency)
+            .bind(l.cost_center_id)
+            .bind(l.project_id)
             .fetch_one(&mut *tx)
             .await?;
             posting_ids.push(posting_id);

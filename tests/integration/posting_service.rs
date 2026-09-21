@@ -138,6 +138,8 @@ async fn posting_service_balanced_writes_succeed() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id: sales,
@@ -145,6 +147,8 @@ async fn posting_service_balanced_writes_succeed() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
     };
@@ -186,6 +190,8 @@ async fn posting_service_unbalanced_rejected_no_rows() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id: sales,
@@ -193,6 +199,8 @@ async fn posting_service_unbalanced_rejected_no_rows() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
     };
@@ -252,6 +260,8 @@ async fn posting_service_closed_period_rejected() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id: sales,
@@ -259,6 +269,8 @@ async fn posting_service_closed_period_rejected() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
     };
@@ -295,6 +307,8 @@ async fn posting_service_unknown_account_rejected() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
             TxnLineInput {
                 account_id: bogus,
@@ -302,6 +316,8 @@ async fn posting_service_unknown_account_rejected() {
                 memo: None,
                 tax_rate_id: None,
                 foreign: None,
+                cost_center_id: None,
+                project_id: None,
             },
         ],
     };

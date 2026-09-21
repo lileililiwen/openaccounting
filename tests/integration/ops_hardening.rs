@@ -245,6 +245,8 @@ async fn drill_fixture(server: &TestServer, tag: &str) -> (Uuid, Uuid, u64) {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 TxnLineInput {
                     account_id: sales,
@@ -252,6 +254,8 @@ async fn drill_fixture(server: &TestServer, tag: &str) -> (Uuid, Uuid, u64) {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
         },

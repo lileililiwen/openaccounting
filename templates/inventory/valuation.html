@@ -6,7 +6,19 @@
   <header>
     <a href="/ledgers/{{ ledger_id }}/inventory" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
     <h1 class="text-2xl font-semibold mt-1">Inventory Valuation</h1>
+    <p class="text-slate-500 text-sm">Method: {% if inventory_method == "fifo" %}FIFO{% else %}weighted average{% endif %} — disclosed per accounting-dimensions.</p>
   </header>
+
+  <form method="post" action="/ledgers/{{ ledger_id }}/inventory/method" class="rounded-xl bg-white border border-slate-200 p-4 flex gap-2 items-end text-sm">
+    <label>Valuation method
+      <select name="method" class="ml-1 rounded border border-slate-300 px-2 py-1">
+        <option value="average" {% if inventory_method != "fifo" %}selected{% endif %}>weighted average</option>
+        <option value="fifo" {% if inventory_method == "fifo" %}selected{% endif %}>FIFO</option>
+      </select>
+    </label>
+    <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Change method</button>
+    <span class="text-xs text-slate-500">Blocked while stock is on hand.</span>
+  </form>
 
   <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
     <div class="text-sm text-emerald-900">Total Inventory Value</div>

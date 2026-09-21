@@ -34,6 +34,72 @@ pub struct AdjustmentForm {
     pub adjustment_date: String,
 }
 
+#[derive(Deserialize)]
+pub struct MethodForm {
+    pub method: String,
+}
+
+/// POST change the ledger valuation method (`accounting-dimensions`).
+/// Switching with nonzero stock fails 409 until stock is zero or a
+/// restatement is posted.
+pub async fn set_method(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(ledger_id): Path<Uuid>,
+    Form(form): Form<MethodForm>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let _ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+
+    let method = form.method.trim().to_lowercase();
+    if !["fifo", "average"].contains(&method.as_str()) {
+        return Err(AppError::Validation(
+            "method must be fifo or average".into(),
+        ));
+    }
+    let current: Option<String> =
+        sqlx::query_scalar("SELECT inventory_method FROM ledgers WHERE id = $1")
+            .bind(ledger_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .flatten();
+    if current.as_deref() == Some(method.as_str()) {
+        return Ok(
+            Redirect::to(&format!("/ledgers/{ledger_id}/inventory/valuation")).into_response(),
+        );
+    }
+    let (stock,): (i64,) = sqlx::query_as(
+        "SELECT COALESCE(SUM(quantity_on_hand), 0) FROM inventory_items WHERE ledger_id = $1",
+    )
+    .bind(ledger_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if stock != 0 {
+        return Err(AppError::Conflict(format!(
+            "cannot switch valuation method with {stock} units on hand; sell down to zero or post a restatement first"
+        )));
+    }
+    sqlx::query("UPDATE ledgers SET inventory_method = $1, updated_at = now() WHERE id = $2")
+        .bind(&method)
+        .bind(ledger_id)
+        .execute(&state.pool)
+        .await?;
+
+    let _ = audit::log(
+        &state.pool,
+        Some(ledger_id),
+        user.id,
+        "change_method",
+        "ledger",
+        Some(ledger_id),
+        current.map(|c| serde_json::json!({ "inventory_method": c })),
+        Some(serde_json::json!({ "inventory_method": method })),
+    )
+    .await;
+
+    Ok(Redirect::to(&format!("/ledgers/{ledger_id}/inventory/valuation")).into_response())
+}
+
 pub async fn list(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
@@ -221,13 +287,25 @@ pub async fn purchase(
         .execute(&mut *tx)
         .await?;
 
-    // Create the inventory asset debit
+    // Create the inventory asset debit. Cash account by name
+    // convention (same rule as the income-statement cash peer):
+    // seeded subtypes are CURRENT_ASSET, so match on the name.
     let cash_account: Uuid = sqlx::query_scalar(
-        r#"SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'ASSET' AND subtype = 'cash' LIMIT 1"#,
+        r#"SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'ASSET'
+           AND (LOWER(name) LIKE '%cash%' OR LOWER(name) LIKE '%bank%')
+           ORDER BY code NULLS LAST LIMIT 1"#,
     )
     .bind(ledger_id)
     .fetch_optional(&mut *tx)
     .await?
+    .flatten()
+    .or(sqlx::query_scalar(
+        "SELECT id FROM accounts WHERE ledger_id = $1 AND type = 'ASSET' ORDER BY code NULLS LAST LIMIT 1",
+    )
+    .bind(ledger_id)
+    .fetch_optional(&mut *tx)
+    .await?
+    .flatten())
     .ok_or(AppError::NotFound)?;
 
     let txn_id: Uuid = sqlx::query_scalar(
@@ -247,24 +325,22 @@ pub async fn purchase(
     .await?;
 
     sqlx::query(
-        r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-           VALUES ($1, $2, 'DEBIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+        r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+           VALUES ($1, $2, 'DEBIT', $3)"#,
     )
     .bind(txn_id)
     .bind(item.0)
     .bind(total_cost)
-    .bind(ledger_id)
     .execute(&mut *tx)
     .await?;
 
     sqlx::query(
-        r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-           VALUES ($1, $2, 'CREDIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+        r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+           VALUES ($1, $2, 'CREDIT', $3)"#,
     )
     .bind(txn_id)
     .bind(cash_account)
     .bind(total_cost)
-    .bind(ledger_id)
     .execute(&mut *tx)
     .await?;
 
@@ -298,9 +374,44 @@ pub async fn adjust(
     if new_qty < 0 {
         return Err(AppError::Validation("Cannot reduce below 0".into()));
     }
-    let cost_diff = Decimal::from(form.quantity) * item.3;
-
+    // FIFO sale costing: consume oldest layers first so COGS reflects
+    // actual purchase costs (`accounting-dimensions`). Average keeps
+    // the running-average cost.
+    let method: String = sqlx::query_scalar("SELECT inventory_method FROM ledgers WHERE id = $1")
+        .bind(ledger_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .flatten()
+        .unwrap_or_else(|| "average".to_string());
     let mut tx = state.pool.begin().await?;
+
+    let cost_diff = if method == "fifo" && form.quantity < 0 {
+        let mut need = -form.quantity;
+        let layers: Vec<(Uuid, i32, Decimal)> = sqlx::query_as(
+            "SELECT id, remaining, unit_cost FROM inventory_layers
+             WHERE item_id = $1 AND remaining > 0 ORDER BY purchase_date ASC, created_at ASC",
+        )
+        .bind(item_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        let mut cogs = Decimal::ZERO;
+        for (layer_id, remaining, unit_cost) in layers {
+            if need == 0 {
+                break;
+            }
+            let take = remaining.min(need);
+            cogs += Decimal::from(take) * unit_cost;
+            sqlx::query("UPDATE inventory_layers SET remaining = remaining - $1 WHERE id = $2")
+                .bind(take)
+                .bind(layer_id)
+                .execute(&mut *tx)
+                .await?;
+            need -= take;
+        }
+        -cogs
+    } else {
+        Decimal::from(form.quantity) * item.3
+    };
 
     sqlx::query(
         "UPDATE inventory_items SET quantity_on_hand = $1, updated_at = now() WHERE id = $2",
@@ -327,48 +438,44 @@ pub async fn adjust(
     if cost_diff > Decimal::ZERO {
         // Increase: debit inventory, credit COGS reduction
         sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-               VALUES ($1, $2, 'DEBIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+            r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+               VALUES ($1, $2, 'DEBIT', $3)"#,
         )
         .bind(txn_id)
         .bind(item.0)
         .bind(cost_diff)
-        .bind(ledger_id)
         .execute(&mut *tx)
         .await?;
 
         sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-               VALUES ($1, $2, 'CREDIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+            r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+               VALUES ($1, $2, 'CREDIT', $3)"#,
         )
         .bind(txn_id)
         .bind(item.1)
         .bind(cost_diff)
-        .bind(ledger_id)
         .execute(&mut *tx)
         .await?;
     } else if cost_diff < Decimal::ZERO {
         let amount = cost_diff.abs();
         // Decrease (shrinkage): debit COGS, credit inventory
         sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-               VALUES ($1, $2, 'DEBIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+            r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+               VALUES ($1, $2, 'DEBIT', $3)"#,
         )
         .bind(txn_id)
         .bind(item.1)
         .bind(amount)
-        .bind(ledger_id)
         .execute(&mut *tx)
         .await?;
 
         sqlx::query(
-            r#"INSERT INTO postings (transaction_id, account_id, direction, amount, currency)
-               VALUES ($1, $2, 'CREDIT', $3, (SELECT base_currency FROM ledgers WHERE id = $4))"#,
+            r#"INSERT INTO postings (transaction_id, account_id, direction, amount)
+               VALUES ($1, $2, 'CREDIT', $3)"#,
         )
         .bind(txn_id)
         .bind(item.0)
         .bind(amount)
-        .bind(ledger_id)
         .execute(&mut *tx)
         .await?;
     }
@@ -411,10 +518,30 @@ pub async fn valuation(
     .fetch_all(&state.pool)
     .await?;
 
-    let total_value: Decimal = items
-        .iter()
-        .map(|i| Decimal::from(i.quantity_on_hand) * i.unit_cost)
-        .sum();
+    // Method disclosure: FIFO values remaining layers, average uses
+    // the running unit cost (`accounting-dimensions`).
+    let method: String = sqlx::query_scalar("SELECT inventory_method FROM ledgers WHERE id = $1")
+        .bind(ledger_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .flatten()
+        .unwrap_or_else(|| "average".to_string());
+    let total_value: Decimal = if method == "fifo" {
+        sqlx::query_scalar(
+            r#"SELECT COALESCE(SUM(l.remaining * l.unit_cost), 0)
+               FROM inventory_layers l
+               JOIN inventory_items i ON i.id = l.item_id
+               WHERE i.ledger_id = $1 AND i.is_active = TRUE"#,
+        )
+        .bind(ledger_id)
+        .fetch_one(&state.pool)
+        .await?
+    } else {
+        items
+            .iter()
+            .map(|i| Decimal::from(i.quantity_on_hand) * i.unit_cost)
+            .sum()
+    };
 
     Ok(render_response(InventoryValuation {
         user_id: user.id,
@@ -425,5 +552,6 @@ pub async fn valuation(
         current_section: "transactions".to_string(),
         items,
         total_value,
+        inventory_method: method,
     }))
 }

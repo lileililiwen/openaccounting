@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}New Recurring Template — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/recurring-journals" class="text-sm text-slate-500 hover:text-slate-800">← Recurring Journals</a>
+    <h1 class="text-2xl font-semibold mt-1">New Recurring Template</h1>
+  </header>
+  <form method="post" action="/ledgers/{{ ledger_id }}/recurring-journals" class="rounded-xl bg-white border border-slate-200 p-4 space-y-3 text-sm">
+    <label class="block">Name
+      <input type="text" name="name" required class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+    </label>
+    <label class="block">Description
+      <input type="text" name="description" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+    </label>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <label>Frequency
+        <select name="frequency" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1">
+          <option value="weekly">weekly</option>
+          <option value="monthly" selected>monthly</option>
+          <option value="quarterly">quarterly</option>
+          <option value="yearly">yearly</option>
+        </select>
+      </label>
+      <label>Start date
+        <input type="date" name="start_date" value="{{ start_date.format("%Y-%m-%d") }}" required class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <label>End date (optional)
+        <input type="date" name="end_date" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+      </label>
+      <label>Max occurrences (optional)
+        <input type="number" name="max_occurrences" min="1" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+      </label>
+    </div>
+    <h2 class="font-semibold pt-2">Lines (must balance)</h2>
+    {% for i in 0..4 %}
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end">
+        <label>Account
+          <select name="lines[{{ i }}][account_id]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1">
+            <option value="">—</option>
+            {% for a in accounts %}
+              <option value="{{ a.0 }}">{{ a.1 }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Side
+          <select name="lines[{{ i }}][direction]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1">
+            <option value="DEBIT">DEBIT</option>
+            <option value="CREDIT">CREDIT</option>
+          </select>
+        </label>
+        <label>Amount
+          <input type="text" name="lines[{{ i }}][amount]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+        </label>
+        <label>Memo
+          <input type="text" name="lines[{{ i }}][memo]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1" />
+        </label>
+        <label>Cost center
+          <select name="lines[{{ i }}][cost_center_id]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1">
+            <option value="">—</option>
+            {% for c in cost_centers %}
+              <option value="{{ c.0 }}">{{ c.1 }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Project
+          <select name="lines[{{ i }}][project_id]" class="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1">
+            <option value="">—</option>
+            {% for p in projects %}
+              <option value="{{ p.0 }}">{{ p.1 }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+    {% endfor %}
+    <button class="rounded-lg bg-slate-900 text-white px-3 py-2 font-medium hover:bg-slate-800">Create template</button>
+  </form>
+</main>
+{% endblock %}

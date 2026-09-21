@@ -36,6 +36,11 @@
         <input type="date" name="rate_date" required
                class="rounded border border-slate-300 px-2 py-1" />
       </label>
+      <label class="grow min-w-48">
+        <span class="block text-xs text-slate-500">Reason (required — override audit)</span>
+        <input type="text" name="reason" placeholder="bank fixing rate" required
+               class="rounded border border-slate-300 px-2 py-1 w-full" />
+      </label>
       <button class="rounded bg-slate-900 text-white px-3 py-1.5 font-medium hover:bg-slate-800">Save rate</button>
     </form>
     <p class="mt-2 text-xs text-slate-500">Manual rates take precedence over the ECB feed for the same day. The rate is the amount of the quote currency per one unit of the base currency.</p>
@@ -88,5 +93,30 @@
       </table>
     </div>
   {% endif %}
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-3">Manual override audit</h2>
+    {% if overrides.is_empty() %}
+      <p class="text-sm text-slate-500">No manual overrides recorded. Every manual entry or edit is audited here with actor, old/new values, and reason.</p>
+    {% else %}
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for o in overrides %}
+          <li class="py-2">
+            <span class="font-medium tabular">{{ o.base_currency }} → {{ o.quote_currency }}</span>
+            <span class="text-slate-500 tabular">{{ o.rate_date }}</span>
+            <span class="tabular">
+              {% match o.old_rate %}
+                {% when Some with (old) %}{{ old }} →
+                {% when None %}— →
+              {% endmatch %}
+              {{ o.new_rate }}
+            </span>
+            <span class="text-slate-600">{{ o.reason }}</span>
+            <span class="text-xs text-slate-400">by {{ o.actor_name }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
 </main>
 {% endblock %}

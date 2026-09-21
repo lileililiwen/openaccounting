@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::dimensions::DimensionFilter;
 use crate::error::AppResult;
 
 #[derive(Clone, Debug)]
@@ -19,12 +20,27 @@ pub struct TrialBalanceResult {
     pub rows: Vec<TrialBalanceRow>,
     pub total_debit: Decimal,
     pub total_credit: Decimal,
+    /// Postings in scope whose filtered dimension is NULL, aggregated
+    /// as the Unassigned bucket (`accounting-dimensions`). `None` when
+    /// no dimension filter is active.
+    pub unassigned: Option<(Decimal, Decimal)>,
 }
 
 pub async fn build_trial_balance(
     pool: &PgPool,
     ledger_id: Uuid,
     as_of: NaiveDate,
+) -> AppResult<TrialBalanceResult> {
+    build_trial_balance_filtered(pool, ledger_id, as_of, &DimensionFilter::empty()).await
+}
+
+/// Dimension-sliced trial balance. The filter restricts postings to one
+/// cost center / project; untagged postings aggregate under Unassigned.
+pub async fn build_trial_balance_filtered(
+    pool: &PgPool,
+    ledger_id: Uuid,
+    as_of: NaiveDate,
+    filter: &DimensionFilter,
 ) -> AppResult<TrialBalanceResult> {
     // Per-account net movement, as_of. For debit-normal accounts the natural
     // side is DEBIT; for credit-normal the natural side is CREDIT. Show only
@@ -36,6 +52,8 @@ pub async fn build_trial_balance(
              - COALESCE(SUM(CASE WHEN p.direction='CREDIT' THEN p.amount ELSE 0 END), 0) AS net
         FROM accounts a
         LEFT JOIN postings p ON p.account_id = a.id
+            AND ($3 IS NULL OR p.cost_center_id = $3)
+            AND ($4 IS NULL OR p.project_id = $4)
         LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
         WHERE a.ledger_id = $1
         GROUP BY a.id, a.name, a.type
@@ -44,6 +62,8 @@ pub async fn build_trial_balance(
     )
     .bind(ledger_id)
     .bind(as_of)
+    .bind(filter.cost_center_id)
+    .bind(filter.project_id)
     .fetch_all(pool)
     .await?;
 
@@ -78,5 +98,41 @@ pub async fn build_trial_balance(
         rows: out_rows,
         total_debit: total_dr,
         total_credit: total_cr,
+        unassigned: if filter.is_active() {
+            Some(unassigned_sums(pool, ledger_id, as_of, filter).await?)
+        } else {
+            None
+        },
     })
+}
+
+/// Debit/credit sums of in-scope postings whose filtered dimension is
+/// NULL — the Unassigned bucket shown alongside a dimension slice.
+async fn unassigned_sums(
+    pool: &PgPool,
+    ledger_id: Uuid,
+    as_of: NaiveDate,
+    filter: &DimensionFilter,
+) -> AppResult<(Decimal, Decimal)> {
+    // Untagged on any *filtered* dimension: when slicing by cost
+    // center C, postings with no cost center are Unassigned (their
+    // project value is irrelevant, and vice versa).
+    let row: (Decimal, Decimal) = sqlx::query_as(
+        r#"
+        SELECT COALESCE(SUM(CASE WHEN p.direction='DEBIT' THEN p.amount ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN p.direction='CREDIT' THEN p.amount ELSE 0 END), 0)
+        FROM postings p
+        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
+        JOIN accounts a ON a.id = p.account_id AND a.ledger_id = $1
+        WHERE ($3 AND p.cost_center_id IS NULL)
+           OR ($4 AND p.project_id IS NULL)
+        "#,
+    )
+    .bind(ledger_id)
+    .bind(as_of)
+    .bind(filter.cost_center_id.is_some())
+    .bind(filter.project_id.is_some())
+    .fetch_one(pool)
+    .await?;
+    Ok(row)
 }

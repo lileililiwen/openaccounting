@@ -143,6 +143,8 @@ async fn post_one(
                     memo: Some(format!("amortize period {period_number}/{periods}")),
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 crate::domain::TxnLineInput {
                     account_id: target_account_id,
@@ -150,6 +152,8 @@ async fn post_one(
                     memo: Some(format!("amortize period {period_number}/{periods}")),
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
             reverses_id: None,

@@ -691,6 +691,8 @@ pub async fn opening_balances_create(
             memo: Some(format!("Opening balance — {}", account.name)),
             tax_rate_id: None,
             foreign: None,
+            cost_center_id: None,
+            project_id: None,
         });
     }
 
@@ -730,6 +732,8 @@ pub async fn opening_balances_create(
         memo: Some("Opening balances contra".to_string()),
         tax_rate_id: None,
         foreign: None,
+        cost_center_id: None,
+        project_id: None,
     });
 
     let new_txn = crate::domain::posting_service::NewTransaction {

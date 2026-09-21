@@ -229,6 +229,8 @@ async fn foreign_invoice_converts_at_transaction_date_rate() {
                         signed_amount: Decimal::new(100_000, 2), // 1000.00 EUR debit
                         currency: "EUR".into(),
                     }),
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 TxnLineInput {
                     account_id: sales,
@@ -236,6 +238,8 @@ async fn foreign_invoice_converts_at_transaction_date_rate() {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
         },
@@ -299,6 +303,8 @@ async fn missing_rate_blocks_posting_without_rows() {
                         signed_amount: Decimal::new(10_000, 0),
                         currency: "JPY".into(),
                     }),
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 TxnLineInput {
                     account_id: sales,
@@ -306,6 +312,8 @@ async fn missing_rate_blocks_posting_without_rows() {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
         },
@@ -371,6 +379,8 @@ async fn property_random_foreign_postings_stay_balanced() {
                             signed_amount: foreign,
                             currency: "EUR".into(),
                         }),
+                        cost_center_id: None,
+                        project_id: None,
                     },
                     TxnLineInput {
                         account_id: sales,
@@ -378,6 +388,8 @@ async fn property_random_foreign_postings_stay_balanced() {
                         memo: None,
                         tax_rate_id: None,
                         foreign: None,
+                        cost_center_id: None,
+                        project_id: None,
                     },
                 ],
             },
@@ -420,6 +432,7 @@ async fn manual_rate_overrides_feed_for_same_day() {
             ("quote_currency", "USD"),
             ("rate", "1.09"),
             ("rate_date", "2026-08-21"),
+            ("reason", "bank fixing rate"),
         ])
         .send()
         .await
@@ -493,6 +506,8 @@ async fn seed_euro_account(
                         signed_amount: Decimal::new(100_000, 2),
                         currency: "EUR".into(),
                     }),
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 TxnLineInput {
                     account_id: seed_equity(server, ledger_id).await,
@@ -500,6 +515,8 @@ async fn seed_euro_account(
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
         },
@@ -635,6 +652,8 @@ async fn fx_gains_report_separates_realized_from_unrealized() {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
                 TxnLineInput {
                     account_id: eur_account,
@@ -642,6 +661,8 @@ async fn fx_gains_report_separates_realized_from_unrealized() {
                     memo: None,
                     tax_rate_id: None,
                     foreign: None,
+                    cost_center_id: None,
+                    project_id: None,
                 },
             ],
         },

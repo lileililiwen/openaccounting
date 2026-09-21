@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Dimensions — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Dimensions</h1>
+    <p class="text-slate-500 text-sm">Cost centers and projects slice trial balance and P&amp;L. Untagged postings appear under Unassigned.</p>
+  </header>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-2">Cost Centers</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/dimensions/cost-centers" class="flex gap-2 mb-3">
+      <input type="text" name="name" placeholder="e.g. Berlin office" required class="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" />
+      <button class="rounded bg-slate-900 text-white px-3 py-1.5 text-sm font-medium hover:bg-slate-800">Add</button>
+    </form>
+    {% if cost_centers.is_empty() %}
+      <p class="text-sm text-slate-500">None yet.</p>
+    {% else %}
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for c in cost_centers %}
+          <li class="py-1.5 flex items-center justify-between">
+            <span>{{ c.name }}</span>
+            <form method="post" action="/ledgers/{{ ledger_id }}/dimensions/cost-centers/{{ c.id }}/delete" class="inline">
+              <button class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">Delete</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-800 mb-2">Projects</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/dimensions/projects" class="flex gap-2 mb-3">
+      <input type="text" name="name" placeholder="e.g. Website relaunch" required class="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" />
+      <button class="rounded bg-slate-900 text-white px-3 py-1.5 text-sm font-medium hover:bg-slate-800">Add</button>
+    </form>
+    {% if projects.is_empty() %}
+      <p class="text-sm text-slate-500">None yet.</p>
+    {% else %}
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for p in projects %}
+          <li class="py-1.5 flex items-center justify-between">
+            <span>{{ p.name }}</span>
+            <form method="post" action="/ledgers/{{ ledger_id }}/dimensions/projects/{{ p.id }}/delete" class="inline">
+              <button class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">Delete</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

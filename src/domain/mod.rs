@@ -1,9 +1,12 @@
 pub mod account;
 pub mod approval_routing;
 pub mod contact;
+pub mod depreciation;
+pub mod dimensions;
 pub mod document;
 pub mod einvoice;
 pub mod fx;
+pub mod inventory_valuation;
 pub mod investment_lot;
 pub mod invoice;
 pub mod ledger;
