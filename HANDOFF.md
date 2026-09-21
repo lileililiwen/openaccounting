@@ -1,4 +1,4 @@
-current_spec: pro-close-controls
+current_spec: openapi-sdk
 
 # OpenAccounting handoff
 
@@ -13,6 +13,26 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: pro-close-controls (2026-09-21)
+
+Archived as `openspec/changes/archive/2026-09-21-pro-close-controls/`;
+canonical spec `period-hard-close` created. Evidence: `openspec
+validate period-hard-close --strict` valid; `cargo fmt --check`
+clean; clippy warning profile byte-identical to pristine HEAD
+(zero new lints; repo-wide `-- -D warnings` still blocked by
+pre-existing src/ lints); `cargo test --features test-support` lib
+270/270, integration 432 passed including 8 new
+pro-close-controls tests plus 2 new domain unit tests (full
+parallel run: 4 failures reproduced on pristine HEAD — 2
+date-sensitive scheduler/recurring, docs-lint specs,
+role_enforcement invoice — plus 1 ocr parallel flake passing in
+isolation and on retry). Migration 0058 up/down/up applied cleanly
+on a scratch DB (reversible); ERD regenerated (82 tables).
+Deviations recorded in the archived tasks.md: reopen success is a
+303 redirect (not 200); auditor export proven via export.json
+(report CSV export stays owner-only). Next is `openapi-sdk` per
+`ROADMAP.md` order.
 
 ## Completed: accounting-dimensions (2026-09-21, commit dbcc529)
 
@@ -118,6 +138,6 @@ next package or push from this workflow.
 
 ## Next action
 
-Implement and verify `statement-reconciliation` from its own tasks. Keep the active
+Implement and verify `openapi-sdk` from its own tasks. Keep the active
 queue order in `ROADMAP.md`; do not infer completion from documentation or
 strict structural validation alone.
