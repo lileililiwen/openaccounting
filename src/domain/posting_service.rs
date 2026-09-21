@@ -86,6 +86,15 @@ pub enum PostingServiceError {
     Unbalanced { debits: Decimal, credits: Decimal },
     #[error("Period {year} is closed for ledger {ledger_id}")]
     PeriodClosed { ledger_id: Uuid, year: i32 },
+    #[error("Closed period: ledger {ledger_id} is closed through {closed_through}")]
+    HardClosed {
+        ledger_id: Uuid,
+        closed_through: NaiveDate,
+    },
+    #[error("Maker cannot approve their own journal")]
+    SelfApproval,
+    #[error("Journal is not pending approval")]
+    NotPending,
     #[error("Ledger not found")]
     LedgerNotFound,
     #[error("Unknown account in postings: {0}")]
@@ -173,17 +182,17 @@ impl PostingService {
         }
 
         // Closed-period check now applies (drafts were allowed
-        // past this gate; promotions are not).
-        let year = draft.2.format("%Y").to_string().parse::<i32>().unwrap_or(0);
-        let closed: Option<(Uuid,)> = sqlx::query_as(
-            "SELECT ledger_id FROM closed_periods WHERE ledger_id = $1 AND period_year = $2",
-        )
-        .bind(ledger_id)
-        .bind(year)
-        .fetch_optional(&mut *tx)
-        .await?;
-        if closed.is_some() {
-            return Err(PostingServiceError::PeriodClosed { ledger_id, year });
+        // past this gate; promotions are not). Honors both the
+        // legacy year watermark and the date-level hard close
+        // (`pro-close-controls`).
+        let watermark =
+            crate::domain::close_controls::closed_through_in_tx(&mut tx, ledger_id).await?;
+        if crate::domain::close_controls::is_closed(watermark, draft.2) {
+            let closed_through = watermark.unwrap_or(draft.2);
+            return Err(PostingServiceError::HardClosed {
+                ledger_id,
+                closed_through,
+            });
         }
 
         sqlx::query(
@@ -265,6 +274,120 @@ impl PostingService {
             Some(txn_id),
             None,
             Some(serde_json::json!({ "txn_id": txn_id, "kind": "draft" })),
+        )
+        .await;
+        Ok(())
+    }
+
+    /// Approve a pending journal (`pro-close-controls` maker-checker).
+    /// The checker must differ from the maker; on success the
+    /// transaction flips to `standard` and appears in reports.
+    pub async fn approve_journal(
+        pool: &PgPool,
+        ledger_id: Uuid,
+        txn_id: Uuid,
+        checker: Uuid,
+    ) -> Result<(), PostingServiceError> {
+        let mut tx = pool.begin().await?;
+        let row: Option<(Uuid, String)> = sqlx::query_as(
+            "SELECT maker, status FROM journal_approvals
+             WHERE txn_id = $1 AND ledger_id = $2 FOR UPDATE",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((maker, status)) = row else {
+            return Err(PostingServiceError::NotPending);
+        };
+        if status != "pending" {
+            return Err(PostingServiceError::NotPending);
+        }
+        if maker == checker {
+            return Err(PostingServiceError::SelfApproval);
+        }
+        sqlx::query(
+            "UPDATE transactions SET kind = 'standard', updated_at = now()
+             WHERE id = $1 AND ledger_id = $2",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE journal_approvals
+             SET status = 'approved', checker = $3, decided_at = now()
+             WHERE txn_id = $1",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .bind(checker)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let _ = crate::audit::log(
+            pool,
+            Some(ledger_id),
+            checker,
+            "approve",
+            "transaction",
+            Some(txn_id),
+            None,
+            Some(serde_json::json!({ "txn_id": txn_id, "maker": maker })),
+        )
+        .await;
+        Ok(())
+    }
+
+    /// Reject a pending journal. Same maker != checker rule.
+    pub async fn reject_journal(
+        pool: &PgPool,
+        ledger_id: Uuid,
+        txn_id: Uuid,
+        checker: Uuid,
+    ) -> Result<(), PostingServiceError> {
+        let mut tx = pool.begin().await?;
+        let row: Option<(Uuid, String)> = sqlx::query_as(
+            "SELECT maker, status FROM journal_approvals
+             WHERE txn_id = $1 AND ledger_id = $2 FOR UPDATE",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((maker, status)) = row else {
+            return Err(PostingServiceError::NotPending);
+        };
+        if status != "pending" {
+            return Err(PostingServiceError::NotPending);
+        }
+        if maker == checker {
+            return Err(PostingServiceError::SelfApproval);
+        }
+        sqlx::query("UPDATE transactions SET kind = 'draft' WHERE id = $1")
+            .bind(txn_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(
+            "UPDATE journal_approvals
+             SET status = 'rejected', checker = $3, decided_at = now()
+             WHERE txn_id = $1",
+        )
+        .bind(txn_id)
+        .bind(ledger_id)
+        .bind(checker)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let _ = crate::audit::log(
+            pool,
+            Some(ledger_id),
+            checker,
+            "reject",
+            "transaction",
+            Some(txn_id),
+            None,
+            Some(serde_json::json!({ "txn_id": txn_id, "maker": maker })),
         )
         .await;
         Ok(())
@@ -359,25 +482,17 @@ impl PostingService {
             return Err(PostingServiceError::LedgerNotFound);
         }
 
-        // Closed-period check (skipped for drafts).
-        let year = new
-            .txn_date
-            .format("%Y")
-            .to_string()
-            .parse::<i32>()
-            .unwrap_or(0);
+        // Hard-close watermark check (skipped for drafts).
+        // Honors both legacy `period_year` rows and the date-level
+        // `closed_through` watermark (`pro-close-controls`).
         if !is_draft {
-            let closed: Option<(Uuid,)> = sqlx::query_as(
-                "SELECT ledger_id FROM closed_periods WHERE ledger_id = $1 AND period_year = $2",
-            )
-            .bind(new.ledger_id)
-            .bind(year)
-            .fetch_optional(&mut *tx)
-            .await?;
-            if closed.is_some() {
-                return Err(PostingServiceError::PeriodClosed {
+            let watermark =
+                crate::domain::close_controls::closed_through_in_tx(&mut tx, new.ledger_id).await?;
+            if crate::domain::close_controls::is_closed(watermark, new.txn_date) {
+                let closed_through = watermark.unwrap_or(new.txn_date);
+                return Err(PostingServiceError::HardClosed {
                     ledger_id: new.ledger_id,
-                    year,
+                    closed_through,
                 });
             }
         }
@@ -482,8 +597,33 @@ impl PostingService {
             }
         };
 
+        // Maker-checker (`pro-close-controls`): journals at or above
+        // the ledger threshold are created in `pending` status and
+        // excluded from reports until a different user approves.
+        // Drafts and explicit non-standard kinds skip the gate.
+        let requested_kind = new.kind.clone().unwrap_or_else(|| "standard".to_string());
+        let journal_total: Decimal = effective
+            .iter()
+            .filter(|a| **a >= Decimal::ZERO)
+            .fold(Decimal::ZERO, |acc, a| acc + *a);
+        let mut kind = requested_kind.clone();
+        let mut is_pending = false;
+        if !is_draft && (requested_kind == "standard" || requested_kind == "adjusting") {
+            let threshold: Option<Decimal> =
+                sqlx::query_scalar("SELECT approval_threshold FROM ledgers WHERE id = $1")
+                    .bind(new.ledger_id)
+                    .fetch_optional(&mut *tx)
+                    .await?
+                    .flatten();
+            if let Some(t) = threshold {
+                if t >= Decimal::ZERO && journal_total >= t {
+                    kind = "pending".to_string();
+                    is_pending = true;
+                }
+            }
+        }
+
         // Insert the transaction row.
-        let kind = new.kind.clone().unwrap_or_else(|| "standard".to_string());
         let txn_id: Uuid = sqlx::query_scalar(
             "INSERT INTO transactions
                 (ledger_id, txn_date, description, payee, reference, currency, kind, created_by, reverses_id, number)
@@ -563,6 +703,21 @@ impl PostingService {
 
         tx.commit().await?;
 
+        // Maker-checker approval row for pending journals.
+        if is_pending {
+            sqlx::query(
+                r#"INSERT INTO journal_approvals (txn_id, ledger_id, maker, status, amount)
+                   VALUES ($1, $2, $3, 'pending', $4)
+                   ON CONFLICT (txn_id) DO NOTHING"#,
+            )
+            .bind(txn_id)
+            .bind(new.ledger_id)
+            .bind(new.created_by)
+            .bind(journal_total)
+            .execute(pool)
+            .await?;
+        }
+
         // Audit log (best-effort — failures here are not user-visible).
         // Skipped for drafts (`a8-draft-transactions`): drafts are
         // throwaway scratch work and would otherwise flood the audit
@@ -572,7 +727,11 @@ impl PostingService {
                 pool,
                 Some(new.ledger_id),
                 new.created_by,
-                "create",
+                if is_pending {
+                    "submit_pending"
+                } else {
+                    "create"
+                },
                 "transaction",
                 Some(txn_id),
                 None,

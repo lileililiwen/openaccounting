@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Approval Queue — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4" aria-label="Approval queue">
+  <header>
+    <h1 class="text-2xl font-semibold">Approval Queue</h1>
+    <p class="text-slate-500 text-sm">{{ ledger_name }} — journals above threshold need a second approver (maker ≠ checker).</p>
+  </header>
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <div role="status" aria-live="polite" class="sr-only">{{ pending.len() }} pending journals</div>
+    <ul class="divide-y divide-slate-100">
+    {% for p in pending %}
+      <li class="px-4 py-3 flex items-center gap-3">
+        <div class="flex-1">
+          <p class="text-sm font-medium text-slate-800">{{ p.1 }}</p>
+          <p class="text-xs text-slate-500">{{ p.2 }} · {{ p.3 }}</p>
+        </div>
+        <form method="post" action="/ledgers/{{ ledger_id }}/approvals/{{ p.0 }}/approve">
+          <button class="rounded-lg bg-emerald-700 text-white px-3 py-1.5 text-sm" aria-label="Approve {{ p.1 }}">Approve</button>
+        </form>
+        <form method="post" action="/ledgers/{{ ledger_id }}/approvals/{{ p.0 }}/reject">
+          <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" aria-label="Reject {{ p.1 }}">Reject</button>
+        </form>
+      </li>
+    {% endfor %}
+    </ul>
+    {% if pending.is_empty() %}
+    <p class="px-4 py-6 text-sm text-slate-500">No pending journals.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

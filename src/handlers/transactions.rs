@@ -685,7 +685,7 @@ pub async fn create(
         lines: inputs.clone(),
         reverses_id: None,
         number: form.extra.get("number").cloned().filter(|s| !s.is_empty()),
-        tax_links,
+        tax_links: tax_links.clone(),
     };
     let service_call = if save_as_draft {
         crate::domain::posting_service::PostingService::create_draft(&state.pool, new_txn).await
@@ -703,8 +703,107 @@ pub async fn create(
             ))));
         }
         Err(crate::domain::posting_service::PostingServiceError::PeriodClosed { year, .. }) => {
-            return Err(AppError::Validation(format!(
+            return Err(AppError::Conflict(format!(
                 "Period {year} is closed. Cannot post transactions to closed periods."
+            )));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::HardClosed {
+            closed_through,
+            ..
+        }) => {
+            // Override flow (`pro-close-controls`): owner/admin may
+            // post into a closed period by supplying a reason (min
+            // 10 chars) as `override_reason`. The override is
+            // audited; otherwise this is a 409 naming the date.
+            if let Some(reason_raw) = form.extra.get("override_reason").cloned() {
+                if crate::domain::close_controls::validate_reason(&reason_raw).is_ok()
+                    && crate::handlers::ledgers::ensure_owner_or_admin(&state, user.id, ledger_id)
+                        .await
+                        .is_ok()
+                {
+                    let reason = crate::domain::close_controls::validate_reason(&reason_raw)
+                        .unwrap_or_default();
+                    sqlx::query(
+                        "INSERT INTO reopen_events (ledger_id, closed_through, reopened_by, reason)
+                             VALUES ($1, $2, $3, $4)",
+                    )
+                    .bind(ledger_id)
+                    .bind(closed_through)
+                    .bind(user.id)
+                    .bind(&reason)
+                    .execute(&state.pool)
+                    .await
+                    .map_err(AppError::Db)?;
+                    let _ = crate::audit::log(
+                        &state.pool,
+                        Some(ledger_id),
+                        user.id,
+                        "override",
+                        "period",
+                        None,
+                        None,
+                        Some(serde_json::json!({
+                            "closed_through": closed_through,
+                            "reason": reason,
+                            "txn_date": date,
+                        })),
+                    )
+                    .await;
+                    // Reopen = delete watermarks covering the date,
+                    // then retry the write once.
+                    sqlx::query(
+                        "DELETE FROM closed_periods WHERE ledger_id = $1 AND closed_through >= $2",
+                    )
+                    .bind(ledger_id)
+                    .bind(date)
+                    .execute(&state.pool)
+                    .await
+                    .map_err(AppError::Db)?;
+                    let retry_txn = crate::domain::posting_service::NewTransaction {
+                        ledger_id,
+                        txn_date: date,
+                        description: description.to_string(),
+                        payee: form
+                            .payee
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string),
+                        reference: form
+                            .reference
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string),
+                        kind: Some("standard".to_string()),
+                        created_by: user.id,
+                        lines: inputs.clone(),
+                        reverses_id: None,
+                        number: form.extra.get("number").cloned().filter(|s| !s.is_empty()),
+                        tax_links: tax_links.clone(),
+                    };
+                    match crate::domain::posting_service::PostingService::create(
+                        &state.pool,
+                        retry_txn,
+                    )
+                    .await
+                    {
+                        Ok(created) => {
+                            crate::observability::metrics::postings_created(inputs.len() as u64);
+                            return Ok(axum::response::Redirect::to(&format!(
+                                "/ledgers/{}/transactions/{}",
+                                ledger_id, created.id
+                            ))
+                            .into_response());
+                        }
+                        Err(e) => {
+                            return Err(AppError::Internal(format!("override retry failed: {e}")));
+                        }
+                    }
+                }
+            }
+            return Err(AppError::Conflict(format!(
+                "Ledger is closed through {closed_through}. Cannot post {date} to a closed period."
             )));
         }
         Err(crate::domain::posting_service::PostingServiceError::LedgerNotFound) => {
@@ -734,6 +833,12 @@ pub async fn create(
         }
         Err(crate::domain::posting_service::PostingServiceError::MissingFxRate(msg)) => {
             return Ok(render_response(make_error(msg)));
+        }
+        Err(crate::domain::posting_service::PostingServiceError::SelfApproval) => {
+            return Err(AppError::Forbidden);
+        }
+        Err(crate::domain::posting_service::PostingServiceError::NotPending) => {
+            return Err(AppError::Validation("journal is not pending".into()));
         }
         Err(crate::domain::posting_service::PostingServiceError::Db(e)) => {
             return Err(AppError::Db(e));

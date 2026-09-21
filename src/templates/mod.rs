@@ -10,6 +10,7 @@ pub mod auth_oidc;
 pub mod backups;
 pub mod bank_feeds;
 pub mod budgets;
+pub mod closing;
 pub mod common;
 pub mod contacts;
 pub mod dashboard;

@@ -41,7 +41,7 @@ pub async fn compute_setup_status(
     let opening_done = exists(
         pool,
         "SELECT COUNT(*) FROM transactions
-         WHERE ledger_id = $1 AND description = 'Opening balances' AND kind != 'draft'",
+         WHERE ledger_id = $1 AND description = 'Opening balances' AND kind NOT IN ('draft','pending')",
         ledger_id,
         None,
     )
@@ -49,7 +49,7 @@ pub async fn compute_setup_status(
     let first_txn_done = exists(
         pool,
         "SELECT COUNT(*) FROM transactions
-         WHERE ledger_id = $1 AND kind != 'draft' AND description != 'Opening balances'",
+         WHERE ledger_id = $1 AND kind NOT IN ('draft','pending') AND description != 'Opening balances'",
         ledger_id,
         None,
     )

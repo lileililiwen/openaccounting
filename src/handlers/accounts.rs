@@ -541,7 +541,7 @@ pub async fn toggle_archive(
 async fn opening_balances_exist(state: &AppState, ledger_id: Uuid) -> AppResult<bool> {
     let n: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM transactions
-         WHERE ledger_id = $1 AND description = 'Opening balances' AND kind != 'draft'",
+         WHERE ledger_id = $1 AND description = 'Opening balances' AND kind NOT IN ('draft','pending')",
     )
     .bind(ledger_id)
     .fetch_one(&state.pool)
@@ -754,6 +754,12 @@ pub async fn opening_balances_create(
             crate::domain::posting_service::PostingServiceError::PeriodClosed { year, .. } => {
                 AppError::Validation(format!("Period {year} is closed"))
             }
+            crate::domain::posting_service::PostingServiceError::HardClosed {
+                closed_through,
+                ..
+            } => AppError::Conflict(format!(
+                "Ledger is closed through {closed_through}. Cannot post opening balances."
+            )),
             crate::domain::posting_service::PostingServiceError::Unbalanced { debits, credits } => {
                 AppError::Validation(format!(
                     "Opening balances do not balance (debits={debits}, credits={credits})"

@@ -232,6 +232,11 @@ pub async fn revaluate(
         )) => Err(AppError::Validation(format!(
             "Period {year} is closed. Cannot post revaluations into closed periods."
         ))),
+        Err(fx::RevaluationError::Posting(
+            crate::domain::posting_service::PostingServiceError::HardClosed { closed_through, .. },
+        )) => Err(AppError::Conflict(format!(
+            "Ledger is closed through {closed_through}. Cannot post revaluations into closed periods."
+        ))),
         Err(fx::RevaluationError::Posting(e)) => Err(AppError::Validation(e.to_string())),
         Err(fx::RevaluationError::Db(e)) => Err(AppError::Db(e)),
     }

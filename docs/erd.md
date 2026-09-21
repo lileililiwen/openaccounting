@@ -368,6 +368,11 @@ erDiagram
         TEXT note
         TIMESTAMPTZ created_at
     }
+    invoice_sequences {
+        UUID ledger_id
+        INTEGER year
+        INTEGER last_no
+    }
     invoice_shares {
         UUID id
         UUID ledger_id
@@ -404,6 +409,17 @@ erDiagram
         UUID created_by
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+    journal_approvals {
+        UUID id
+        UUID txn_id
+        UUID ledger_id
+        UUID maker
+        UUID checker
+        TEXT status
+        NUMERIC amount
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ decided_at
     }
     ledger_invitations {
         UUID id
@@ -697,6 +713,14 @@ erDiagram
         BOOLEAN is_active
         TIMESTAMPTZ created_at
     }
+    reopen_events {
+        UUID id
+        UUID ledger_id
+        DATE closed_through
+        UUID reopened_by
+        TEXT reason
+        TIMESTAMPTZ created_at
+    }
     saved_searches {
         UUID id
         UUID user_id
@@ -860,12 +884,17 @@ erDiagram
     investment_lots }|--|| transactions : "source_txn_id"
     invoice_lines }|--|| invoices : "invoice_id"
     invoice_reminders }|--|| invoices : "invoice_id"
+    invoice_sequences }|--|| ledgers : "ledger_id"
     invoice_shares }|--|| ledgers : "ledger_id"
     invoice_shares }|--|| invoices : "invoice_id"
     invoice_shares }|--|| users : "created_by"
     invoices }|--|| ledgers : "ledger_id"
     invoices }|--|| contacts : "contact_id"
     jobs }|--|| users : "created_by"
+    journal_approvals }|--|| transactions : "txn_id"
+    journal_approvals }|--|| ledgers : "ledger_id"
+    journal_approvals }|--|| users : "maker"
+    journal_approvals }|--|| users : "checker"
     ledger_invitations }|--|| ledgers : "ledger_id"
     ledger_invitations }|--|| users : "inviter_id"
     ledger_members }|--|| ledgers : "ledger_id"
@@ -928,6 +957,8 @@ erDiagram
     reimbursement_lines }|--|| reimbursement_claims : "claim_id"
     reimbursement_lines }|--|| accounts : "gl_account_id"
     reimbursement_policies }|--|| ledgers : "ledger_id"
+    reopen_events }|--|| ledgers : "ledger_id"
+    reopen_events }|--|| users : "reopened_by"
     saved_searches }|--|| users : "user_id"
     tags }|--|| ledgers : "ledger_id"
     tax_rates }|--|| ledgers : "ledger_id"

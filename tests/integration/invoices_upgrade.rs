@@ -309,6 +309,7 @@ async fn mark_paid_and_void_update_status_and_audit() {
         .post(format!(
             "{base}/ledgers/{ledger_id}/invoices/{invoice_id}/void"
         ))
+        .form(&[("reason", "duplicate issue, re-bill later")])
         .send()
         .await
         .unwrap();

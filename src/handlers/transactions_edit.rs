@@ -101,6 +101,20 @@ pub async fn reverse(
     if original.3 == "reversing" {
         return Err(AppError::Unprocessable("Cannot reverse a reversal".into()));
     }
+    // Hard-close gate (`pro-close-controls`): reversals of, or into,
+    // closed dates are rejected with 409.
+    {
+        let watermark =
+            crate::domain::close_controls::closed_through_in_tx(&mut tx, ledger_id).await?;
+        if crate::domain::close_controls::is_closed(watermark, original.1)
+            || crate::domain::close_controls::is_closed(watermark, chrono::Utc::now().date_naive())
+        {
+            let w = watermark.unwrap_or(original.1);
+            return Err(AppError::Conflict(format!(
+                "Ledger is closed through {w}. Reversal blocked."
+            )));
+        }
+    }
     let reversal_id = insert_reversal(
         &mut tx,
         original.0,
@@ -219,6 +233,20 @@ pub async fn edit(
         return Err(AppError::Unprocessable(
             "Cannot edit a reversal — reverse the original instead".into(),
         ));
+    }
+    // Hard-close gate (`pro-close-controls`): neither the original
+    // date nor the corrected date may fall in a closed range.
+    {
+        let watermark =
+            crate::domain::close_controls::closed_through_in_tx(&mut tx, ledger_id).await?;
+        if crate::domain::close_controls::is_closed(watermark, original.1)
+            || crate::domain::close_controls::is_closed(watermark, date)
+        {
+            let w = watermark.unwrap_or(date);
+            return Err(AppError::Conflict(format!(
+                "Ledger is closed through {w}. Edit blocked."
+            )));
+        }
     }
     let reversal_id = insert_reversal(
         &mut tx,

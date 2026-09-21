@@ -547,6 +547,28 @@ fn build_router_inner(
             "/ledgers/{id}/close-year/{year}",
             post(handlers::closing::close_year),
         )
+        .route("/ledgers/{id}/close", get(handlers::closing::close_page))
+        .route("/ledgers/{id}/close", post(handlers::closing::close_period))
+        .route(
+            "/ledgers/{id}/reopen",
+            post(handlers::closing::reopen_period),
+        )
+        .route(
+            "/ledgers/{id}/threshold",
+            post(handlers::closing::update_threshold),
+        )
+        .route(
+            "/ledgers/{id}/approvals",
+            get(handlers::closing::approval_queue),
+        )
+        .route(
+            "/ledgers/{id}/approvals/{txn_id}/approve",
+            post(handlers::closing::approve),
+        )
+        .route(
+            "/ledgers/{id}/approvals/{txn_id}/reject",
+            post(handlers::closing::reject),
+        )
         .route("/ledgers/{id}/audit", get(handlers::audit::list))
         .route("/ledgers/{id}/contacts", get(handlers::contacts::list))
         .route(
@@ -570,6 +592,7 @@ fn build_router_inner(
             "/ledgers/{id}/invoices/{invoice_id}/void",
             post(handlers::invoices::void),
         )
+        .route("/ledgers/{id}/invoices/gaps", get(handlers::invoices::gaps))
         .route(
             "/ledgers/{id}/reports/ar-aging",
             get(handlers::aging::ar_aging),

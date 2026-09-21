@@ -282,19 +282,53 @@ pub async fn ensure_access(
     }
 }
 
-/// Ensures the user can write to the ledger (owner OR editor).
-/// Viewers receive `Forbidden` (403). Use for every write handler:
-/// transactions, accounts, invoices, budgets, contacts, documents,
-/// payments, taxes, templates, rules, reimbursements, fixed assets,
-/// inventory — anything that mutates ledger data.
-///
-/// (`s9-editor-role-enforcement`.)
+/// Ensures the user can write to the ledger (owner, editor, or
+/// accountant). Viewers and auditors receive `Forbidden` (403).
+/// (`s9-editor-role-enforcement`, `pro-close-controls`.)
 pub async fn ensure_writer(state: &AppState, user_id: Uuid, ledger_id: Uuid) -> AppResult<Ledger> {
     let (ledger, role) = ensure_access(state, user_id, ledger_id).await?;
-    if role == "viewer" {
+    if role == "viewer" || role == "auditor" {
         return Err(AppError::Forbidden);
     }
     Ok(ledger)
+}
+
+/// Ensures the user can export ledger data (owner, editor,
+/// accountant, or auditor). (`pro-close-controls`: auditors are
+/// read plus export only.)
+pub async fn ensure_exporter(
+    state: &AppState,
+    user_id: Uuid,
+    ledger_id: Uuid,
+) -> AppResult<Ledger> {
+    let (ledger, _role) = ensure_access(state, user_id, ledger_id).await?;
+    Ok(ledger)
+}
+
+/// True when the user is a global admin (`users.role = 'admin'`).
+pub async fn is_admin(state: &AppState, user_id: Uuid) -> AppResult<bool> {
+    let role: Option<String> = sqlx::query_scalar("SELECT role FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await?;
+    Ok(role.as_deref() == Some("admin"))
+}
+
+/// Ensures ledger owner or global admin. Used for close, reopen,
+/// override, and threshold changes (`pro-close-controls`).
+pub async fn ensure_owner_or_admin(
+    state: &AppState,
+    user_id: Uuid,
+    ledger_id: Uuid,
+) -> AppResult<Ledger> {
+    let (ledger, role) = ensure_access(state, user_id, ledger_id).await?;
+    if role == "owner" {
+        return Ok(ledger);
+    }
+    if is_admin(state, user_id).await? {
+        return Ok(ledger);
+    }
+    Err(AppError::Forbidden)
 }
 
 /// Ensures the user is the OWNER of the ledger. Editors and viewers

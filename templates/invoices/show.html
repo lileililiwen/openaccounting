@@ -80,7 +80,9 @@
       </form>
     {% endif %}
     {% if invoice.status != "void" %}
-      <form method="post" action="/ledgers/{{ ledger_id }}/invoices/{{ invoice.id }}/void" onsubmit="return confirm('Void this invoice? This does not reverse any recorded payments.')">
+      <form method="post" action="/ledgers/{{ ledger_id }}/invoices/{{ invoice.id }}/void" class="flex items-center gap-2" onsubmit="return confirm('Void this invoice? The number is retained with your reason.')">
+        <label class="sr-only" for="void-reason">Void reason</label>
+        <input id="void-reason" name="reason" required minlength="10" placeholder="Void reason (min 10 chars)" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
         <button class="rounded-lg border border-rose-300 text-rose-700 px-3 py-2 text-sm font-medium hover:bg-rose-50">Void</button>
       </form>
     {% endif %}

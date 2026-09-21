@@ -110,6 +110,15 @@ pub async fn post_draft(
         Err(PostingServiceError::PeriodClosed { year, .. }) => Err(AppError::Validation(format!(
             "Period {year} is closed; drafts cannot be promoted into closed periods"
         ))),
+        Err(PostingServiceError::HardClosed { closed_through, .. }) => {
+            Err(AppError::Conflict(format!(
+                "Ledger is closed through {closed_through}; drafts cannot be promoted into closed periods"
+            )))
+        }
+        Err(PostingServiceError::SelfApproval) => Err(AppError::Forbidden),
+        Err(PostingServiceError::NotPending) => {
+            Err(AppError::Validation("journal is not pending".into()))
+        }
         Err(PostingServiceError::LedgerNotFound) => Err(AppError::NotFound),
         Err(PostingServiceError::UnknownAccount(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::WrongLedger(_)) => Err(AppError::NotFound),
@@ -150,6 +159,13 @@ pub async fn discard_draft(
         Err(PostingServiceError::UnknownProject(_)) => Err(AppError::NotFound),
         Err(PostingServiceError::PeriodClosed { .. }) => {
             Err(AppError::Validation("period closed".into()))
+        }
+        Err(PostingServiceError::HardClosed { closed_through, .. }) => Err(AppError::Conflict(
+            format!("ledger is closed through {closed_through}"),
+        )),
+        Err(PostingServiceError::SelfApproval) => Err(AppError::Forbidden),
+        Err(PostingServiceError::NotPending) => {
+            Err(AppError::Validation("journal is not pending".into()))
         }
         Err(PostingServiceError::MissingFxRate(msg)) => Err(AppError::Validation(msg)),
         Err(PostingServiceError::DuplicateNumber { .. }) => {

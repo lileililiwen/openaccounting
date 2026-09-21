@@ -1,5 +1,6 @@
 pub mod account;
 pub mod approval_routing;
+pub mod close_controls;
 pub mod contact;
 pub mod depreciation;
 pub mod dimensions;

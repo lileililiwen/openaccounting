@@ -80,7 +80,7 @@ pub async fn build_cash_flow(
         WHERE t.ledger_id = $1
           AND p.account_id = ANY($2)
           AND t.txn_date <= $3
-          AND t.kind != 'draft'
+          AND t.kind NOT IN ('draft','pending')
         "#
     );
 
@@ -109,7 +109,7 @@ pub async fn build_cash_flow(
         WHERE t.ledger_id = $1
           AND t.txn_date BETWEEN $2 AND $3
           AND a.id = ANY($4)
-          AND t.kind != 'draft'
+          AND t.kind NOT IN ('draft','pending')
         GROUP BY a.id, a.name
         ORDER BY a.name
         "#,

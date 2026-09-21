@@ -46,7 +46,7 @@ pub async fn realized_gains(
          JOIN accounts a ON a.id = l.account_id
          JOIN transactions t ON t.id = d.source_txn_id
          WHERE t.ledger_id = $1
-            AND t.kind != 'draft'
+            AND t.kind NOT IN ('draft','pending')
          ORDER BY d.disposed_at DESC, d.id DESC",
     )
     .bind(ledger_id)

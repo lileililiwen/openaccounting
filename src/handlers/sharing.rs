@@ -88,7 +88,7 @@ pub async fn invite(
     }
 
     let role = match form.role.as_str() {
-        "editor" | "viewer" => form.role.clone(),
+        "editor" | "viewer" | "accountant" | "auditor" => form.role.clone(),
         _ => {
             return Ok(render_response(SharePage {
                 user_id: user.id,

@@ -237,6 +237,7 @@ async fn transition(
     ledger_id: Uuid,
     id: Uuid,
     new_status: &str,
+    reason: Option<String>,
 ) -> Result<Json<serde_json::Value>, Problem> {
     require_access(&state.pool, user.0, ledger_id, true).await?;
     let updated: Option<(Uuid,)> = sqlx::query_as(
@@ -256,6 +257,16 @@ async fn transition(
             "Not Found",
             "invoice not found or already settled",
         ));
+    }
+    if new_status == "void" {
+        // `pro-close-controls`: retain the number with a reason.
+        let reason = reason.unwrap_or_else(|| "voided via API".to_string());
+        sqlx::query("UPDATE invoices SET void_reason = $2 WHERE id = $1")
+            .bind(id)
+            .bind(&reason)
+            .execute(&state.pool)
+            .await
+            .map_err(db_problem)?;
     }
     if new_status == "paid" {
         sqlx::query("UPDATE invoices SET amount_paid = total WHERE id = $1")
@@ -279,13 +290,18 @@ async fn mark_paid(
     user: ApiUser,
     Path((ledger_id, id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<serde_json::Value>, Problem> {
-    transition(&state, user, ledger_id, id, "paid").await
+    transition(&state, user, ledger_id, id, "paid", None).await
 }
 
 async fn void(
     State(state): State<AppState>,
     user: ApiUser,
     Path((ledger_id, id)): Path<(Uuid, Uuid)>,
+    body: Option<Json<serde_json::Value>>,
 ) -> Result<Json<serde_json::Value>, Problem> {
-    transition(&state, user, ledger_id, id, "void").await
+    let reason = body
+        .as_ref()
+        .and_then(|b| b.get("reason").and_then(|r| r.as_str()))
+        .map(str::to_string);
+    transition(&state, user, ledger_id, id, "void", reason).await
 }

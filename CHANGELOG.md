@@ -39,6 +39,13 @@ and this project adheres to
   (429 + Retry-After on auth, API, webhook, import routes);
   release SBOM (CycloneDX) plus signatures with a bundle-completeness
   gate.
+- Professional close controls: per-ledger hard-close watermark with
+  409 rejection of closed-date writes, audited reopen/override flow
+  with mandatory reason, maker-checker approval queue for
+  over-threshold journals (maker ≠ checker), `accountant` and
+  `auditor` ledger roles (auditors read plus export only), and
+  gapless per-ledger-per-year invoice numbering with void reasons
+  and a gap report distinguishing voids from true gaps.
 
 ### Changed
 - Production mode now rejects known fallback credentials and
@@ -50,7 +57,11 @@ and this project adheres to
   self-match on its own pattern.
 
 ### Migration notes
-- No schema changes in this release: no new migrations to apply.
+- Migration `0058_pro_close_controls`: adds `closed_periods.closed_through`,
+  `reopen_events`, `journal_approvals`, `invoice_sequences`,
+  `ledgers.approval_threshold`, `invoices.void_reason`, widens
+  `transactions.kind` with `pending` and ledger roles with
+  `accountant`/`auditor`. Reversible (DOWN verified: revert + re-apply clean).
 - To upgrade a checkout, run `sqlx migrate run --source migrations`
   (renders a no-op when already current). Every migration ships a
   DOWN block verified by the `migrations-reversible` CI job; revert

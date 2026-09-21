@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Invoice Gaps {{ year }} — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Invoice gap report — {{ year }}</h1>
+    <p class="text-slate-500 text-sm">{{ ledger_name }}</p>
+  </header>
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Missing numbers (true gaps)</h2>
+    {% if missing.is_empty() %}
+    <p class="text-sm text-emerald-700">No gaps — sequence is gapless.</p>
+    {% else %}
+    <ul class="text-sm text-rose-700">{% for m in missing %}<li>{{ m }}</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Voids (numbers retained, not gaps)</h2>
+    <ul class="text-sm text-slate-700">{% for v in voids %}<li>{{ v }}</li>{% endfor %}</ul>
+  </section>
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Allocated ({{ allocated.len() }})</h2>
+    <p class="text-xs text-slate-500">{{ allocated|join(", ") }}</p>
+  </section>
+</main>
+{% endblock %}

@@ -87,9 +87,9 @@ pub async fn export_all_json(
     for id in owned {
         snapshots.push(export::LedgerSnapshot::load(&state.pool, id).await?);
     }
-    // Editor-shared ledgers (owner rows are not in this table).
+    // Editor/accountant/auditor-shared ledgers (owner rows are not in this table).
     let shared: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT ledger_id FROM ledger_members WHERE user_id = $1 AND role = 'editor' ORDER BY ledger_id",
+        "SELECT ledger_id FROM ledger_members WHERE user_id = $1 AND role IN ('editor','accountant','auditor') ORDER BY ledger_id",
     )
     .bind(user.id)
     .fetch_all(&state.pool)
@@ -132,16 +132,17 @@ async fn load_ledger_snapshot(
     Ok(export::LedgerSnapshot::load(&state.pool, ledger_id).await?)
 }
 
-/// Verify the caller is the ledger's owner OR has the `editor`
-/// role on it. Viewers (and unrelated users) are rejected with
-/// 403 — the spec requires viewer-403.
+/// Verify the caller is the ledger's owner OR has the `editor`,
+/// `accountant`, or `auditor` role on it. Viewers (and unrelated
+/// users) are rejected with 403. (`pro-close-controls`: auditors
+/// are read plus export only.)
 pub async fn ensure_owner_or_editor(
     state: &AppState,
     user_id: Uuid,
     ledger_id: Uuid,
 ) -> AppResult<(String, Uuid)> {
     let (ledger, role) = ledgers::ensure_access(state, user_id, ledger_id).await?;
-    if role != "owner" && role != "editor" {
+    if role != "owner" && role != "editor" && role != "accountant" && role != "auditor" {
         return Err(AppError::Forbidden);
     }
     Ok((role, ledger.id))

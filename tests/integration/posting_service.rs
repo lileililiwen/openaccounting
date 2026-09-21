@@ -277,8 +277,14 @@ async fn posting_service_closed_period_rejected() {
     let err = PostingService::create(&server.db().pool(), new)
         .await
         .expect_err("closed period must be rejected");
+    // `pro-close-controls`: the date-level hard close supersedes the
+    // legacy year watermark (legacy rows read as Dec-31 of the year).
     assert!(
-        matches!(err, PostingServiceError::PeriodClosed { year: 2025, .. }),
+        matches!(
+            err,
+            PostingServiceError::HardClosed { .. }
+                | PostingServiceError::PeriodClosed { year: 2025, .. }
+        ),
         "got {err:?}"
     );
 }

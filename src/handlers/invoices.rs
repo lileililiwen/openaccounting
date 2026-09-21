@@ -213,6 +213,72 @@ pub async fn create(
     }
 
     let mut tx = state.pool.begin().await?;
+    // Hard-close gate on the invoice date (`pro-close-controls`).
+    {
+        let watermark =
+            crate::domain::close_controls::closed_through_in_tx(&mut tx, ledger_id).await?;
+        if crate::domain::close_controls::is_closed(watermark, invoice_date) {
+            let w = watermark.unwrap_or(invoice_date);
+            return Err(AppError::Conflict(format!(
+                "Ledger is closed through {w}. Cannot post invoice {invoice_date} to a closed period."
+            )));
+        }
+        // Serialize sequence allocation per ledger.
+        sqlx::query("SELECT id FROM ledgers WHERE id = $1 FOR UPDATE")
+            .bind(ledger_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    // Gapless sequence allocation (`pro-close-controls`): empty input
+    // draws from `invoice_sequences`; supplied numbers are kept but
+    // must stay unique per ledger.
+    let year = invoice_date
+        .format("%Y")
+        .to_string()
+        .parse::<i32>()
+        .unwrap_or(0);
+    let supplied = form
+        .invoice_number
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let invoice_number = match supplied {
+        Some(s) => {
+            let dup: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM invoices WHERE ledger_id = $1 AND invoice_number = $2",
+            )
+            .bind(ledger_id)
+            .bind(&s)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if dup.is_some() {
+                return Err(AppError::Conflict(format!(
+                    "Invoice number already used: {s}"
+                )));
+            }
+            // Advance the counter past manually supplied numbers so
+            // later auto-allocations never collide.
+            if let Some(suffix) = s.strip_prefix(&format!("{year}-")) {
+                if let Ok(n) = suffix.parse::<i32>() {
+                    sqlx::query(
+                        "INSERT INTO invoice_sequences (ledger_id, year, last_no)
+                         VALUES ($1, $2, $3)
+                         ON CONFLICT (ledger_id, year) DO UPDATE SET last_no = GREATEST(invoice_sequences.last_no, $3)",
+                    )
+                    .bind(ledger_id)
+                    .bind(year)
+                    .bind(n)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+            }
+            s
+        }
+        None => {
+            crate::domain::close_controls::next_invoice_number(&mut tx, ledger_id, year).await?
+        }
+    };
     let invoice_id: Uuid = sqlx::query_scalar(
         r#"INSERT INTO invoices (ledger_id, contact_id, kind, invoice_number, invoice_date, due_date, total)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -221,7 +287,7 @@ pub async fn create(
     .bind(ledger_id)
     .bind(contact_id)
     .bind(&kind)
-    .bind(form.invoice_number.as_deref().filter(|s| !s.is_empty()))
+    .bind(&invoice_number)
     .bind(invoice_date)
     .bind(due_date)
     .bind(total)
@@ -378,14 +444,27 @@ pub async fn mark_paid(
     Ok(Redirect::to(&format!("/ledgers/{ledger_id}/invoices/{invoice_id}")).into_response())
 }
 
-/// Void an invoice (`a18-invoicing-upgrade`).
+/// Void an invoice (`a18-invoicing-upgrade`, `pro-close-controls`).
+/// The number is retained; a mandatory reason (min 10 chars) is
+/// stored in `void_reason` and audited. The gap report lists voids
+/// separately from true gaps.
+#[derive(Deserialize, Default)]
+pub struct VoidInvoiceForm {
+    #[serde(default)]
+    pub reason: String,
+}
+
 pub async fn void(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path((ledger_id, invoice_id)): Path<(Uuid, Uuid)>,
+    Form(form): Form<VoidInvoiceForm>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+
+    let reason = crate::domain::close_controls::validate_reason(&form.reason)
+        .map_err(AppError::Validation)?;
 
     let name: Option<String> = sqlx::query_scalar(
         "SELECT COALESCE(invoice_number, '') FROM invoices WHERE id = $1 AND ledger_id = $2",
@@ -399,11 +478,12 @@ pub async fn void(
     }
 
     sqlx::query(
-        r#"UPDATE invoices SET status = 'void', updated_at = now()
+        r#"UPDATE invoices SET status = 'void', void_reason = $3, updated_at = now()
            WHERE id = $1 AND ledger_id = $2"#,
     )
     .bind(invoice_id)
     .bind(ledger_id)
+    .bind(&reason)
     .execute(&state.pool)
     .await?;
 
@@ -415,9 +495,45 @@ pub async fn void(
         "invoice",
         Some(invoice_id),
         None,
-        None,
+        Some(serde_json::json!({ "reason": reason })),
     )
     .await;
 
     Ok(Redirect::to(&format!("/ledgers/{ledger_id}/invoices/{invoice_id}")).into_response())
+}
+
+/// Gap report: voids vs true missing numbers (`pro-close-controls`).
+pub async fn gaps(
+    auth: AuthSession<Backend>,
+    State(state): State<AppState>,
+    Path(ledger_id): Path<Uuid>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> AppResult<Response> {
+    let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
+    let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
+    let year: i32 = q
+        .get("year")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| {
+            chrono::Utc::now()
+                .date_naive()
+                .format("%Y")
+                .to_string()
+                .parse()
+                .unwrap_or(2026)
+        });
+    let (allocated, voids, missing) =
+        crate::domain::close_controls::invoice_gap_report(&state.pool, ledger_id, year).await?;
+    Ok(render_response(crate::templates::closing::InvoiceGaps {
+        user_id: user.id,
+        username: user.username.clone(),
+        user_role: user.role.clone(),
+        ledger_id,
+        ledger_name: ledger.name,
+        current_section: "transactions".to_string(),
+        year,
+        allocated,
+        voids,
+        missing,
+    }))
 }

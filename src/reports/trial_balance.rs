@@ -54,7 +54,7 @@ pub async fn build_trial_balance_filtered(
         LEFT JOIN postings p ON p.account_id = a.id
             AND ($3 IS NULL OR p.cost_center_id = $3)
             AND ($4 IS NULL OR p.project_id = $4)
-        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
+        LEFT JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind NOT IN ('draft','pending')
         WHERE a.ledger_id = $1
         GROUP BY a.id, a.name, a.type
         ORDER BY a.type, a.name
@@ -122,7 +122,7 @@ async fn unassigned_sums(
         SELECT COALESCE(SUM(CASE WHEN p.direction='DEBIT' THEN p.amount ELSE 0 END), 0),
                COALESCE(SUM(CASE WHEN p.direction='CREDIT' THEN p.amount ELSE 0 END), 0)
         FROM postings p
-        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind != 'draft'
+        JOIN transactions t ON t.id = p.transaction_id AND t.txn_date <= $2 AND t.kind NOT IN ('draft','pending')
         JOIN accounts a ON a.id = p.account_id AND a.ledger_id = $1
         WHERE ($3 AND p.cost_center_id IS NULL)
            OR ($4 AND p.project_id IS NULL)

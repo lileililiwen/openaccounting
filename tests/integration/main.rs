@@ -57,6 +57,7 @@ mod password_strength;
 mod policies;
 mod posting_service;
 mod printable_views;
+mod pro_close_controls;
 mod pta_round_trip;
 mod pwa;
 mod reconciliation_rules;

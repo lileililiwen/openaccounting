@@ -602,6 +602,9 @@ pub async fn post_run(
             PostingServiceError::PeriodClosed { year, .. } => AppError::Validation(format!(
                 "Period {year} is closed. Cannot post into closed periods."
             )),
+            PostingServiceError::HardClosed { closed_through, .. } => AppError::Conflict(format!(
+                "Ledger is closed through {closed_through}. Cannot post into closed periods."
+            )),
             other => AppError::Validation(other.to_string()),
         })?;
     sqlx::query(
