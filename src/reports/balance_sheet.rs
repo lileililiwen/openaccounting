@@ -76,6 +76,7 @@ pub async fn build_balance_sheet(
                     account_name: r.1.clone(),
                     account_type: r.2.clone(),
                     amount,
+                    prior_amount: None,
                 }
             })
             .filter(|a| a.amount != Decimal::ZERO)
@@ -107,6 +108,7 @@ pub async fn build_balance_sheet(
                     account_name: r.1.clone(),
                     account_type: r.2.clone(),
                     amount,
+                    prior_amount: None,
                 }
             })
             .filter(|a| a.amount != Decimal::ZERO)
@@ -133,6 +135,7 @@ pub async fn build_balance_sheet(
                     account_name: name.clone(),
                     account_type: subtype.clone(),
                     amount,
+                    prior_amount: None,
                 });
             }
         }

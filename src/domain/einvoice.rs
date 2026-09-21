@@ -10,8 +10,15 @@
 //! - [`ubl_xml`] — UBL 2.1 Invoice, schema-validatable; used where
 //!   UBL is the required interchange syntax.
 //!
-//! PDF/A-3 embedding (the Factur-X wrapper) is a separate concern and
-//! is not implemented here.
+//! **Supported (`compliance-exports`).** The CII XML is delivered
+//! alongside the archivable PDF at
+//! `GET /ledgers/{id}/invoices/{invoice_id}.pdf?facturx=1`. True
+//! PDF/A-3 embedding (the byte-level Factur-X wrapper) is not yet
+//! produced: that requires forking `printpdf` to attach an
+//! embedded file stream. Today we ship the two artifacts
+//! separately, which XRechnung / DATEV auditors accept via the
+//! `.xml` companion. See
+//! `openspec/changes/compliance-exports/design.md`.
 
 use rust_decimal::Decimal;
 

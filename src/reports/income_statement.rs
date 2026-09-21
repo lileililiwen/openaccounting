@@ -161,6 +161,7 @@ pub async fn build_income_statement_filtered(
                     account_name: r.name.clone(),
                     account_type: r.subtype.clone(),
                     amount,
+                    prior_amount: None,
                 }
             })
             .filter(|a| a.amount != Decimal::ZERO)

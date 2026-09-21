@@ -230,6 +230,46 @@ pub async fn balance_sheet(
     let bs = build_balance_sheet(&state.pool, ledger_id, as_of, is.net_income).await?;
     let balanced = bs.total_assets == bs.total_liab_equity;
     let years = closed_years(&state.pool, ledger_id).await?;
+    // Prior-period comparative (`compliance-exports`): shift the
+    // as_of date back by 1 year and re-run the balance sheet to
+    // populate `prior_amount` on each account line.
+    let prior_as_of = as_of
+        .with_year(as_of.year() - 1)
+        .unwrap_or(as_of - chrono::Duration::days(365));
+    let prior_bs = build_balance_sheet(
+        &state.pool,
+        ledger_id,
+        prior_as_of,
+        rust_decimal::Decimal::ZERO,
+    )
+    .await
+    .unwrap_or(bs.clone());
+    let fill_prior_sections =
+        |sections: &mut [crate::reports::BalanceSheetSection],
+         prior: &[crate::reports::BalanceSheetSection]| {
+            for sec in sections.iter_mut() {
+                for a in sec.accounts.iter_mut() {
+                    a.prior_amount = prior
+                        .iter()
+                        .find(|p| p.label == sec.label)
+                        .and_then(|p| p.accounts.iter().find(|q| q.account_id == a.account_id))
+                        .map(|q| q.amount);
+                }
+            }
+        };
+    let mut assets = bs.assets;
+    let mut liabilities = bs.liabilities;
+    let mut equity = bs.equity;
+    fill_prior_sections(&mut assets, &prior_bs.assets);
+    fill_prior_sections(&mut liabilities, &prior_bs.liabilities);
+    // equity is Vec<AccountTotal> directly, not a sectioned list.
+    for a in equity.iter_mut() {
+        a.prior_amount = prior_bs
+            .equity
+            .iter()
+            .find(|p| p.account_id == a.account_id)
+            .map(|p| p.amount);
+    }
     Ok(render_response(BalanceSheetPage {
         user_id: user.id,
         username: user.username.clone(),
@@ -238,9 +278,9 @@ pub async fn balance_sheet(
         ledger_name: ledger.name,
         current_section: "reports".to_string(),
         as_of,
-        assets: bs.assets,
-        liabilities: bs.liabilities,
-        equity: bs.equity,
+        assets,
+        liabilities,
+        equity,
         net_income: bs.net_income,
         total_assets: bs.total_assets,
         total_liab_equity: bs.total_liab_equity,
@@ -276,6 +316,58 @@ pub async fn income_statement(
     };
     let is =
         build_income_statement_filtered(&state.pool, ledger_id, from, to, basis, &filter).await?;
+    // Prior-period comparative (`compliance-exports`): shift the
+    // window back by the same length and re-run.
+    let period_len = (to - from).num_days();
+    let prior_from = from - chrono::Duration::days(period_len + 1);
+    let prior_to = from - chrono::Duration::days(1);
+    let prior_period_label = format!(
+        "{} → {}",
+        prior_from.format("%Y-%m-%d"),
+        prior_to.format("%Y-%m-%d")
+    );
+    let prior_is = build_income_statement_filtered(
+        &state.pool,
+        ledger_id,
+        prior_from,
+        prior_to,
+        basis,
+        &filter,
+    )
+    .await
+    .ok();
+    let mut revenue = is.revenue.clone();
+    let mut cost_of_goods_sold = is.cost_of_goods_sold.clone();
+    let mut operating_expenses = is.operating_expenses.clone();
+    if let Some(ref p) = prior_is {
+        fill_section_prior(&mut revenue.accounts, &p.revenue.accounts);
+        fill_section_prior(
+            &mut cost_of_goods_sold.accounts,
+            &p.cost_of_goods_sold.accounts,
+        );
+        fill_section_prior(
+            &mut operating_expenses.accounts,
+            &p.operating_expenses.accounts,
+        );
+    }
+    let prior_non_operating = is.non_operating.as_ref().map(|no| {
+        let mut cloned = no.clone();
+        if let Some(ref p) = prior_is {
+            if let Some(ref pno) = p.non_operating {
+                fill_section_prior(&mut cloned.accounts, &pno.accounts);
+            }
+        }
+        cloned
+    });
+    let prior_tax_expense = is.tax_expense.as_ref().map(|tx| {
+        let mut cloned = tx.clone();
+        if let Some(ref p) = prior_is {
+            if let Some(ref ptx) = p.tax_expense {
+                fill_section_prior(&mut cloned.accounts, &ptx.accounts);
+            }
+        }
+        cloned
+    });
     let years = closed_years(&state.pool, ledger_id).await?;
     let dimensions = dimension_options(&state.pool, ledger_id).await?;
     Ok(render_response(IncomeStatementPage {
@@ -288,10 +380,10 @@ pub async fn income_statement(
         from,
         to,
         basis,
-        revenue: is.revenue,
-        cost_of_goods_sold: is.cost_of_goods_sold,
+        revenue,
+        cost_of_goods_sold,
         gross_profit: is.gross_profit,
-        operating_expenses: is.operating_expenses,
+        operating_expenses,
         operating_income: is.operating_income,
         non_operating: is.non_operating,
         income_before_tax: is.income_before_tax,
@@ -305,7 +397,41 @@ pub async fn income_statement(
         cost_centers: dimensions.0,
         projects: dimensions.1,
         closed_notice: closed_notice(&years, |y| y >= from.year() && y <= to.year()),
+        prior_revenue: prior_is
+            .as_ref()
+            .map(|_| prior_is_label())
+            .unwrap_or_default(),
+        prior_cost_of_goods_sold: prior_is
+            .as_ref()
+            .map(|_| prior_is_label())
+            .unwrap_or_default(),
+        prior_operating_expenses: prior_is
+            .as_ref()
+            .map(|_| prior_is_label())
+            .unwrap_or_default(),
+        prior_non_operating,
+        prior_tax_expense,
+        prior_period_label,
+        drilldown_base: format!("/ledgers/{ledger_id}/reports/general-ledger"),
+        current_from: from,
+        current_to: to,
     }))
+}
+
+fn prior_is_label() -> String {
+    "Prior period".to_string()
+}
+
+fn fill_section_prior(
+    accounts: &mut [crate::reports::AccountTotal],
+    prior_accounts: &[crate::reports::AccountTotal],
+) {
+    for a in accounts.iter_mut() {
+        a.prior_amount = prior_accounts
+            .iter()
+            .find(|p| p.account_id == a.account_id)
+            .map(|p| p.amount);
+    }
 }
 
 /// Dimension selects for the report filter bars.

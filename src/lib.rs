@@ -513,6 +513,39 @@ fn build_router_inner(
             post(handlers::automations::rotate_incoming_secret),
         )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
+        // PDF + machine exports (`compliance-exports`).
+        .route(
+            "/ledgers/{id}/reports/trial-balance.pdf",
+            get(handlers::exports_pdf::report_pdf_trial),
+        )
+        .route(
+            "/ledgers/{id}/reports/balance-sheet.pdf",
+            get(handlers::exports_pdf::report_pdf_balance_sheet),
+        )
+        .route(
+            "/ledgers/{id}/reports/income-statement.pdf",
+            get(handlers::exports_pdf::report_pdf_income_statement),
+        )
+        .route(
+            "/ledgers/{id}/reports/cash-flow.pdf",
+            get(handlers::exports_pdf::report_pdf_cash_flow),
+        )
+        .route(
+            "/ledgers/{id}/reports/general-ledger.pdf",
+            get(handlers::exports_pdf::report_pdf_general_ledger),
+        )
+        .route(
+            "/ledgers/{id}/export/{format}",
+            get(handlers::exports_pdf::export_machine),
+        )
+        .route(
+            "/ledgers/{id}/invoices/{invoice_id}/pdf",
+            get(handlers::exports_pdf::invoice_pdf),
+        )
+        .route(
+            "/ledgers/{id}/reports/notes",
+            post(handlers::exports_pdf::notes_save),
+        )
         .route(
             "/ledgers/{id}/reports/trial-balance",
             get(handlers::reports::trial_balance),

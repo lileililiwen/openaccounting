@@ -29,6 +29,7 @@ pub mod entities;
 pub mod estimates;
 pub mod events_in;
 pub mod export;
+pub mod exports_pdf;
 pub mod fixed_assets;
 pub mod fx;
 pub mod health;

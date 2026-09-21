@@ -6,6 +6,7 @@
 
 #[path = "../common/mod.rs"]
 mod common;
+mod compliance_exports;
 
 mod account_management;
 mod accounting_assurance;

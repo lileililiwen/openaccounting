@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:OpenAccounting:SAF-Tlite"
+           elementFormDefault="qualified">
+  <xs:element name="AuditFile">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Header">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="CompanyName" type="xs:string"/>
+              <xs:element name="CurrencyCode" type="xs:string"/>
+              <xs:element name="FromDate" type="xs:date"/>
+              <xs:element name="ToDate" type="xs:date"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ChartOfAccounts">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Account" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="Id" type="xs:string"/>
+                    <xs:element name="Name" type="xs:string"/>
+                    <xs:element name="Type" type="xs:string"/>
+                    <xs:element name="Currency" type="xs:string"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="GeneralLedgerEntries">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Transaction" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="Id" type="xs:string"/>
+                    <xs:element name="Date" type="xs:date"/>
+                    <xs:element name="Description" type="xs:string"/>
+                    <xs:element name="Postings">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="Posting" maxOccurs="unbounded">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="AccountId" type="xs:string"/>
+                                <xs:element name="Direction" type="xs:string"/>
+                                <xs:element name="Amount" type="xs:decimal"/>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

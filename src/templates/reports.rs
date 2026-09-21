@@ -99,6 +99,16 @@ pub struct IncomeStatementPage {
     pub cost_centers: Vec<(Uuid, String)>,
     pub projects: Vec<(Uuid, String)>,
     pub closed_notice: String,
+    /// Prior-period comparative (`compliance-exports`).
+    pub prior_revenue: String,
+    pub prior_cost_of_goods_sold: String,
+    pub prior_operating_expenses: String,
+    pub prior_non_operating: Option<IncomeStatementSection>,
+    pub prior_tax_expense: Option<IncomeStatementSection>,
+    pub prior_period_label: String,
+    pub drilldown_base: String,
+    pub current_from: chrono::NaiveDate,
+    pub current_to: chrono::NaiveDate,
 }
 
 #[derive(Template)]

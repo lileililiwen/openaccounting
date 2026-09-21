@@ -146,6 +146,9 @@ hkdf = "0.12"
 rand = "0.8"
 sha2 = "0.10"
 hmac = "0.12"
+# Pure-Rust PDF generation for archivable reports and invoices
+# (`compliance-exports`). No system browser dependency.
+printpdf = "0.7"
 metrics = "0.24.6"
 metrics-exporter-prometheus = "0.18.3"
 infer = "0.16"

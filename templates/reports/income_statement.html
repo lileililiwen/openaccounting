@@ -8,7 +8,19 @@
     <div>
       <h1 class="text-2xl font-semibold">Income Statement</h1>
       <p class="text-slate-500 text-sm tabular">{{ from }} → {{ to }} · Basis: {{ basis.label() }}</p>
+      {% if !prior_period_label.is_empty() %}
+        <p class="text-xs text-slate-500">Comparatives vs {{ prior_period_label }} (`compliance-exports`)</p>
+      {% endif %}
     </div>
+    <div class="flex items-end gap-2">
+      <a href="/ledgers/{{ ledger_id }}/reports/income-statement.pdf?from={{ from }}&to={{ to }}&basis={{ basis.as_str() }}"
+         class="rounded bg-slate-900 text-white text-xs px-2 py-1.5 hover:bg-slate-800">PDF</a>
+      <a href="/ledgers/{{ ledger_id }}/export/saf-t?from={{ from }}&to={{ to }}"
+         class="rounded bg-slate-100 text-slate-700 text-xs px-2 py-1.5 hover:bg-slate-200">SAF-T</a>
+      <a href="/ledgers/{{ ledger_id }}/export/datev?from={{ from }}&to={{ to }}"
+         class="rounded bg-slate-100 text-slate-700 text-xs px-2 py-1.5 hover:bg-slate-200">DATEV</a>
+    </div>
+  </header>
     <form method="get" class="flex items-end gap-2 text-sm">
       <label>
         <span class="block text-xs text-slate-500">From</span>
@@ -69,12 +81,20 @@
     <h2 class="text-sm font-semibold text-slate-700 mb-2">{{ revenue.label }}</h2>
     <ul class="text-sm divide-y divide-slate-100">
       {% for a in revenue.accounts %}
-        <li class="py-2 flex items-center justify-between"><span>{{ a.account_name }}</span><span class="tabular">{{ a.amount }}</span></li>
+        <li class="py-2 grid grid-cols-12 gap-2 items-center">
+          <span class="col-span-5">{{ a.account_name }}</span>
+          <span class="col-span-2 tabular text-right">{{ a.amount }}</span>
+          <span class="col-span-2 tabular text-right text-slate-500">{% if let Some(p) = a.prior_amount %}{{ p }}{% else %}—{% endif %}</span>
+          <span class="col-span-1 tabular text-right text-slate-500">{% if let Some(p) = a.prior_amount %}{% if a.amount != *p %}{% let d = a.amount - *p %}{% if d.is_sign_positive() %}+{% endif %}{{ d }}{% else %}—{% endif %}{% else %}—{% endif %}</span>
+          <a href="{{ drilldown_base }}?account_id={{ a.account_id }}&from={{ current_from }}&to={{ current_to }}"
+             class="col-span-2 text-xs underline text-slate-500 hover:text-slate-700">View GL →</a>
+        </li>
       {% endfor %}
       {% if revenue.accounts.is_empty() %}<li class="py-2 text-slate-500">—</li>{% endif %}
     </ul>
-    <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-semibold text-sm">
-      <span>Total revenue</span><span class="tabular">{{ revenue.total }}</span>
+    <div class="mt-3 pt-3 border-t border-slate-200 grid grid-cols-12 gap-2 items-center text-sm font-semibold">
+      <span class="col-span-5">Total revenue</span>
+      <span class="col-span-2 tabular text-right">{{ revenue.total }}</span>
     </div>
   </section>
 
@@ -167,5 +187,16 @@
       </p>
     {% endif %}
   {% endif %}
+
+  <!-- Disclosure notes (`compliance-exports`) -->
+  <section class="rounded-xl bg-white border border-slate-200 p-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-2">Disclosure Notes — {{ from }} → {{ to }}</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/reports/notes" class="space-y-2">
+      <input type="hidden" name="period_key" value="income-statement:{{ from }}..{{ to }}" />
+      <textarea name="body" rows="3" class="block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                placeholder="Notes (accounting policies, disclosures, etc.) appear on the PDF footer."></textarea>
+      <button class="rounded bg-slate-800 text-white text-xs px-3 py-1.5">Save Notes</button>
+    </form>
+  </section>
 </main>
 {% endblock %}

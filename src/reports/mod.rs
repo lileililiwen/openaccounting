@@ -33,6 +33,11 @@ pub struct AccountTotal {
     pub account_name: String,
     pub account_type: String,
     pub amount: Decimal,
+    /// Prior-period amount for the same account (`compliance-exports`).
+    /// `None` when the report does not compute comparatives (e.g.
+    /// trial balance, cash flow) or when the account had no prior
+    /// activity.
+    pub prior_amount: Option<Decimal>,
 }
 
 /// The reporting basis a request is computed under.

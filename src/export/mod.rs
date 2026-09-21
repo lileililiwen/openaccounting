@@ -12,8 +12,12 @@
 //! transaction so concurrent writes cannot tear the snapshot.
 
 pub mod beancount;
+pub mod datev;
 pub mod hledger;
 pub mod json;
+pub mod pdf;
+pub mod saf_t;
+pub mod xbrl;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
