@@ -29,6 +29,7 @@ mod csv_import_wizard;
 mod dark_mode;
 mod dashboard_layout;
 mod data_interchange;
+mod docs_consistency;
 mod document_authorization;
 mod document_ocr;
 mod empty_states;

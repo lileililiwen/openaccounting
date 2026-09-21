@@ -9,11 +9,26 @@ Exits 0 on success, 1 on any missing path. Excludes:
 - Paths marked "optional" in surrounding text
 """
 
+import argparse
 import re, sys, pathlib, os
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+DEFAULT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--root", default=str(DEFAULT_ROOT),
+                    help="Repository root (or fixture root in tests)")
+parser.add_argument("--docs", action="append", default=None,
+                    help="Extra doc file to check, relative to root "
+                         "(repeatable; README.md and docs/*.md are always checked)")
+args = parser.parse_args()
+
+ROOT = pathlib.Path(args.root)
 DOCS = [ROOT / "README.md"]
 DOCS.extend(sorted((ROOT / "docs").glob("*.md")))
+for extra in args.docs or []:
+    candidate = ROOT / extra
+    if candidate not in DOCS:
+        DOCS.append(candidate)
 
 # Match markdown link/path references
 PATH_PATTERNS = [

@@ -25,12 +25,29 @@ and this project adheres to
 - Dependency vulnerability and license scanning in CI.
 - Backup/restore drill documentation and fixtures.
 - Production configuration documentation.
+- Release readiness: ROADMAP.md with delivery order and v1.0 exit
+  gates, GOVERNANCE.md with merge rules and a 5-business-day triage
+  SLA, issue/PR templates, operator docs (data-model ERD, admin
+  runbook, sizing guide, API reference pointer), and
+  docs-consistency CI checks (TBD markers, stale identity, doc
+  paths, roadmap entries, ERD freshness).
 
 ### Changed
 - Production mode now rejects known fallback credentials and
   placeholder secrets.
 - docker-compose.yml APP_SECRET uses environment variable
   substitution with documented fallback.
+- The CI stale-identity check now runs via
+  `scripts/check_identity.py` instead of an inline grep, fixing a
+  self-match on its own pattern.
+
+### Migration notes
+- No schema changes in this release: no new migrations to apply.
+- To upgrade a checkout, run `sqlx migrate run --source migrations`
+  (renders a no-op when already current). Every migration ships a
+  DOWN block verified by the `migrations-reversible` CI job; revert
+  with `scripts/migrate-down.sh` only after taking a backup per
+  `docs/backup-restore.md`.
 
 ## [0.1.0] - 2026-08-13
 

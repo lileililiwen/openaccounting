@@ -198,23 +198,18 @@ jobs:
           done
           echo "OK: all third-party actions are SHA-pinned"
       - name: Fail on stale repository identity
+        run: python3 scripts/check_identity.py
+      - name: Verify Cosign identity matches remote
         run: |
           set -euo pipefail
           REMOTE_URL=$(git remote get-url origin)
-          # Extract owner/name from the remote URL
           EXPECTED=$(echo "$REMOTE_URL" | sed -nE 's|.*github\.com[/:]([^/]+)/([^/]+?)(\.git)?$|\1/\2|p')
           echo "Expected identity: $EXPECTED"
-          # Search for stale references in docs and workflows
-          if rg -l "anomalyco" docs/ README.md .github/workflows/ 2>/dev/null; then
-            echo "FAIL: stale 'anomalyco' identity found"
-            exit 1
-          fi
-          # Verify Cosign commands reference the correct identity
           if rg "certificate-identity-regexp" docs/ README.md .github/workflows/ | grep -v "$EXPECTED" | grep -v "github.com/\${{ github.repository }}"; then
             echo "FAIL: Cosign identity does not match $EXPECTED"
             exit 1
           fi
-          echo "OK: repository identity is consistent"
+          echo "OK: Cosign identity is consistent"
       - name: Verify tag format in release workflow
         run: |
           set -euo pipefail
@@ -227,6 +222,26 @@ jobs:
             exit 1
           fi
           echo "OK: release workflow has tag validation"
+
+  docs-consistency:
+    name: Docs consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: No TBD spec purposes
+        run: python3 scripts/check_tbd_markers.py
+      - name: No stale repository identity
+        run: python3 scripts/check_identity.py
+      - name: Doc paths resolve
+        run: python3 scripts/check_doc_paths.py
+      - name: Active changes listed in ROADMAP
+        run: python3 scripts/check_roadmap_entries.py
+      - name: CHANGELOG discipline
+        run: python3 scripts/check_changelog.py
+      - name: ERD matches migrations
+        run: python3 scripts/generate_erd.py --check
+      - name: OpenSpec change names
+        run: node scripts/check-openspec-change-names.mjs
 
   security:
     name: Security and dependency scan

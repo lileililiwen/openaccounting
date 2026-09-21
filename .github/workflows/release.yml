@@ -83,6 +83,18 @@ jobs:
           echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
           echo "Resolved tag=${TAG} commit=${COMMIT}"
 
+      - name: Verify CHANGELOG has notes for tag
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.tag }}"
+          VERSION="${TAG#v}"
+          if ! grep -qE "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "FAIL: CHANGELOG.md has no '## [$VERSION]' section for tag '$TAG'" >&2
+            echo "      Add release notes under a matching heading before tagging." >&2
+            exit 1
+          fi
+          echo "OK: CHANGELOG.md documents [$VERSION]"
+
   # -----------------------------------------------------------------------
   # Gate 2: quality gates (fmt, clippy, tests, migrations, audit)
   # -----------------------------------------------------------------------
