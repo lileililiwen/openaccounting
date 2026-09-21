@@ -107,8 +107,15 @@ const GENERIC_LOGIN_ERROR: &str = "Invalid email or password";
 /// 200 (the login page renders normally). Rate-limited rejections
 /// use 429 so the user sees the throttle signal — but the rendered
 /// HTML body is byte-equal so attackers cannot tell from the body
-/// whether the email is valid.
-fn login_error_page(next: &str, email: &str, status: StatusCode) -> Response {
+/// whether the email is valid. Throttled responses carry a
+/// `Retry-After` header (`ops-hardening`); throttling never locks
+/// the account, it only delays the next attempt.
+fn login_error_page(
+    next: &str,
+    email: &str,
+    status: StatusCode,
+    retry_after: Option<i64>,
+) -> Response {
     let page = LoginPage {
         error: GENERIC_LOGIN_ERROR.into(),
         next: next.to_string(),
@@ -117,12 +124,22 @@ fn login_error_page(next: &str, email: &str, status: StatusCode) -> Response {
         sso_only: false,
     };
     match page.render() {
-        Ok(body) => (
-            status,
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            body,
-        )
-            .into_response(),
+        Ok(body) => {
+            let mut builder = Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, "text/html; charset=utf-8");
+            if let Some(secs) = retry_after {
+                builder = builder.header(header::RETRY_AFTER, secs.max(1).to_string());
+            }
+            builder.body(body.into()).unwrap_or_else(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+                    "Template error: response build",
+                )
+                    .into_response()
+            })
+        }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -155,10 +172,14 @@ pub async fn login_submit(
         .map_err(AppError::Db)?;
     if account_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, email = %email_norm, "login throttled (account)");
+        let retry_after = rate_limit::retry_after_account(&state.pool, &email_norm, now)
+            .await
+            .map_err(AppError::Db)?;
         return Ok(login_error_page(
             &next,
             &form.email,
             StatusCode::TOO_MANY_REQUESTS,
+            Some(retry_after),
         ));
     }
     let ip_ok = rate_limit::check_ip(&state.pool, &ip, now)
@@ -166,10 +187,14 @@ pub async fn login_submit(
         .map_err(AppError::Db)?;
     if ip_ok == Decision::Throttled {
         tracing::warn!(ip = %ip, "login throttled (ip)");
+        let retry_after = rate_limit::retry_after_ip(&state.pool, &ip, now)
+            .await
+            .map_err(AppError::Db)?;
         return Ok(login_error_page(
             &next,
             &form.email,
             StatusCode::TOO_MANY_REQUESTS,
+            Some(retry_after),
         ));
     }
 
@@ -188,7 +213,7 @@ pub async fn login_submit(
             rate_limit::record_attempt(&state.pool, &ip, &email_norm, false, now)
                 .await
                 .map_err(AppError::Db)?;
-            return Ok(login_error_page(&next, &form.email, StatusCode::OK));
+            return Ok(login_error_page(&next, &form.email, StatusCode::OK, None));
         }
     };
 

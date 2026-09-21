@@ -51,6 +51,7 @@ mod notifications;
 mod ocr_feedback;
 mod oidc_sso;
 mod onboarding;
+mod ops_hardening;
 mod password_strength;
 mod policies;
 mod posting_service;

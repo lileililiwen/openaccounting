@@ -209,6 +209,10 @@ impl TestServer {
         if secret.len() < 32 {
             panic!("TestServer secret must be at least 32 characters");
         }
+        // Fresh rate-limit windows per test so the global
+        // token buckets (`ops-hardening`) never leak state
+        // between tests sharing one test binary.
+        crate::ratelimit::reset();
         let db = TestDb::new().await;
         let sandbox = Arc::new(
             tempfile::Builder::new()

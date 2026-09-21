@@ -229,4 +229,72 @@ impl Storage for S3Store {
     fn backend_label(&self) -> &'static str {
         "s3"
     }
+
+    fn backup_key(&self, prefix: &str, filename: &str) -> Result<StorageKey, StorageError> {
+        let safe = sanitize_filename::sanitize(filename);
+        if safe.is_empty() {
+            return Err(StorageError::InvalidFilename);
+        }
+        let base = if self.cfg.key_prefix.is_empty() {
+            String::new()
+        } else {
+            format!("{}/", self.cfg.key_prefix.trim_end_matches('/'))
+        };
+        let key = format!("{base}{}/{safe}", prefix.trim_matches('/'));
+        Ok(StorageKey::S3 {
+            bucket: self.cfg.bucket.clone(),
+            key,
+        })
+    }
+
+    async fn list(&self, prefix: &str) -> Result<Vec<super::StoredObject>, StorageError> {
+        let full_prefix = if self.cfg.key_prefix.is_empty() {
+            format!("{}/", prefix.trim_matches('/'))
+        } else {
+            format!(
+                "{}/{}/",
+                self.cfg.key_prefix.trim_end_matches('/'),
+                prefix.trim_matches('/')
+            )
+        };
+        let mut out = Vec::new();
+        let mut token: Option<String> = None;
+        loop {
+            let mut req = self
+                .client
+                .list_objects_v2()
+                .bucket(&self.cfg.bucket)
+                .prefix(&full_prefix);
+            if let Some(t) = token {
+                req = req.continuation_token(t);
+            }
+            let resp = req
+                .send()
+                .await
+                .map_err(|e| StorageError::S3(format!("list_objects: {e}")))?;
+            for obj in resp.contents() {
+                let Some(key) = obj.key() else { continue };
+                let modified_secs = obj.last_modified().and_then(|dt| dt.secs().try_into().ok());
+                out.push(super::StoredObject {
+                    key: StorageKey::S3 {
+                        bucket: self.cfg.bucket.clone(),
+                        key: key.to_string(),
+                    },
+                    name: key.to_string(),
+                    size_bytes: obj.size().unwrap_or(0) as u64,
+                    modified_secs,
+                });
+            }
+            if resp.is_truncated().unwrap_or(false) {
+                token = resp.next_continuation_token().map(str::to_string);
+                if token.is_none() {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        out.sort_by_key(|o: &super::StoredObject| std::cmp::Reverse(o.modified_secs.unwrap_or(0)));
+        Ok(out)
+    }
 }

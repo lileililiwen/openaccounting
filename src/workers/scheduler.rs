@@ -64,6 +64,11 @@ async fn housekeeping(
     )
     .await?;
 
+    // Nightly restore verification (`ops-hardening`): takes the
+    // latest successful backup, restores it to a scratch database,
+    // and checks the invariant plus document counts.
+    crate::jobs::enqueue(pool, "restore_verify", serde_json::json!({}), None, None).await?;
+
     // Weekly digest on Mondays.
     if today.weekday() == chrono::Weekday::Mon {
         let users: Vec<(uuid::Uuid,)> =

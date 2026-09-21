@@ -70,6 +70,11 @@ pub async fn metrics_page() -> axum::response::Response {
 /// `{id}`-style pattern), NOT the raw URI, so Prometheus series
 /// stay bounded and cardinally safe. No user-identifying data
 /// (cookie, IP, query string) is ever recorded.
+///
+/// Every response also carries an `x-request-id` header: the
+/// inbound value when the caller supplies a valid one, otherwise a
+/// fresh UUID. The ID is attached to the tracing span so metrics,
+/// logs, and OTel traces correlate (`ops-hardening`).
 pub async fn http_metrics(req: Request, next: Next) -> Response {
     let started = std::time::Instant::now();
     let method = req.method().as_str().to_owned();
@@ -79,7 +84,22 @@ pub async fn http_metrics(req: Request, next: Next) -> Response {
         .map(|p| p.as_str().to_owned())
         .unwrap_or_else(|| req.uri().path().to_owned());
 
-    let resp = next.run(req).await;
+    let request_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| !v.is_empty() && v.len() <= 64)
+        .map(str::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    tracing::Span::current().record("request_id", request_id.as_str());
+
+    let mut resp = next.run(req).await;
+    resp.headers_mut().insert(
+        "x-request-id",
+        request_id
+            .parse()
+            .unwrap_or_else(|_| axum::http::HeaderValue::from_static("unknown")),
+    );
     let status = resp.status().as_u16();
 
     let status = status.to_string();

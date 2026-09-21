@@ -238,6 +238,10 @@ jobs:
         run: python3 scripts/check_roadmap_entries.py
       - name: CHANGELOG discipline
         run: python3 scripts/check_changelog.py
+      - name: SECURITY contact operative
+        run: python3 scripts/check_security_contact.py
+      - name: Doc shell commands resolve
+        run: python3 scripts/check_doc_commands.py
       - name: ERD matches migrations
         run: python3 scripts/generate_erd.py --check
       - name: OpenSpec change names

@@ -113,6 +113,27 @@ pub trait Storage: Send + Sync {
     /// A short, human-readable label for the backend
     /// (`"filesystem"` or `"s3"`).
     fn backend_label(&self) -> &'static str;
+
+    /// Key for a backup tarball under `prefix` (`ops-hardening`).
+    /// Lets the backup worker address both backends uniformly
+    /// instead of building backend-specific paths.
+    fn backup_key(&self, prefix: &str, filename: &str) -> Result<StorageKey, StorageError>;
+
+    /// List stored objects under `prefix`, newest first
+    /// (`ops-hardening`). Used for backup retention pruning.
+    async fn list(&self, prefix: &str) -> Result<Vec<StoredObject>, StorageError>;
+}
+
+/// One entry from [`Storage::list`].
+#[derive(Clone, Debug)]
+pub struct StoredObject {
+    pub key: StorageKey,
+    /// Short display name (filename or full S3 key).
+    pub name: String,
+    pub size_bytes: u64,
+    /// Seconds since Unix epoch; `None` when the backend does not
+    /// report modification times.
+    pub modified_secs: Option<i64>,
 }
 
 /// Logical identifier for a stored object. Two variants so the
@@ -136,6 +157,21 @@ impl StorageKey {
 /// keeps callers (handlers) backend-agnostic while letting the
 /// binary pick one backend at startup.
 pub type SharedStorage = Arc<dyn Storage>;
+
+/// Build the configured storage backend from the environment
+/// (`ops-hardening`). Mirrors the startup wiring: `fs` (default)
+/// rooted at `DOCUMENTS_DIR`, or `s3` when `STORAGE_BACKEND=s3`
+/// with the `storage-s3` feature.
+pub async fn store_from_env(documents_dir: &str) -> Result<SharedStorage, StorageError> {
+    match std::env::var("STORAGE_BACKEND").as_deref().unwrap_or("fs") {
+        #[cfg(feature = "storage-s3")]
+        "s3" => {
+            let cfg = s3::S3Config::from_env()?;
+            Ok(Arc::new(S3Store::new(cfg).await?))
+        }
+        _ => Ok(Arc::new(FilesystemStore::new(documents_dir).await?)),
+    }
+}
 
 /// Helper used by the FS backend's `allocate_path` to share the
 /// sanitisation rule.

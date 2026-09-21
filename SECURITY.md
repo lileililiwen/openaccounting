@@ -6,13 +6,27 @@ If you discover a security vulnerability in OpenAccounting,
 please report it responsibly. **Do NOT open a public GitHub
 issue for security vulnerabilities.**
 
-Email: [INSERT SECURITY EMAIL]
+Email: lileililiwen@gmail.com
 
 Include:
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact
 - Suggested fix (if any)
+
+## Disclosure Process
+
+1. Report by email (above). **Do NOT open a public issue.**
+2. The maintainer acknowledges receipt within 48 hours.
+3. Assessment within 1 week: severity, affected versions, workaround.
+4. Fix or mitigation within 30 days for critical issues; coordinated
+   disclosure date agreed with the reporter before any public note.
+5. Credit in the release notes unless the reporter prefers anonymity.
+
+The full process, threat model, and log-handling rules live in
+`docs/threat-model.md`. Report handling follows `GOVERNANCE.md`
+(triage SLA); vulnerability reports take priority over the standard
+5-business-day queue.
 
 ## Response Timeline
 

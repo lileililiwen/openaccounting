@@ -144,3 +144,104 @@ Restore drills should be performed:
 - After any migration schema change
 - Before major releases
 - At least once per quarter
+
+## RTO and RPO
+
+- **RPO (recovery point objective): ≤ 24 hours.** The default
+  schedule (`BACKUP_CRON`, daily 02:00) plus WAL archiving (below)
+  bounds data loss to the last backup plus archived WAL.
+- **RTO (recovery time objective): ≤ 1 hour for databases ≤ 1 GB.**
+  The drill in `tests/integration/ops_hardening.rs`
+  (`backup_destroy_restore_drill_meets_documented_rto`) restores a
+  fixture in seconds; operators must run the drill above on their
+  own data and record the actual duration under Evidence Recording.
+- A nightly `restore_verify` job restores the latest successful
+  backup into a scratch database and checks the double-entry
+  invariant plus document counts; results appear as
+  `kind = 'verification'` rows on the admin schedule page.
+
+## Scheduled-backup targets
+
+The backup worker (`src/workers/backup.rs`) writes one
+`openaccounting_<timestamp>.tar.gz` per run containing the database
+payload plus `documents.tar`, then enforces retention.
+
+```bash
+# Filesystem target (default): BACKUP_DIR, keep BACKUP_KEEP runs
+BACKUP_CRON="0 0 2 * * * *" BACKUP_KEEP=7 BACKUP_DIR=./data/backups
+
+# S3 target: same tarball via the Storage trait (requires
+# STORAGE_BACKEND=s3 with bucket/region/credentials set)
+BACKUP_TARGET=s3 BACKUP_S3_PREFIX=backups BACKUP_KEEP=14
+```
+
+Retention deletes tarballs older than the newest `BACKUP_KEEP` and
+mirrors the deletion in the `backups`/`backup_runs` tables, for
+both targets.
+
+## SQLite deployments
+
+When `DATABASE_URL` is a `sqlite://` URL, the database payload is
+a file snapshot (`db.sqlite` in the tarball) instead of `pg_dump`
+output. Restore copies it back over the target path:
+
+```bash
+# Manual snapshot restore for SQLite deployments
+tar -xzf openaccounting_<timestamp>.tar.gz -C /tmp/oa_sqlite_restore
+cp /tmp/oa_sqlite_restore/db.sqlite /var/lib/openaccounting/openaccounting.db
+tar -xf /tmp/oa_sqlite_restore/documents.tar -C /var/lib/openaccounting/documents
+```
+
+## Point-in-time recovery (PostgreSQL)
+
+Scheduled dumps bound loss to 24 h. For finer granularity, archive
+WAL segments and keep base backups.
+
+### 1. Enable WAL archiving
+
+```bash
+# postgresql.conf (reload with SELECT pg_reload_conf())
+# wal_level = replica
+# archive_mode = on
+# archive_command = 'cp %p /var/lib/openaccounting/wal/%f'
+mkdir -p /var/lib/openaccounting/wal
+psql -c "SELECT pg_reload_conf()"
+```
+
+### 2. Take a base backup
+
+```bash
+pg_basebackup -D /var/lib/openaccounting/base -Ft -z -P
+ls /var/lib/openaccounting/base
+```
+
+### 3. Recover to a point in time
+
+```bash
+# Stop the app, then prepare the recovery target
+rm -rf /var/lib/openaccounting/data.recover
+tar -xzf /var/lib/openaccounting/base/base.tar.gz -C /var/lib/openaccounting/data.recover
+cp /var/lib/openaccounting/data.recover/postgresql.conf /tmp/oa_pg.conf.bak
+cat >> /var/lib/openaccounting/data.recover/postgresql.conf <<EOF
+restore_command = 'cp /var/lib/openaccounting/wal/%f %p'
+recovery_target_time = '2026-09-20 02:00:00+00'
+EOF
+touch /var/lib/openaccounting/data.recover/recovery.signal
+# Start postgres on data.recover; it replays WAL to the target,
+# then promotes. Verify with:
+psql -c "SELECT pg_is_in_recovery()"
+```
+
+### Recovery-time targets
+
+Measure your own rows with the drill above; budget against:
+
+| Fixture size | Base restore | WAL replay (24 h) | Total target |
+| --- | --- | --- | --- |
+| ≤ 100 MB | < 5 min | < 5 min | < 15 min |
+| ≤ 1 GB | < 20 min | < 20 min | < 1 h (RTO) |
+| > 1 GB | measure | measure | negotiate RTO |
+
+If a drill exceeds the RTO, shorten the backup interval
+(`BACKUP_CRON`), move PostgreSQL to faster disks, or lower the
+RPO with more frequent base backups — then re-drill.

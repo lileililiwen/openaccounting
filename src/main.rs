@@ -41,12 +41,29 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,openaccounting=debug,sqlx=warn".into()),
-        )
-        .init();
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt as _;
+    use tracing_subscriber::Layer as _;
+    // Opt-in OTel tracing composes into the fmt subscriber
+    // (`ops-hardening`); disabled by default.
+    if let Some(otel) = openaccounting::observability::tracing::otel_layer() {
+        tracing_subscriber::registry()
+            .with(otel)
+            .with(
+                tracing_subscriber::fmt::layer().with_filter(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| "info,openaccounting=debug,sqlx=warn".into()),
+                ),
+            )
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "info,openaccounting=debug,sqlx=warn".into()),
+            )
+            .init();
+    }
 
     let cli = Cli::parse();
     match cli.command {

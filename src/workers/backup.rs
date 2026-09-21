@@ -27,6 +27,7 @@ use sqlx::PgPool;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::storage::SharedStorage;
 use crate::AppState;
 
 /// Default cron expression: 02:00:00 every day.
@@ -43,9 +44,34 @@ pub const DEFAULT_BACKUP_KEEP: usize = 7;
 /// Default destination directory.
 pub const DEFAULT_BACKUP_DIR: &str = "./data/backups";
 
+/// Default S3 key prefix for the S3 backup target.
+pub const DEFAULT_BACKUP_S3_PREFIX: &str = "backups";
+
 /// How often the worker checks the schedule. Coarser than one
 /// minute so that we don't busy-loop on the cron parser.
 const TICK_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Where backup tarballs are written (`ops-hardening`).
+#[derive(Debug, Clone, Default)]
+pub enum BackupTargetKind {
+    /// Local directory (original behavior).
+    #[default]
+    Dir,
+    /// Object storage via the [`Storage`] trait (S3 backend).
+    /// `prefix` scopes backup keys (default `"backups"`).
+    Store { prefix: String },
+}
+
+/// A resolved backup target: the config plus the store handle for
+/// the `Store` variant.
+#[derive(Clone)]
+pub enum ResolvedTarget {
+    Dir(PathBuf),
+    Store {
+        store: SharedStorage,
+        prefix: String,
+    },
+}
 
 /// Configuration for the backup worker.
 #[derive(Debug, Clone)]
@@ -58,6 +84,8 @@ pub struct BackupConfig {
     pub dir: PathBuf,
     /// Path to the `pg_dump` binary (defaults to `pg_dump` on PATH).
     pub pg_dump_bin: String,
+    /// Backup destination: local dir or object storage.
+    pub target: BackupTargetKind,
 }
 
 impl BackupConfig {
@@ -82,11 +110,25 @@ impl BackupConfig {
             .ok()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "pg_dump".to_string());
+        let target = match std::env::var("BACKUP_TARGET")
+            .ok()
+            .map(|s| s.to_lowercase())
+            .as_deref()
+        {
+            Some("s3") | Some("store") => BackupTargetKind::Store {
+                prefix: std::env::var("BACKUP_S3_PREFIX")
+                    .ok()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| DEFAULT_BACKUP_S3_PREFIX.to_string()),
+            },
+            _ => BackupTargetKind::Dir,
+        };
         Self {
             cron_expr,
             keep,
             dir,
             pg_dump_bin,
+            target,
         }
     }
 
@@ -121,6 +163,14 @@ pub fn spawn_backup_worker(state: AppState, cfg: BackupConfig) {
         }
     };
 
+    let target = match resolve_target(&cfg, &state.storage) {
+        Ok(t) => t,
+        Err(e) => {
+            error!(error = %e, "backup target misconfigured; scheduled backups DISABLED");
+            return;
+        }
+    };
+
     info!(
         cron = %cfg.cron_expr,
         keep = cfg.keep,
@@ -149,17 +199,22 @@ pub fn spawn_backup_worker(state: AppState, cfg: BackupConfig) {
                     }
                 };
 
-                match run_backup(&state, &cfg, run_id, next).await {
+                match run_backup_with_target(&state.pool, &cfg, &target, run_id, next).await {
                     Ok(filename) => {
                         info!(run = %run_id, filename, "scheduled backup complete");
                     }
                     Err(e) => {
                         warn!(run = %run_id, error = %e, "scheduled backup failed");
-                        let _ = record_run_failure(&state.pool, run_id, &e.to_string()).await;
+                        let _ = record_run_failure(
+                            &state.pool,
+                            run_id,
+                            &sanitize_error(&e.to_string()),
+                        )
+                        .await;
                     }
                 }
 
-                if let Err(e) = prune(&state.pool, &cfg).await {
+                if let Err(e) = prune_target(&state.pool, &target, cfg.keep).await {
                     warn!(error = %e, "backup retention prune failed");
                 }
 
@@ -204,6 +259,30 @@ async fn record_run_failure(pool: &PgPool, run_id: Uuid, error_msg: &str) -> sql
     .map(|_| ())
 }
 
+/// Resolve the configured target against the app's storage
+/// backend. An S3 target with a non-S3 store fails fast so a
+/// misconfiguration never silently writes backups to the wrong
+/// place.
+pub fn resolve_target(
+    cfg: &BackupConfig,
+    store: &SharedStorage,
+) -> Result<ResolvedTarget, BackupError> {
+    match &cfg.target {
+        BackupTargetKind::Dir => Ok(ResolvedTarget::Dir(cfg.dir.clone())),
+        BackupTargetKind::Store { prefix } => {
+            if store.backend_label() != "s3" {
+                return Err(BackupError::Internal(
+                    "BACKUP_TARGET=s3 requires STORAGE_BACKEND=s3".to_string(),
+                ));
+            }
+            Ok(ResolvedTarget::Store {
+                store: store.clone(),
+                prefix: prefix.clone(),
+            })
+        }
+    }
+}
+
 /// Run a single backup: write `pg_dump` to a temp file, tar the
 /// documents dir into a temp file, then combine both into a
 /// single `.tar.gz` on the destination. On success, record the
@@ -214,7 +293,8 @@ pub async fn run_backup(
     run_id: Uuid,
     scheduled_for: DateTime<Utc>,
 ) -> Result<String, BackupError> {
-    run_backup_with_pool(&state.pool, cfg, run_id, scheduled_for).await
+    let target = resolve_target(cfg, &state.storage)?;
+    run_backup_with_target(&state.pool, cfg, &target, run_id, scheduled_for).await
 }
 
 /// Pool-only variant of [`run_backup`]. Used by tests and any
@@ -226,36 +306,57 @@ pub async fn run_backup_with_pool(
     run_id: Uuid,
     scheduled_for: DateTime<Utc>,
 ) -> Result<String, BackupError> {
-    tokio::fs::create_dir_all(&cfg.dir)
-        .await
-        .map_err(BackupError::Dir)?;
+    run_backup_with_target(
+        pool,
+        cfg,
+        &ResolvedTarget::Dir(cfg.dir.clone()),
+        run_id,
+        scheduled_for,
+    )
+    .await
+}
+
+/// Target-explicit backup core shared by [`run_backup`] and
+/// [`run_backup_with_pool`].
+pub async fn run_backup_with_target(
+    pool: &PgPool,
+    cfg: &BackupConfig,
+    target: &ResolvedTarget,
+    run_id: Uuid,
+    scheduled_for: DateTime<Utc>,
+) -> Result<String, BackupError> {
+    if let ResolvedTarget::Dir(dir) = target {
+        tokio::fs::create_dir_all(dir)
+            .await
+            .map_err(BackupError::Dir)?;
+    }
 
     let stamp = scheduled_for.format("%Y%m%d_%H%M%S");
     let filename = format!("openaccounting_{stamp}.tar.gz");
-    let path = cfg.dir.join(&filename);
 
     let documents_dir =
         std::env::var("DOCUMENTS_DIR").unwrap_or_else(|_| "./data/documents".to_string());
 
     let tmp = tempfile::tempdir().map_err(BackupError::Tmp)?;
-    let db_sql = tmp.path().join("db.sql");
     let docs_tar = tmp.path().join("documents.tar");
 
-    dump_database(pool, &cfg.pg_dump_bin, &db_sql)
+    // Database payload: pg_dump for PostgreSQL, file snapshot
+    // for SQLite deployments (`ops-hardening` parity).
+    let db_entry = database_payload(pool, &cfg.pg_dump_bin, tmp.path())
         .await
         .map_err(BackupError::PgDump)?;
     tar_directory(&documents_dir, &docs_tar)
         .await
         .map_err(BackupError::TarDocs)?;
 
-    build_tarball(&path, &db_sql, &docs_tar)
+    let staged = tmp.path().join(&filename);
+    build_tarball_with(&staged, &db_entry, &docs_tar)
         .await
         .map_err(BackupError::Tar)?;
 
-    let size_bytes = tokio::fs::metadata(&path)
-        .await
-        .map_err(BackupError::Stat)?
-        .len() as i64;
+    let bytes = tokio::fs::read(&staged).await.map_err(BackupError::Stat)?;
+    let size_bytes = bytes.len() as i64;
+    persist_bytes(target, &filename, &bytes).await?;
 
     sqlx::query(
         "INSERT INTO backups (filename, size_bytes, created_by, kind)
@@ -282,6 +383,108 @@ pub async fn run_backup_with_pool(
 
     crate::observability::metrics::backup_completed();
     Ok(filename)
+}
+
+/// Write finished tarball bytes to the resolved target.
+/// Returns the byte length for the `backups` row.
+async fn persist_bytes(
+    target: &ResolvedTarget,
+    filename: &str,
+    bytes: &[u8],
+) -> Result<(), BackupError> {
+    match target {
+        ResolvedTarget::Dir(dir) => {
+            tokio::fs::write(dir.join(filename), bytes)
+                .await
+                .map_err(BackupError::Stat)?;
+            Ok(())
+        }
+        ResolvedTarget::Store { store, prefix } => {
+            let key = store
+                .backup_key(prefix, filename)
+                .map_err(|e| BackupError::Store(format!("backup key: {e}")))?;
+            store
+                .write(&key, bytes)
+                .await
+                .map_err(|e| BackupError::Store(format!("backup write: {e}")))?;
+            Ok(())
+        }
+    }
+}
+
+/// Produce the database payload for the tarball: `pg_dump` output
+/// for PostgreSQL, a file snapshot for SQLite deployments.
+/// Returns the payload path inside `staging` (`db.sql` or
+/// `db.sqlite`).
+async fn database_payload(
+    pool: &PgPool,
+    pg_dump_bin: &str,
+    staging: &Path,
+) -> Result<PathBuf, String> {
+    let url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL is not set".to_string())?;
+    if is_sqlite_url(&url) {
+        let out = staging.join("db.sqlite");
+        snapshot_sqlite(&url, &out).await?;
+        return Ok(out);
+    }
+    let out = staging.join("db.sql");
+    dump_database(pool, pg_dump_bin, &out).await?;
+    Ok(out)
+}
+
+/// True for `sqlite://…` database URLs (file snapshot applies).
+pub fn is_sqlite_url(url: &str) -> bool {
+    url.starts_with("sqlite://") || url.starts_with("sqlite:")
+}
+
+/// Copy the SQLite database file to `out`. The URL may carry
+/// query parameters (`?mode=ro`); they are stripped before
+/// resolving the filesystem path.
+pub async fn snapshot_sqlite(url: &str, out: &Path) -> Result<(), String> {
+    let path = sqlite_path(url)
+        .ok_or_else(|| "cannot resolve sqlite file path from DATABASE_URL".to_string())?;
+    tokio::fs::copy(&path, out)
+        .await
+        .map_err(|e| format!("copying sqlite file {}: {e}", path.display()))?;
+    Ok(())
+}
+
+/// Filesystem path of the SQLite database file, if the URL is a
+/// file-backed sqlite URL (`:memory:` returns `None`).
+pub fn sqlite_path(url: &str) -> Option<PathBuf> {
+    let rest = url
+        .strip_prefix("sqlite://")
+        .or_else(|| url.strip_prefix("sqlite:"))?;
+    let path_part = rest.split('?').next().unwrap_or(rest);
+    if path_part.is_empty() || path_part == ":memory:" {
+        return None;
+    }
+    Some(PathBuf::from(path_part))
+}
+
+/// Strip any password from a database URL before it is stored in
+/// `backup_runs.error` or returned to callers (log-redaction
+/// policy, `docs/threat-model.md`).
+pub fn sanitize_error(msg: &str) -> String {
+    let mut out = msg.to_string();
+    // Redact `scheme://user:password@` credentials.
+    let mut start = 0;
+    while let Some(scheme) = out[start..].find("://") {
+        let abs = start + scheme;
+        if let Some(at) = out[abs..].find('@') {
+            let abs_at = abs + at;
+            // Only redact when there is a userinfo part (a `:`
+            // or content between :// and @ on one line).
+            let userinfo = &out[abs + 3..abs_at];
+            if !userinfo.is_empty() && !userinfo.contains('/') && !userinfo.contains(' ') {
+                out.replace_range(abs + 3..abs_at, "***");
+                start = abs + 6;
+                continue;
+            }
+        }
+        start = abs + 3;
+    }
+    out
 }
 
 /// Shell out to `pg_dump` and capture the SQL into `out`.
@@ -441,13 +644,14 @@ fn make_empty_tar_header() -> [u8; 512] {
     h
 }
 
-/// Combine `db.sql` and `documents.tar` into a single
-/// `tar.gz` at `out`. Uses the `tar` binary for compression —
-/// `flate2::write::GzEncoder` over a `tar::Builder` requires the
-/// `tar` crate as a dep, which we don't need elsewhere.
-async fn build_tarball(out: &Path, db_sql: &Path, docs_tar: &Path) -> Result<(), String> {
+/// Combine the database payload (`db.sql` or `db.sqlite`) and
+/// `documents.tar` into a single `tar.gz` at `out`. Uses the `tar`
+/// binary for compression — `flate2::write::GzEncoder` over a
+/// `tar::Builder` requires the `tar` crate as a dep, which we
+/// don't need elsewhere.
+async fn build_tarball_with(out: &Path, db_entry: &Path, docs_tar: &Path) -> Result<(), String> {
     let staging = out.with_extension("staging.tar");
-    let db_name = db_sql
+    let db_name = db_entry
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("db.sql");
@@ -460,7 +664,7 @@ async fn build_tarball(out: &Path, db_sql: &Path, docs_tar: &Path) -> Result<(),
         .arg("-cf")
         .arg(&staging)
         .arg("-C")
-        .arg(db_sql.parent().unwrap_or(db_sql))
+        .arg(db_entry.parent().unwrap_or(db_entry))
         .arg(db_name)
         .arg("-C")
         .arg(docs_tar.parent().unwrap_or(docs_tar))
@@ -491,16 +695,52 @@ async fn build_tarball(out: &Path, db_sql: &Path, docs_tar: &Path) -> Result<(),
     Ok(())
 }
 
-/// Trim the on-disk backup directory to `cfg.keep` files, then
-/// mirror the deletion in the `backup_runs` table.
-pub async fn prune_for_test(pool: &PgPool, cfg: &BackupConfig) -> Result<(), String> {
-    prune(pool, cfg).await
+/// Trim a `Store` target to `keep` newest tarballs, then mirror
+/// the deletion in the `backup_runs`/`backups` tables. Unit-testable
+/// against any [`Storage`] implementation (task 1.2).
+pub async fn prune_target(
+    pool: &PgPool,
+    target: &ResolvedTarget,
+    keep: usize,
+) -> Result<(), String> {
+    let (store, prefix) = match target {
+        ResolvedTarget::Store { store, prefix } => (store, prefix),
+        ResolvedTarget::Dir(dir) => {
+            return prune_dir(pool, dir, keep).await;
+        }
+    };
+    let mut objects = store
+        .list(prefix)
+        .await
+        .map_err(|e| format!("list backups: {e}"))?;
+    // Newest first (the backends already sort, but enforce it).
+    objects.sort_by_key(|o| std::cmp::Reverse(o.modified_secs.unwrap_or(0)));
+    for obj in objects.iter().skip(keep) {
+        if let Err(e) = store.delete(&obj.key).await {
+            warn!(object = %obj.name, error = %e, "failed to remove old backup");
+            continue;
+        }
+        delete_backup_rows(pool, &obj.name).await;
+        info!(object = %obj.name, "pruned old backup");
+    }
+    Ok(())
 }
 
-async fn prune(pool: &PgPool, cfg: &BackupConfig) -> Result<(), String> {
-    let mut entries = tokio::fs::read_dir(&cfg.dir)
+async fn delete_backup_rows(pool: &PgPool, filename: &str) {
+    let _ = sqlx::query("DELETE FROM backup_runs WHERE filename = $1")
+        .bind(filename)
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM backups WHERE filename = $1")
+        .bind(filename)
+        .execute(pool)
+        .await;
+}
+
+async fn prune_dir(pool: &PgPool, dir: &Path, keep: usize) -> Result<(), String> {
+    let mut entries = tokio::fs::read_dir(dir)
         .await
-        .map_err(|e| format!("read_dir({}): {e}", cfg.dir.display()))?;
+        .map_err(|e| format!("read_dir({}): {e}", dir.display()))?;
     let mut files: Vec<(String, std::time::SystemTime)> = Vec::new();
     while let Some(entry) = entries
         .next_entry()
@@ -519,28 +759,194 @@ async fn prune(pool: &PgPool, cfg: &BackupConfig) -> Result<(), String> {
     files.sort_by_key(|f| std::cmp::Reverse(f.1));
 
     for (i, (name, _)) in files.iter().enumerate() {
-        if i >= cfg.keep {
-            let path = cfg.dir.join(name);
+        if i >= keep {
+            let path = dir.join(name);
             if let Err(e) = tokio::fs::remove_file(&path).await {
                 warn!(file = %name, error = %e, "failed to remove old backup");
                 continue;
             }
-            let _ = sqlx::query("DELETE FROM backup_runs WHERE filename = $1")
-                .bind(name)
-                .execute(pool)
-                .await;
-            let _ = sqlx::query("DELETE FROM backups WHERE filename = $1")
-                .bind(name)
-                .execute(pool)
-                .await;
+            delete_backup_rows(pool, name).await;
             info!(file = %name, "pruned old backup");
         }
     }
     Ok(())
 }
 
+/// Restore statistics returned by [`restore`].
+#[derive(Debug, Clone)]
+pub struct RestoreStats {
+    pub db_bytes: u64,
+    pub doc_files: u64,
+    pub elapsed_secs: u64,
+}
+
+/// Restore a backup tarball into `target_db_url` + `documents_dir`
+/// (`ops-hardening` drill path).
+///
+/// - Extracts the tarball to a temp dir.
+/// - `db.sql` is loaded with `psql`; `db.sqlite` is copied over the
+///   target file for SQLite deployments.
+/// - `documents.tar` is extracted into `documents_dir`.
+/// - Database URLs are redacted from every error string.
+pub async fn restore(
+    tarball: &Path,
+    target_db_url: &str,
+    documents_dir: &Path,
+) -> Result<RestoreStats, BackupError> {
+    let started = std::time::Instant::now();
+    let tmp = tempfile::tempdir().map_err(BackupError::Tmp)?;
+    let status = tokio::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(tarball)
+        .arg("-C")
+        .arg(tmp.path())
+        .status()
+        .await
+        .map_err(|e| BackupError::Restore(format!("extracting tarball: {e}")))?;
+    if !status.success() {
+        return Err(BackupError::Restore(format!("tar extract exited {status}")));
+    }
+
+    let db_bytes: u64;
+    let db_sql = tmp.path().join("db.sql");
+    let db_sqlite = tmp.path().join("db.sqlite");
+    if db_sql.exists() {
+        db_bytes = tokio::fs::metadata(&db_sql)
+            .await
+            .map_err(BackupError::Stat)?
+            .len();
+        load_sql_dump(&db_sql, target_db_url).await?;
+    } else if db_sqlite.exists() {
+        db_bytes = tokio::fs::metadata(&db_sqlite)
+            .await
+            .map_err(BackupError::Stat)?
+            .len();
+        let target_path = sqlite_path(target_db_url).ok_or_else(|| {
+            BackupError::Restore("sqlite backup needs a file-backed sqlite target URL".to_string())
+        })?;
+        if let Some(parent) = target_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(BackupError::Dir)?;
+        }
+        tokio::fs::copy(&db_sqlite, &target_path)
+            .await
+            .map_err(|e| BackupError::Restore(format!("restoring sqlite file: {e}")))?;
+    } else {
+        return Err(BackupError::Restore(
+            "tarball contains neither db.sql nor db.sqlite".to_string(),
+        ));
+    }
+
+    let docs_tar = tmp.path().join("documents.tar");
+    let mut doc_files = 0u64;
+    if docs_tar.exists() {
+        tokio::fs::create_dir_all(documents_dir)
+            .await
+            .map_err(BackupError::Dir)?;
+        let status = tokio::process::Command::new("tar")
+            .arg("-xf")
+            .arg(&docs_tar)
+            .arg("-C")
+            .arg(documents_dir)
+            .status()
+            .await
+            .map_err(|e| BackupError::Restore(format!("extracting documents: {e}")))?;
+        if !status.success() {
+            return Err(BackupError::Restore(format!(
+                "documents extract exited {status}"
+            )));
+        }
+        doc_files = count_files(documents_dir).await;
+    }
+
+    Ok(RestoreStats {
+        db_bytes,
+        doc_files,
+        elapsed_secs: started.elapsed().as_secs(),
+    })
+}
+
+async fn load_sql_dump(dump: &Path, target_db_url: &str) -> Result<(), BackupError> {
+    let psql = resolve_psql();
+    let out = tokio::process::Command::new(&psql)
+        .arg("--quiet")
+        .arg("-v")
+        .arg("ON_ERROR_STOP=1")
+        .arg("-d")
+        .arg(target_db_url)
+        .arg("-f")
+        .arg(dump)
+        .output()
+        .await
+        .map_err(|e| BackupError::Restore(format!("spawning {psql}: {e}")))?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        return Err(BackupError::Restore(sanitize_error(&format!(
+            "psql restore exited {}: {stderr}",
+            out.status
+        ))));
+    }
+    Ok(())
+}
+
+/// Pick a `psql` binary: `psql` on PATH, else the newest
+/// version-matched client under `/usr/lib/postgresql/*/bin/`.
+fn resolve_psql() -> String {
+    if which_psql_exists("psql") {
+        return "psql".to_string();
+    }
+    let mut best: Option<(u32, PathBuf)> = None;
+    if let Ok(dir) = std::fs::read_dir("/usr/lib/postgresql") {
+        for entry in dir.filter_map(|e| e.ok()) {
+            let major: u32 = match entry.file_name().to_str().and_then(|s| s.parse().ok()) {
+                Some(m) => m,
+                None => continue,
+            };
+            let candidate = entry.path().join("bin").join("psql");
+            if candidate.exists() && best.as_ref().is_none_or(|(m, _)| major > *m) {
+                best = Some((major, candidate));
+            }
+        }
+    }
+    best.map(|(_, p)| p.display().to_string())
+        .unwrap_or_else(|| "psql".to_string())
+}
+
+fn which_psql_exists(name: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|d| d.join(name).exists()))
+        .unwrap_or(false)
+}
+
+async fn count_files(dir: &Path) -> u64 {
+    let mut count = 0u64;
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let mut entries = match tokio::fs::read_dir(&current).await {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
+            match entry.file_type().await {
+                Ok(ft) if ft.is_dir() => stack.push(entry.path()),
+                Ok(ft) if ft.is_file() => count += 1,
+                _ => {}
+            }
+        }
+    }
+    count
+}
+
+/// Trim the on-disk backup directory to `cfg.keep` files, then
+/// mirror the deletion in the `backup_runs` table.
+pub async fn prune_for_test(pool: &PgPool, cfg: &BackupConfig) -> Result<(), String> {
+    prune_dir(pool, &cfg.dir, cfg.keep).await
+}
+
 /// Errors from the backup pipeline. Each variant is rendered into
-/// the `backup_runs.error` column on failure.
+/// the `backup_runs.error` column on failure (URLs redacted via
+/// [`sanitize_error`]).
 #[derive(Debug)]
 pub enum BackupError {
     Dir(std::io::Error),
@@ -549,6 +955,8 @@ pub enum BackupError {
     TarDocs(String),
     Tar(String),
     Stat(std::io::Error),
+    Store(String),
+    Restore(String),
     Internal(String),
 }
 
@@ -561,6 +969,8 @@ impl std::fmt::Display for BackupError {
             Self::TarDocs(e) => write!(f, "tar documents: {e}"),
             Self::Tar(e) => write!(f, "tar: {e}"),
             Self::Stat(e) => write!(f, "stat tarball: {e}"),
+            Self::Store(e) => write!(f, "backup storage: {e}"),
+            Self::Restore(e) => write!(f, "restore: {e}"),
             Self::Internal(e) => write!(f, "internal: {e}"),
         }
     }
@@ -625,6 +1035,7 @@ mod tests {
             keep: DEFAULT_BACKUP_KEEP,
             dir: PathBuf::from(DEFAULT_BACKUP_DIR),
             pg_dump_bin: "pg_dump".to_string(),
+            target: BackupTargetKind::Dir,
         };
         assert_eq!(cfg.cron_expr, DEFAULT_BACKUP_CRON);
         assert_eq!(cfg.keep, DEFAULT_BACKUP_KEEP);
@@ -640,7 +1051,199 @@ mod tests {
             keep: 1,
             dir: PathBuf::from("/tmp"),
             pg_dump_bin: "pg_dump".into(),
+            target: BackupTargetKind::Dir,
         };
         assert!(cfg.schedule().is_err());
+    }
+
+    /// In-memory [`Storage`] fake: S3-shaped keys, controllable
+    /// modification times, no network.
+    struct FakeStore {
+        objects: std::sync::Mutex<std::collections::HashMap<String, (Vec<u8>, i64)>>,
+    }
+
+    impl FakeStore {
+        fn new() -> Self {
+            Self {
+                objects: std::sync::Mutex::new(std::collections::HashMap::new()),
+            }
+        }
+    }
+
+    use crate::storage::{StorageKey, StoredObject};
+
+    #[async_trait::async_trait]
+    impl crate::storage::Storage for FakeStore {
+        async fn allocate_path(
+            &self,
+            _transaction_id: Uuid,
+            _original: &str,
+        ) -> Result<StorageKey, crate::storage::StorageError> {
+            Err(crate::storage::StorageError::NotFound)
+        }
+
+        fn key_from_stored(
+            &self,
+            _stored: &str,
+        ) -> Result<StorageKey, crate::storage::StorageError> {
+            Err(crate::storage::StorageError::NotFound)
+        }
+
+        fn root_for(&self) -> PathBuf {
+            PathBuf::new()
+        }
+
+        async fn read(&self, key: &StorageKey) -> Result<Vec<u8>, crate::storage::StorageError> {
+            let name = match key {
+                StorageKey::S3 { key, .. } => key.clone(),
+                _ => return Err(crate::storage::StorageError::NotFound),
+            };
+            self.objects
+                .lock()
+                .unwrap()
+                .get(&name)
+                .map(|(b, _)| b.clone())
+                .ok_or(crate::storage::StorageError::NotFound)
+        }
+
+        async fn write(
+            &self,
+            key: &StorageKey,
+            bytes: &[u8],
+        ) -> Result<(), crate::storage::StorageError> {
+            let name = match key {
+                StorageKey::S3 { key, .. } => key.clone(),
+                _ => return Err(crate::storage::StorageError::NotFound),
+            };
+            // Fake clock: each write is newer than the last.
+            let seq = self.objects.lock().unwrap().len() as i64;
+            self.objects
+                .lock()
+                .unwrap()
+                .insert(name, (bytes.to_vec(), seq));
+            Ok(())
+        }
+
+        async fn delete(&self, key: &StorageKey) -> Result<(), crate::storage::StorageError> {
+            let name = match key {
+                StorageKey::S3 { key, .. } => key.clone(),
+                _ => return Err(crate::storage::StorageError::NotFound),
+            };
+            self.objects.lock().unwrap().remove(&name);
+            Ok(())
+        }
+
+        async fn signed_url(
+            &self,
+            _key: &StorageKey,
+            _ttl_secs: u32,
+        ) -> Result<Option<String>, crate::storage::StorageError> {
+            Ok(None)
+        }
+
+        fn backend_label(&self) -> &'static str {
+            "s3"
+        }
+
+        fn backup_key(
+            &self,
+            prefix: &str,
+            filename: &str,
+        ) -> Result<StorageKey, crate::storage::StorageError> {
+            Ok(StorageKey::S3 {
+                bucket: "fake".to_string(),
+                key: format!("{prefix}/{filename}"),
+            })
+        }
+
+        async fn list(
+            &self,
+            prefix: &str,
+        ) -> Result<Vec<StoredObject>, crate::storage::StorageError> {
+            let mut out: Vec<StoredObject> = self
+                .objects
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(k, _)| k.starts_with(prefix))
+                .map(|(k, (b, seq))| StoredObject {
+                    key: StorageKey::S3 {
+                        bucket: "fake".to_string(),
+                        key: k.clone(),
+                    },
+                    name: k.clone(),
+                    size_bytes: b.len() as u64,
+                    modified_secs: Some(*seq),
+                })
+                .collect();
+            out.sort_by_key(|o| std::cmp::Reverse(o.modified_secs.unwrap_or(0)));
+            Ok(out)
+        }
+    }
+
+    /// Task 1.2: the S3 target writes tarballs and prunes per the
+    /// retention fixture (keep = 3 of 5).
+    #[tokio::test]
+    async fn s3_target_writes_and_prunes_per_retention() {
+        let store: SharedStorage = std::sync::Arc::new(FakeStore::new());
+        let target = ResolvedTarget::Store {
+            store,
+            prefix: "backups".to_string(),
+        };
+        for i in 0..5 {
+            persist_bytes(
+                &target,
+                &format!("openaccounting_2026010{i}_120000.tar.gz"),
+                b"fake",
+            )
+            .await
+            .expect("write");
+        }
+        // Pool is unused by the Store prune path except for row
+        // mirrors; a lazy pool is never connected.
+        let pool = PgPool::connect_lazy("postgres://localhost/unused").expect("lazy pool");
+        prune_target(&pool, &target, 3).await.expect("prune");
+        let remaining = match &target {
+            ResolvedTarget::Store { store, prefix } => store.list(prefix).await.expect("list"),
+            ResolvedTarget::Dir(_) => unreachable!(),
+        };
+        assert_eq!(
+            remaining.len(),
+            3,
+            "retention must keep 3, got {}",
+            remaining.len()
+        );
+        let names: Vec<_> = remaining.iter().map(|o| o.name.clone()).collect();
+        assert!(
+            names.iter().any(|n| n.contains("20260104")),
+            "newest must survive: {names:?}"
+        );
+        assert!(
+            !names.iter().any(|n| n.contains("20260100")),
+            "oldest must be pruned: {names:?}"
+        );
+    }
+
+    #[test]
+    fn sqlite_url_detection_and_path_resolution() {
+        assert!(is_sqlite_url("sqlite:///var/lib/oa.db"));
+        assert!(is_sqlite_url("sqlite:/var/lib/oa.db"));
+        assert!(!is_sqlite_url("postgres://localhost/oa"));
+        assert_eq!(
+            sqlite_path("sqlite:///var/lib/oa.db?mode=ro"),
+            Some(PathBuf::from("/var/lib/oa.db"))
+        );
+        assert_eq!(sqlite_path("sqlite://:memory:"), None);
+    }
+
+    #[test]
+    fn sanitize_error_redacts_passwords() {
+        let dirty = "psql restore exited 1: connection to postgres://bob:s3cret@db:5432/oa failed";
+        let clean = sanitize_error(dirty);
+        assert!(!clean.contains("s3cret"), "password must go: {clean}");
+        assert!(!clean.contains("bob"), "username must go: {clean}");
+        assert!(clean.contains("***"), "redaction marker must show: {clean}");
+        let untouched = "tar extract exited 1";
+        assert_eq!(sanitize_error(untouched), untouched);
     }
 }

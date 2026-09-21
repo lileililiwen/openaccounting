@@ -30,6 +30,7 @@ pub mod jobs;
 pub mod notifications;
 pub mod observability;
 pub mod ocr;
+pub mod ratelimit;
 pub mod reports;
 pub mod storage;
 pub mod templates;
@@ -903,7 +904,12 @@ fn build_router_inner(
         // bytes. `s10-upload-validation`: over-cap requests
         // receive HTTP 413 immediately. The cap is
         // `config.upload_max_bytes` (default 25 MiB).
-        .route_layer(RequestBodyLimitLayer::new(config.upload_max_bytes));
+        .route_layer(RequestBodyLimitLayer::new(config.upload_max_bytes))
+        // Global per-route token buckets (`ops-hardening`): auth,
+        // API, webhook, and import routes share one mechanism.
+        // Runs outermost so throttled requests skip CSRF, auth,
+        // and handler work entirely.
+        .route_layer(axum::middleware::from_fn(crate::ratelimit::limit));
 
     public
         .merge(protected)

@@ -82,6 +82,26 @@ Confirm:
 - `sha256` matches the binary's SHA256 (step 2).
 - `artifacts` lists every file attached to the release.
 
+## 5. Verify the SBOM and its signature
+
+```sh
+cosign verify-blob \
+  --bundle openaccounting-sbom.json.bundle \
+  --certificate-identity-regexp 'https://github.com/lileililiwen/openaccounting/.github/workflows/release.yml@refs/tags/<TAG>' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  openaccounting-sbom.json
+```
+
+where `<TAG>` is the release tag. Then confirm the SBOM covers the
+locked dependency set (CycloneDX `components` match `Cargo.lock`):
+
+```sh
+sha256sum -c openaccounting.sha256
+```
+
+The binary itself carries embedded audit data (`cargo auditable`
+build): artifact-to-source linkage holds even without the SBOM file.
+
 ---
 
 ## Reproducing a build locally

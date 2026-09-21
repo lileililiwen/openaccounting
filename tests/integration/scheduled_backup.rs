@@ -102,6 +102,7 @@ async fn backup_worker_creates_tarball() {
         keep: 7,
         dir: backup_dir.path().to_path_buf(),
         pg_dump_bin: "pg_dump".into(),
+        target: openaccounting::workers::backup::BackupTargetKind::Dir,
     };
     let filename = openaccounting::workers::backup::run_backup_with_pool(
         &pool,
@@ -157,6 +158,7 @@ async fn backup_worker_retention_deletes_old() {
         keep: 3,
         dir: backup_dir.path().to_path_buf(),
         pg_dump_bin: "pg_dump".into(),
+        target: openaccounting::workers::backup::BackupTargetKind::Dir,
     };
 
     // Drop in 3 more files so we have 9 total; with `keep = 3`,
@@ -226,6 +228,7 @@ async fn backup_worker_failure_records_error() {
         keep: 7,
         dir: tempfile::tempdir().unwrap().path().to_path_buf(),
         pg_dump_bin: "/nonexistent/pg_dump".into(),
+        target: openaccounting::workers::backup::BackupTargetKind::Dir,
     };
     let result = openaccounting::workers::backup::run_backup_with_pool(
         &pool,

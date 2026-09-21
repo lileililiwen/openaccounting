@@ -16,3 +16,4 @@
 //! the snapshot on demand (no HTTP listener of its own).
 
 pub mod metrics;
+pub mod tracing;

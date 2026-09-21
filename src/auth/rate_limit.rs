@@ -164,7 +164,69 @@ pub async fn check_ip(
     }
 }
 
-/// Normalise an email for storage and lookup.
+/// Seconds until the account throttle for `email` rolls off: the
+/// oldest in-window failure plus the account window, minus now.
+/// Returns 0 when the account is not currently throttled. Used for
+/// the `Retry-After` header on 429 responses (`ops-hardening`).
+pub async fn retry_after_account(
+    pool: &PgPool,
+    email: &str,
+    now: OffsetDateTime,
+) -> Result<i64, sqlx::Error> {
+    retry_after(
+        pool,
+        "SELECT MIN(ts) FROM login_attempts WHERE email = $1 AND success = false AND ts > $2",
+        email,
+        ACCOUNT_WINDOW_MINUTES,
+        now,
+    )
+    .await
+}
+
+/// Seconds until the IP throttle for `ip` rolls off. See
+/// [`retry_after_account`].
+pub async fn retry_after_ip(
+    pool: &PgPool,
+    ip: &str,
+    now: OffsetDateTime,
+) -> Result<i64, sqlx::Error> {
+    let cutoff = now - time::Duration::minutes(IP_WINDOW_MINUTES);
+    let oldest: Option<OffsetDateTime> = sqlx::query_scalar(
+        r#"SELECT MIN(ts) FROM login_attempts
+           WHERE ip = $1::inet AND success = false AND ts > $2"#,
+    )
+    .bind(ip)
+    .bind(cutoff)
+    .fetch_one(pool)
+    .await?;
+    Ok(oldest
+        .map(|ts| {
+            let expiry = ts + time::Duration::minutes(IP_WINDOW_MINUTES);
+            (expiry - now).whole_seconds().max(0)
+        })
+        .unwrap_or(0))
+}
+
+async fn retry_after(
+    pool: &PgPool,
+    oldest_sql: &str,
+    email: &str,
+    window_minutes: i64,
+    now: OffsetDateTime,
+) -> Result<i64, sqlx::Error> {
+    let cutoff = now - time::Duration::minutes(window_minutes);
+    let oldest: Option<OffsetDateTime> = sqlx::query_scalar(oldest_sql)
+        .bind(email)
+        .bind(cutoff)
+        .fetch_one(pool)
+        .await?;
+    Ok(oldest
+        .map(|ts| {
+            let expiry = ts + time::Duration::minutes(window_minutes);
+            (expiry - now).whole_seconds().max(0)
+        })
+        .unwrap_or(0))
+}
 ///
 /// We lowercase and trim so the rate-limit query matches even if
 /// the caller typed `Alice@Example.COM` once and `alice@example.com`

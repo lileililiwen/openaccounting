@@ -38,12 +38,12 @@ export CARGO_INCREMENTAL=0
 mkdir -p "$(dirname "$OUTPUT")"
 
 echo "==> building release binary"
-cargo build --release --locked
+cargo auditable build --release --locked
 
 echo "==> verifying reproducibility"
 TMP="$(mktemp)"
 cp "$OUTPUT" "$TMP"
-cargo build --release --locked
+cargo auditable build --release --locked
 
 H1="$(sha256sum "$TMP"   | awk '{print $1}')"
 H2="$(sha256sum "$OUTPUT" | awk '{print $1}')"

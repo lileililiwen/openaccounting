@@ -167,8 +167,13 @@ jobs:
         with:
           workspaces: "."
 
+      - name: Install cargo-auditable
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
+        with:
+          tool: cargo-auditable
+
       - name: Build #1
-        run: cargo build --release --locked
+        run: cargo auditable build --release --locked
 
       - name: Hash #1
         id: hash1
@@ -177,7 +182,7 @@ jobs:
           sha256sum target/release/openaccounting | tee /tmp/sha1.txt
 
       - name: Build #2
-        run: cargo build --release --locked
+        run: cargo auditable build --release --locked
 
       - name: Hash #2
         id: hash2
@@ -213,8 +218,24 @@ jobs:
         with:
           workspaces: "."
 
+      - name: Install cargo-auditable
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
+        with:
+          tool: cargo-auditable
+
+      - name: Install cargo-cyclonedx
+        uses: taiki197/install-action@7b5f0e3d1c4a2e8b6f9d3c5a8e1b4f7c2d9a6e3b # v2.0.1
+        with:
+          tool: cargo-cyclonedx
+
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo auditable build --release --locked
+
+      - name: Generate SBOM (CycloneDX from the locked dependency set)
+        run: |
+          set -euo pipefail
+          cargo cyclonedx --format json --override-filename openaccounting-sbom
+          ls -la openaccounting-sbom.json
 
       - name: Compute SHA256
         id: sha
@@ -238,6 +259,9 @@ jobs:
               "openaccounting.sig",
               "openaccounting.cert",
               "openaccounting.bundle",
+              "openaccounting-sbom.json",
+              "openaccounting-sbom.json.sig",
+              "openaccounting-sbom.json.bundle",
               "openaccounting.manifest.json"
             ],
             "repository": "${{ github.repository }}",
@@ -259,6 +283,33 @@ jobs:
             --output-certificate openaccounting.cert \
             --bundle openaccounting.bundle \
             target/release/openaccounting
+          cosign sign-blob \
+            --output-signature openaccounting-sbom.json.sig \
+            --output-certificate openaccounting-sbom.json.cert \
+            --bundle openaccounting-sbom.json.bundle \
+            openaccounting-sbom.json
+
+      - name: Verify release bundle complete
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in target/release/openaccounting \
+                   openaccounting-sbom.json \
+                   openaccounting.manifest.json \
+                   openaccounting.sig openaccounting.cert openaccounting.bundle \
+                   openaccounting-sbom.json.sig openaccounting-sbom.json.bundle; do
+            if [ ! -s "$f" ]; then
+              echo "FAIL: release artifact missing or empty: $f" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Refusing to publish an incomplete release bundle." >&2
+            exit 1
+          fi
+          sha256sum target/release/openaccounting openaccounting-sbom.json \
+            openaccounting.manifest.json > openaccounting.sha256
+          echo "OK: binary, SBOM, provenance, signatures, and checksums present"
 
       - name: Create / update GitHub release
         uses: softprops/action-gh-release@9d8ed2d2dd7c8c5d2d8c5e0b2d4f6a8c3e1d9f7b # v2.0.6
@@ -270,7 +321,12 @@ jobs:
             openaccounting.sig
             openaccounting.cert
             openaccounting.bundle
+            openaccounting-sbom.json
+            openaccounting-sbom.json.sig
+            openaccounting-sbom.json.cert
+            openaccounting-sbom.json.bundle
             openaccounting.manifest.json
+            openaccounting.sha256
           body: |
             ## Verification
 

@@ -31,6 +31,14 @@ and this project adheres to
   runbook, sizing guide, API reference pointer), and
   docs-consistency CI checks (TBD markers, stale identity, doc
   paths, roadmap entries, ERD freshness).
+- Operational hardening: operative security contact with disclosure
+  process, threat model, and log-redaction policy; S3 backup target
+  with retention enforcement; nightly restore-verification job;
+  stated RTO/RPO with WAL-archive PITR procedure; opt-in OTel
+  tracing with redacted spans; per-route rate-limit middleware
+  (429 + Retry-After on auth, API, webhook, import routes);
+  release SBOM (CycloneDX) plus signatures with a bundle-completeness
+  gate.
 
 ### Changed
 - Production mode now rejects known fallback credentials and

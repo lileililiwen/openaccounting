@@ -13,6 +13,7 @@ pub mod email_send;
 pub mod events;
 pub mod invoice_reminders;
 pub mod recurring_invoices;
+pub mod restore_verify;
 pub mod template_run;
 pub mod webhook_delivery;
 
@@ -116,6 +117,10 @@ pub async fn execute(pool: &PgPool, job: ClaimedJob) {
         "template_scan" => template_run::scan_and_run(pool).await,
         "invoice_reminder_scan" => invoice_reminders::scan(pool).await,
         "recurring_invoice_scan" => recurring_invoices::scan_and_run(pool).await,
+        "restore_verify" => restore_verify::verify_latest(pool)
+            .await
+            .map(|_| ())
+            .map_err(JobError::Failed),
         "webhook_delivery" => webhook_delivery::deliver(pool, &job.payload).await,
         "email_send" => email_send::send(pool, &job.payload).await,
         "weekly_digest" => digest::send_for_user(pool, &job.payload).await,
