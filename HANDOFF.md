@@ -1,4 +1,4 @@
-current_spec: statement-reconciliation
+current_spec: accounting-dimensions
 
 # OpenAccounting handoff
 
@@ -13,6 +13,22 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: statement-reconciliation (2026-09-21, commit 0c2097e)
+
+Archived as `openspec/changes/archive/2026-09-21-statement-reconciliation/`;
+canonical spec `statement-reconciliation` created. Evidence: `openspec
+validate statement-reconciliation --strict` valid; `cargo fmt --check`
+clean; clippy zero new lints (repo-wide `-- -D warnings` still blocked by
+pre-existing src/ lints, none in new files); `cargo test --features
+test-support` lib 262/262 single-threaded, integration 414 passed
+including 7 new statement-reconciliation tests (unit 1.1-1.3/1.5 pass;
+parallel-run failures reproduced on pristine HEAD or passing in isolation:
+2 date-sensitive scheduler/recurring, TBD purpose in archived ops-hardening
+spec, role_enforcement, plus parallel flakes in backup/ocr; ERD staleness
+from migration 0056 fixed via `generate_erd.py`); migration 0056
+up/down applied and reverted on the dev DB (reversible). Next is
+`accounting-dimensions` per `ROADMAP.md` order.
 
 ## Completed: ops-hardening (2026-09-21, commit a6a51ac)
 
