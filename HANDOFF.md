@@ -1,4 +1,4 @@
-current_spec: accounting-dimensions
+current_spec: pro-close-controls
 
 # OpenAccounting handoff
 
@@ -13,6 +13,24 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: accounting-dimensions (2026-09-21, commit dbcc529)
+
+Archived as `openspec/changes/archive/2026-09-21-accounting-dimensions/`;
+canonical spec `accounting-dimensions` created. Evidence: `openspec
+validate accounting-dimensions --strict` valid; `cargo fmt --check`
+clean; clippy zero new lints (repo-wide `-- -D warnings` still blocked by
+pre-existing src/ lints); `cargo test --features test-support` lib 268/268
+single-threaded, integration 425 passed including 8 new
+accounting-dimensions tests plus 6 new domain unit tests (4
+parallel-run failures all reproduced on pristine HEAD: 2 date-sensitive
+scheduler/recurring, TBD purpose in archived ops-hardening spec,
+role_enforcement). Also fixed two latent bugs the new tests exposed:
+inventory purchase/adjust wrote to nonexistent `postings.currency`
+(now removed) and cash lookup used unmatched `subtype='cash'` (now
+name-convention with fallback); migration 0057 up applied via test runs,
+ERD regenerated (79 tables). Next is `pro-close-controls` per `ROADMAP.md`
+order.
 
 ## Completed: statement-reconciliation (2026-09-21, commit 0c2097e)
 
