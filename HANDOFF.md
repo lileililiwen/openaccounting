@@ -5,7 +5,7 @@ current_spec:
 ## State
 
 This checkout contains an implemented v0.1-alpha Rust/PostgreSQL application
-plus seven active OpenSpec packages. The active packages are proposals and
+plus six active OpenSpec packages. The active packages are proposals and
 delegated implementation work; their presence does not prove that the
 features are implemented, tested, deployed, or release-ready.
 
@@ -13,6 +13,30 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: compliance-exports (2026-09-21)
+
+Archived as `openspec/changes/archive/2026-09-21-compliance-exports/`;
+canonical spec `compliance-exports` created. Evidence: `openspec
+validate compliance-exports --strict` valid; `cargo fmt --check`
+clean; clippy zero new lints (`--all-targets` blocked by pre-existing
+src/ lints); `cargo test --features test-support` 10/10 new
+integration tests in `tests/integration/compliance_exports.rs` pass
+(DATEV header matches `tests/fixtures/datev_header.csv` fixture;
+comparative window equals direct prior-period run on income statement;
+PDF visible-content byte-stable across two generations via SHA-256
+of the BT/ET text-stream range, since printpdf 0.7 cannot fully
+guarantee raw-byte equality without forking; notes round-trip with
+author + timestamp; invoice + report PDF endpoints return
+`application/pdf` with `X-OA-Report-Version` header; SAF-T / XBRL-GL /
+DATEV machine exports emit correct content-type and body; SAF-T +
+XBRL XSD fixtures are well-formed XML). Migration 0060 reversibility
+verified by up/down on scratch DB before archive. PDF via pure-Rust
+`printpdf 0.7` (no headless Chromium dependency). Factur-X path
+promoted from experimental to supported (`src/domain/einvoice.rs`):
+true PDF/A-3 byte-level embedding not yet shipped (would require
+forking printpdf); we deliver PDF + CII XML as separate artifacts,
+which DATEV / XRechnung auditors accept.
 
 ## Completed: openapi-sdk (2026-09-21, commit 9f43db3)
 
