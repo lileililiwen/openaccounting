@@ -14,9 +14,12 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        helpers::{db_problem, next_link, page_from, require_access, with_next_link, PageParams},
+        helpers::{
+            db_problem, fingerprint, idempotency_lookup, idempotency_store, next_link, page_from,
+            require_access, with_next_link, PageParams,
+        },
         problem::Problem,
-        ApiUser,
+        ApiTokenId, ApiUser,
     },
     AppState,
 };
@@ -108,9 +111,26 @@ async fn get_one(
 async fn create(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path(ledger_id): Path<Uuid>,
     Json(raw): Json<serde_json::Value>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), Problem> {
+    // Idempotency (`openapi-sdk`): replay the stored response within 24 h.
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = fingerprint(&raw);
+    if let Some(k) = &idem_key {
+        if let Some((status, resp_body)) = idempotency_lookup(&state.pool, k, token.0, &fp).await? {
+            let v: serde_json::Value = serde_json::from_str(&resp_body).unwrap_or_default();
+            return Ok((
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
+                Json(v),
+            ));
+        }
+    }
     require_access(&state.pool, user.0, ledger_id, true).await?;
     let body: CreatePaymentBody = serde_json::from_value(raw)
         .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
@@ -181,8 +201,9 @@ async fn create(
     }
     tx.commit().await.map_err(db_problem)?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "id": payment_id })),
-    ))
+    let resp = serde_json::json!({ "id": payment_id });
+    if let Some(k) = idem_key {
+        idempotency_store(&state.pool, &k, token.0, &fp, 201, &resp.to_string()).await?;
+    }
+    Ok((StatusCode::CREATED, Json(resp)))
 }

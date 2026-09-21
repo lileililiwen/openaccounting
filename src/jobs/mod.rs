@@ -8,6 +8,7 @@
 //!
 //! Handlers live in sibling modules and are dispatched by [`run_due`].
 
+pub mod automation;
 pub mod digest;
 pub mod email_send;
 pub mod events;
@@ -122,6 +123,7 @@ pub async fn execute(pool: &PgPool, job: ClaimedJob) {
             .map(|_| ())
             .map_err(JobError::Failed),
         "webhook_delivery" => webhook_delivery::deliver(pool, &job.payload).await,
+        "automation_action" => automation::run(pool, &job.payload).await,
         "email_send" => email_send::send(pool, &job.payload).await,
         "weekly_digest" => digest::send_for_user(pool, &job.payload).await,
         other => Err(JobError::Failed(format!("unknown job kind '{other}'"))),

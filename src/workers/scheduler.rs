@@ -90,6 +90,9 @@ async fn housekeeping(
     // Nightly purge of finished jobs older than 30 days.
     let _ = crate::jobs::purge_old(pool).await?;
 
+    // Nightly TTL prune of expired idempotency records (`openapi-sdk`).
+    let _ = crate::api::helpers::purge_expired_idempotency(pool).await?;
+
     *last_day = Some(today);
     Ok(())
 }

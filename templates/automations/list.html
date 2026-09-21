@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Automation Rules — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <header class="flex items-end justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Automation Rules</h1>
+      <p class="text-slate-500 text-sm">Trigger actions (webhook / email / categorise) when events fire.</p>
+    </div>
+  </header>
+
+  {% if !error.is_empty() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-sm px-3 py-2">{{ error }}</div>
+  {% endif %}
+
+  <!-- Incoming Events Secret panel -->
+  <section class="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+    <h2 class="font-semibold text-sm">Incoming Event Intake</h2>
+    {% if has_secret %}
+      <p class="text-sm text-slate-600">Secret is configured. Send signed events to <code class="bg-slate-100 px-1 rounded">POST /api/events/{{ ledger_id }}</code></p>
+    {% else %}
+      <p class="text-sm text-slate-500">No secret configured — incoming intake is disabled.</p>
+    {% endif %}
+    <form method="post" action="/ledgers/{{ ledger_id }}/automations/rotate-secret" class="inline">
+      <button class="text-xs rounded bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-800">{% if has_secret %}Rotate Secret{% else %}Generate Secret{% endif %}</button>
+    </form>
+  </section>
+
+  <!-- Rule list -->
+  {% if rows.is_empty() %}
+    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+      <p class="text-base font-semibold text-slate-800">No rules yet</p>
+      <p class="mt-1 text-sm text-slate-500">Create a rule to react to events automatically.</p>
+    </div>
+  {% else %}
+    <table class="w-full text-sm">
+      <thead class="text-left text-xs uppercase text-slate-500">
+        <tr>
+          <th class="py-2">Name</th>
+          <th class="py-2">Trigger</th>
+          <th class="py-2">Action</th>
+          <th class="py-2">Active</th>
+          <th class="py-2 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in rows %}
+          <tr>
+            <td class="py-2">{{ r.name }}</td>
+            <td class="py-2 font-mono text-xs">{{ r.trigger }}</td>
+            <td class="py-2 font-mono text-xs">{{ r.action }}</td>
+            <td class="py-2">
+              {% if r.is_enabled %}
+                <span class="inline-block rounded bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5">on</span>
+              {% else %}
+                <span class="inline-block rounded bg-slate-100 text-slate-700 text-xs px-2 py-0.5">off</span>
+              {% endif %}
+            </td>
+            <td class="py-2 text-right space-x-2">
+              <form method="post" action="/ledgers/{{ ledger_id }}/automations/{{ r.id }}/toggle" class="inline">
+                <button class="text-xs underline text-slate-600">toggle</button>
+              </form>
+              <form method="post" action="/ledgers/{{ ledger_id }}/automations/{{ r.id }}/delete" class="inline">
+                <button class="text-xs underline text-rose-600">delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <!-- Create form -->
+  <section class="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+    <h2 class="font-semibold text-sm">New Rule</h2>
+    <form method="post" action="/ledgers/{{ ledger_id }}/automations" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600">Name</label>
+        <input name="name" required class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-600">Trigger</label>
+          <select name="trigger" class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm">
+            {% for t in triggers %}
+              <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600">Action</label>
+          <select name="action" class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm">
+            {% for a in actions %}
+              <option value="{{ a }}">{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600">Conditions (JSON object)</label>
+        <textarea name="conditions" rows="2" class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm font-mono">{}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600">Action config (JSON object)</label>
+        <textarea name="action_config" rows="2" class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm font-mono">{}</textarea>
+      </div>
+      <button type="submit" class="rounded-lg bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800">Create Rule</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

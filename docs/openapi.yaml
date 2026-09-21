@@ -1,0 +1,1246 @@
+openapi: "3.1.0"
+info:
+  title: OpenAccounting API
+  version: "1.0.0"
+  description: |
+    REST API for the OpenAccounting accounting platform.
+
+    ## Authentication
+    All `/api/v1/...` endpoints require a Bearer token:
+    ```
+    Authorization: Bearer oa_live_…
+    ```
+
+    ## Idempotency
+    `POST` endpoints accept an `Idempotency-Key` header. Replays
+    within 24 hours return the original response without re-executing
+    the mutation. Keys are scoped per token + ledger.
+
+    ## Pagination
+    List endpoints return `{"data": [...]}` with a `Link: <…>; rel="next"`
+    header when more results are available. Pass `?limit=` (default 50,
+    max 200) and `?cursor=` from the previous `Link` header.
+
+    ## Errors
+    All errors return RFC 7807 problem-details JSON
+    (`Content-Type: application/problem+json`).
+
+    ## Incoming Events
+    External systems can push signed events to
+    `POST /api/events/{ledger_id}` using the ledger's
+    `incoming_events_secret` (HMAC-SHA256 in the
+    `X-OA-Event-Signature: sha256=<hex>` header).
+
+    ## Automation Rules
+    Ledger owners create rules via the web UI at
+    `/ledgers/{id}/automations`. Rules map an allowlisted trigger
+    (event type) + conditions → an action (webhook / email /
+    categorise transaction) and execute on the jobs queue.
+servers:
+  - url: /
+    description: Same origin
+paths:
+  /api/openapi.yaml:
+    get:
+      operationId: getOpenApiSpec
+      summary: OpenAPI 3.1 specification (YAML)
+      tags: [System]
+      security: []
+      responses:
+        "200":
+          description: OpenAPI YAML document
+          content:
+            text/yaml: {}
+  /api/events/{ledger_id}:
+    post:
+      operationId: intakeEvent
+      summary: Signed incoming event intake
+      tags: [Events]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [external.sync, external.document.received, external.payment.received]
+                data:
+                  type: object
+      responses:
+        "202":
+          description: Event accepted and queued for rule evaluation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                  event_type:
+                    type: string
+        "401":
+          description: Missing or invalid X-OA-Event-Signature
+  /ledgers:
+    get:
+      operationId: listLedgers
+      summary: List ledgers owned by the caller
+      tags: [Ledgers]
+      responses:
+        "200":
+          description: Ledger list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerList"
+    post:
+      operationId: createLedger
+      summary: Create a new ledger
+      tags: [Ledgers]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLedgerBody"
+      responses:
+        "201":
+          description: Ledger created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ledger"
+  /ledgers/{id}:
+    get:
+      operationId: getLedger
+      summary: Get a single ledger
+      tags: [Ledgers]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Ledger details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ledger"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateLedger
+      summary: Update ledger name, timezone, or basis
+      tags: [Ledgers]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLedgerBody"
+      responses:
+        "200":
+          description: Updated ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ledger"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/accounts:
+    get:
+      operationId: listAccounts
+      summary: List accounts in a ledger
+      tags: [Accounts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountList"
+    post:
+      operationId: createAccount
+      summary: Create an account
+      tags: [Accounts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountBody"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+  /ledgers/{ledger_id}/accounts/{id}:
+    get:
+      operationId: getAccount
+      summary: Get a single account
+      tags: [Accounts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/AccountIdPath"
+      responses:
+        "200":
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAccount
+      summary: Update account name, description, or archive status
+      tags: [Accounts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/AccountIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountBody"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/transactions:
+    get:
+      operationId: listTransactions
+      summary: List transactions in a ledger
+      tags: [Transactions]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Transaction list
+          headers:
+            Link:
+              description: Cursor-based pagination link
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+    post:
+      operationId: createTransaction
+      summary: Post a new transaction (idempotent)
+      tags: [Transactions]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionBody"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTransactionResponse"
+  /ledgers/{ledger_id}/transactions/{id}:
+    get:
+      operationId: getTransaction
+      summary: Get a single transaction
+      tags: [Transactions]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/TransactionIdPath"
+      responses:
+        "200":
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/transactions/{id}/reverse:
+    post:
+      operationId: reverseTransaction
+      summary: Create a reversal transaction (idempotent)
+      tags: [Transactions]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/TransactionIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Reversal transaction created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  kind:
+                    type: string
+                  reverses_id:
+                    type: string
+                    format: uuid
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Ledger is closed through the transaction date
+        "422":
+          description: Cannot reverse a reversal
+  /ledgers/{ledger_id}/invoices:
+    get:
+      operationId: listInvoices
+      summary: List invoices in a ledger
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+    post:
+      operationId: createInvoice
+      summary: Create an invoice (idempotent)
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /ledgers/{ledger_id}/invoices/{id}:
+    get:
+      operationId: getInvoice
+      summary: Get a single invoice
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/InvoiceIdPath"
+      responses:
+        "200":
+          description: Invoice details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/invoices/{id}/mark-paid:
+    post:
+      operationId: markInvoicePaid
+      summary: Mark an invoice as paid (idempotent)
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/InvoiceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Invoice marked as paid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/invoices/{id}/void:
+    post:
+      operationId: voidInvoice
+      summary: Void an invoice with a reason (idempotent)
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/InvoiceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Invoice voided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/payments:
+    get:
+      operationId: listPayments
+      summary: List payments in a ledger
+      tags: [Payments]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+    post:
+      operationId: createPayment
+      summary: Record a payment (idempotent)
+      tags: [Payments]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentBody"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+  /ledgers/{ledger_id}/payments/{id}:
+    get:
+      operationId: getPayment
+      summary: Get a single payment
+      tags: [Payments]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaymentIdPath"
+      responses:
+        "200":
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/contacts:
+    get:
+      operationId: listContacts
+      summary: List contacts in a ledger
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactList"
+    post:
+      operationId: createContact
+      summary: Create a contact (idempotent)
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+  /ledgers/{ledger_id}/contacts/{id}:
+    get:
+      operationId: getContact
+      summary: Get a single contact
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/ContactIdPath"
+      responses:
+        "200":
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateContact
+      summary: Update a contact
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/ContactIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactBody"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/documents:
+    get:
+      operationId: listDocuments
+      summary: List documents in a ledger
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Document list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentList"
+    post:
+      operationId: uploadDocument
+      summary: Upload a document (multipart, max 25 MiB)
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Document uploaded
+  /ledgers/{ledger_id}/documents/{id}:
+    get:
+      operationId: downloadDocument
+      summary: Download a document
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/DocumentIdPath"
+      responses:
+        "200":
+          description: Document content
+    delete:
+      operationId: deleteDocument
+      summary: Delete a document
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/DocumentIdPath"
+      responses:
+        "204":
+          description: Document deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/budgets:
+    get:
+      operationId: listBudgets
+      summary: List budgets in a ledger
+      tags: [Budgets]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/PaginationParams"
+      responses:
+        "200":
+          description: Budget list with vs-actual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetList"
+    post:
+      operationId: createBudget
+      summary: Create a budget (idempotent)
+      tags: [Budgets]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBudgetBody"
+      responses:
+        "201":
+          description: Budget created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+  /ledgers/{ledger_id}/budgets/{id}:
+    get:
+      operationId: getBudget
+      summary: Get a single budget
+      tags: [Budgets]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/BudgetIdPath"
+      responses:
+        "200":
+          description: Budget details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteBudget
+      summary: Delete a budget
+      tags: [Budgets]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - $ref: "#/components/parameters/BudgetIdPath"
+      responses:
+        "204":
+          description: Budget deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/bank-feed-links:
+    get:
+      operationId: listBankFeedLinks
+      summary: List bank-feed links in a ledger
+      tags: [BankFeeds]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Bank-feed link list
+  /ledgers/{ledger_id}/bank-feed-links/{id}:
+    get:
+      operationId: getBankFeedLink
+      summary: Get a single bank-feed link
+      tags: [BankFeeds]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bank-feed link details
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /ledgers/{ledger_id}/reports/trial-balance:
+    get:
+      operationId: trialBalance
+      summary: Trial balance report
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Trial balance
+  /ledgers/{ledger_id}/reports/balance-sheet:
+    get:
+      operationId: balanceSheet
+      summary: Balance sheet report
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Balance sheet
+  /ledgers/{ledger_id}/reports/income-statement:
+    get:
+      operationId: incomeStatement
+      summary: Income statement report
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Income statement
+  /ledgers/{ledger_id}/reports/cash-flow:
+    get:
+      operationId: cashFlow
+      summary: Cash-flow report
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: Cash-flow report
+  /ledgers/{ledger_id}/reports/general-ledger:
+    get:
+      operationId: generalLedger
+      summary: General ledger report (max 200 rows)
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/LedgerIdPath"
+      responses:
+        "200":
+          description: General ledger
+components:
+  parameters:
+    LedgerIdPath:
+      name: ledger_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AccountIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TransactionIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvoiceIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PaymentIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ContactIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DocumentIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BudgetIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Client-generated key for idempotent POSTs (24 h window)
+    PaginationParams:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+  schemas:
+    Ledger:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        base_currency:
+          type: string
+        timezone:
+          type: string
+        basis:
+          type: string
+        append_only:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    LedgerList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ledger"
+    CreateLedgerBody:
+      type: object
+      required: [name, base_currency]
+      properties:
+        name:
+          type: string
+        base_currency:
+          type: string
+        timezone:
+          type: string
+          default: UTC
+        basis:
+          type: string
+          enum: [accrual, cash]
+          default: accrual
+    UpdateLedgerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        timezone:
+          type: string
+        basis:
+          type: string
+          enum: [accrual, cash]
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+        type:
+          type: string
+        subtype:
+          type: string
+        currency:
+          type: string
+        is_archived:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AccountList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+    CreateAccountBody:
+      type: object
+      required: [name, account_type, account_subtype]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        account_type:
+          type: string
+        account_subtype:
+          type: string
+        description:
+          type: string
+    UpdateAccountBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        is_archived:
+          type: boolean
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        txn_date:
+          type: string
+          format: date
+        description:
+          type: string
+        kind:
+          type: string
+        number:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TransactionList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+    CreateTransactionBody:
+      type: object
+      required: [date, description, lines]
+      properties:
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        payee:
+          type: string
+        reference:
+          type: string
+        kind:
+          type: string
+        lines:
+          type: array
+          items:
+            type: object
+            required: [account_id, direction, amount]
+            properties:
+              account_id:
+                type: string
+                format: uuid
+              direction:
+                type: string
+                enum: [DEBIT, CREDIT]
+              amount:
+                type: number
+              memo:
+                type: string
+    CreateTransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        total:
+          type: number
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        total:
+          type: number
+        amount_paid:
+          type: number
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+    InvoiceList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+    CreateInvoiceBody:
+      type: object
+      required: [invoice_date, due_date, total, lines]
+      properties:
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        total:
+          type: number
+        description:
+          type: string
+        lines:
+          type: array
+          items:
+            type: object
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        payment_date:
+          type: string
+          format: date
+        payment_method:
+          type: string
+        kind:
+          type: string
+    PaymentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+    CreatePaymentBody:
+      type: object
+      required: [amount, payment_date, payment_method, kind]
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        payment_date:
+          type: string
+          format: date
+        payment_method:
+          type: string
+          enum: [cash, check, bank_transfer, credit_card, other]
+        reference:
+          type: string
+        kind:
+          type: string
+          enum: [received, made]
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        kind:
+          type: string
+    ContactList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+    CreateContactBody:
+      type: object
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        kind:
+          type: string
+          enum: [customer, vendor, both]
+    UpdateContactBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        kind:
+          type: string
+          enum: [customer, vendor, both]
+    DocumentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+    Budget:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account:
+          type: string
+        period:
+          type: string
+        amount:
+          type: number
+        alert_threshold:
+          type: number
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+    BudgetList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+    CreateBudgetBody:
+      type: object
+      required: [account_id, period, amount, start_date, end_date]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        period:
+          type: string
+          enum: [monthly, quarterly, yearly]
+        amount:
+          type: number
+        alert_threshold:
+          type: number
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string

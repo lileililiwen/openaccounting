@@ -267,6 +267,26 @@ fn build_router_inner(
             "/ledgers/{id}/webhooks/plaid",
             post(handlers::bank_feeds::webhook_plaid),
         )
+        // Signed incoming event intake (`openapi-sdk`).
+        .route("/api/events/{ledger_id}", post(handlers::events_in::intake))
+        // Machine-readable OpenAPI 3.1 contract (`openapi-sdk`).
+        .route(
+            "/api/openapi.yaml",
+            get(|| async {
+                (
+                    [("content-type", "text/yaml; charset=utf-8")],
+                    include_str!("../docs/openapi.yaml"),
+                )
+            }),
+        )
+        // Public REST API (`a1-rest-api`). Bearer-token auth is
+        // applied inside `api::mod::require_bearer`. Placed on the
+        // public router so bearer-only clients (no session cookie)
+        // are not redirected to /login. The global IP rate-limit
+        // layer is applied directly so /api/ routes are still
+        // throttled.
+        .merge(crate::api::router(state.clone()))
+        .route_layer(axum::middleware::from_fn(crate::ratelimit::limit))
         // Public share links (`ar-getting-paid`): tokenized, login-free
         // document views. Tokens are unguessable; revoked links 410.
         .route(
@@ -475,6 +495,22 @@ fn build_router_inner(
         .route(
             "/ledgers/{id}/webhooks/{sub_id}/replay",
             post(handlers::webhooks_out::replay_latest),
+        )
+        .route(
+            "/ledgers/{id}/automations",
+            get(handlers::automations::page).post(handlers::automations::create),
+        )
+        .route(
+            "/ledgers/{id}/automations/{rule_id}/toggle",
+            post(handlers::automations::toggle),
+        )
+        .route(
+            "/ledgers/{id}/automations/{rule_id}/delete",
+            post(handlers::automations::delete),
+        )
+        .route(
+            "/ledgers/{id}/automations/rotate-secret",
+            post(handlers::automations::rotate_incoming_secret),
         )
         .route("/ledgers/{id}/reports", get(handlers::reports::index))
         .route(
@@ -987,10 +1023,6 @@ fn build_router_inner(
             post(handlers::account_locale::set_locale),
         )
         .merge(handlers::admin::admin_routes())
-        // Public REST API (`a1-rest-api`). Bearer-token auth
-        // is applied inside the API router itself, so this merge
-        // does not get the cookie-based login layer.
-        .merge(crate::api::router(state.clone()))
         // CSRF middleware wraps the protected router so it never
         // touches `/login`, `/register`, the plaid webhook or any
         // other public route (`s1-csrf-protection`).

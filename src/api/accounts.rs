@@ -12,14 +12,21 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    api::{problem::Problem, ApiUser},
+    api::{
+        helpers::{fingerprint, idempotency_lookup, idempotency_store},
+        problem::Problem,
+        ApiTokenId, ApiUser,
+    },
     AppState,
 };
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/ledgers/{ledger_id}/accounts", get(list).post(create))
-        .route("/ledgers/{ledger_id}/accounts/{id}", get(get_one))
+        .route(
+            "/ledgers/{ledger_id}/accounts/{id}",
+            get(get_one).patch(update),
+        )
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -106,9 +113,35 @@ async fn get_one(
 async fn create(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path(ledger_id): Path<Uuid>,
-    Json(body): Json<CreateAccountBody>,
-) -> Result<(StatusCode, Json<AccountDto>), Problem> {
+    Json(raw): Json<serde_json::Value>,
+) -> Result<
+    (
+        StatusCode,
+        [(axum::http::HeaderName, axum::http::HeaderValue); 1],
+        String,
+    ),
+    Problem,
+> {
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = fingerprint(&raw);
+    let json_ct = axum::http::HeaderValue::from_static("application/json");
+    if let Some(k) = &idem_key {
+        if let Some((status, resp_body)) = idempotency_lookup(&state.pool, k, token.0, &fp).await? {
+            return Ok((
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
+                [(axum::http::header::CONTENT_TYPE, json_ct)],
+                resp_body,
+            ));
+        }
+    }
+    let body: CreateAccountBody = serde_json::from_value(raw)
+        .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
     if !ledger_owned_by(&state.pool, ledger_id, user.0).await? {
         return Err(Problem::new(
             StatusCode::NOT_FOUND,
@@ -147,12 +180,76 @@ async fn create(
     .bind(body.description.as_deref().filter(|s| !s.is_empty()))
     .fetch_one(&state.pool)
     .await;
+    let dto = match row {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(Problem::new(
+                StatusCode::BAD_REQUEST,
+                "Bad Request",
+                format!("insert failed: {e}"),
+            ))
+        }
+    };
+    let resp = serde_json::to_string(&dto).map_err(|e| {
+        Problem::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal Server Error",
+            e.to_string(),
+        )
+    })?;
+    if let Some(k) = idem_key {
+        idempotency_store(&state.pool, &k, token.0, &fp, 201, &resp).await?;
+    }
+    Ok((
+        StatusCode::CREATED,
+        [(axum::http::header::CONTENT_TYPE, json_ct)],
+        resp,
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAccountBody {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub is_archived: Option<bool>,
+}
+
+async fn update(
+    State(state): State<AppState>,
+    user: ApiUser,
+    Path((ledger_id, id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<UpdateAccountBody>,
+) -> Result<Json<AccountDto>, Problem> {
+    if !ledger_owned_by(&state.pool, ledger_id, user.0).await? {
+        return Err(Problem::new(
+            StatusCode::NOT_FOUND,
+            "Not Found",
+            "ledger not found",
+        ));
+    }
+    let row: Option<AccountDto> = sqlx::query_as::<_, AccountDto>(
+        "UPDATE accounts
+         SET name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             is_archived = COALESCE($4, is_archived),
+             updated_at = now()
+         WHERE id = $1 AND ledger_id = $5
+         RETURNING id, ledger_id, parent_id, name, code, type, subtype, currency, is_archived, description, created_at, updated_at",
+    )
+    .bind(id)
+    .bind(body.name.as_deref().filter(|s| !s.trim().is_empty()))
+    .bind(body.description.as_deref())
+    .bind(body.is_archived)
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(problem_for_db)?;
     match row {
-        Ok(r) => Ok((StatusCode::CREATED, Json(r))),
-        Err(e) => Err(Problem::new(
-            StatusCode::BAD_REQUEST,
-            "Bad Request",
-            format!("insert failed: {e}"),
+        Some(r) => Ok(Json(r)),
+        None => Err(Problem::new(
+            StatusCode::NOT_FOUND,
+            "Not Found",
+            "account not found",
         )),
     }
 }

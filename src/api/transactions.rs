@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    api::{problem::Problem, ApiUser},
+    api::{problem::Problem, ApiTokenId, ApiUser},
     AppState,
 };
 
@@ -21,6 +21,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/ledgers/{ledger_id}/transactions", get(list).post(create))
         .route("/ledgers/{ledger_id}/transactions/{id}", get(get_one))
+        .route(
+            "/ledgers/{ledger_id}/transactions/{id}/reverse",
+            axum::routing::post(reverse),
+        )
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -309,6 +313,147 @@ async fn create(
             axum::http::HeaderValue::from_static("application/json"),
         )],
         body_str,
+    ))
+}
+
+/// POST `/ledgers/{ledger_id}/transactions/{id}/reverse`
+/// (`openapi-sdk`): creates a `kind='reversing'` transaction dated
+/// today that negates the original's postings, mirroring the web
+/// edit/void path. The original row is untouched.
+async fn reverse(
+    State(state): State<AppState>,
+    user: ApiUser,
+    token: ApiTokenId,
+    headers: HeaderMap,
+    Path((ledger_id, id)): Path<(Uuid, Uuid)>,
+) -> Result<
+    (
+        StatusCode,
+        [(axum::http::HeaderName, axum::http::HeaderValue); 1],
+        String,
+    ),
+    Problem,
+> {
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = crate::api::helpers::fingerprint(&serde_json::json!({}));
+    let json_ct = axum::http::HeaderValue::from_static("application/json");
+    if let Some(k) = &idem_key {
+        if let Some((status, resp_body)) =
+            crate::api::helpers::idempotency_lookup(&state.pool, k, token.0, &fp).await?
+        {
+            return Ok((
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
+                [(axum::http::header::CONTENT_TYPE, json_ct)],
+                resp_body,
+            ));
+        }
+    }
+    if !ledger_owned_by(&state.pool, ledger_id, user.0).await? {
+        return Err(Problem::new(
+            StatusCode::NOT_FOUND,
+            "Not Found",
+            "ledger not found",
+        ));
+    }
+    let original: Option<(String, String)> = sqlx::query_as(
+        "SELECT description, kind FROM transactions WHERE id = $1 AND ledger_id = $2",
+    )
+    .bind(id)
+    .bind(ledger_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(problem_for_db)?;
+    let Some((description, kind)) = original else {
+        return Err(Problem::new(
+            StatusCode::NOT_FOUND,
+            "Not Found",
+            "transaction not found",
+        ));
+    };
+    if kind == "reversing" {
+        return Err(Problem::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Unprocessable Entity",
+            "cannot reverse a reversal",
+        ));
+    }
+    let postings: Vec<(Uuid, Decimal, String, Option<String>)> = sqlx::query_as(
+        "SELECT account_id, amount, direction, memo FROM postings WHERE transaction_id = $1",
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(problem_for_db)?;
+    if postings.is_empty() {
+        return Err(Problem::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Unprocessable Entity",
+            "transaction has no postings to reverse",
+        ));
+    }
+    let lines: Vec<crate::domain::TxnLineInput> = postings
+        .into_iter()
+        .map(
+            |(account_id, amount, direction, memo)| crate::domain::TxnLineInput {
+                account_id,
+                signed_amount: if direction == "DEBIT" {
+                    -amount
+                } else {
+                    amount
+                },
+                memo,
+                tax_rate_id: None,
+                foreign: None,
+                cost_center_id: None,
+                project_id: None,
+            },
+        )
+        .collect();
+    let created = crate::domain::posting_service::PostingService::create(
+        &state.pool,
+        crate::domain::posting_service::NewTransaction {
+            ledger_id,
+            txn_date: chrono::Utc::now().date_naive(),
+            description: format!("Reversal of: {description}"),
+            payee: None,
+            reference: None,
+            kind: Some("reversing".to_string()),
+            created_by: user.0,
+            lines,
+            reverses_id: Some(id),
+            number: None,
+            tax_links: vec![],
+        },
+    )
+    .await
+    .map_err(|e| match e {
+        crate::domain::posting_service::PostingServiceError::HardClosed {
+            closed_through, ..
+        } => Problem::new(
+            StatusCode::CONFLICT,
+            "Conflict",
+            format!("ledger is closed through {closed_through}; reversal blocked"),
+        ),
+        other => Problem::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Unprocessable Entity",
+            other.to_string(),
+        ),
+    })?;
+    let resp = serde_json::json!({
+        "id": created.id, "kind": created.kind, "reverses_id": id,
+    })
+    .to_string();
+    if let Some(k) = idem_key {
+        crate::api::helpers::idempotency_store(&state.pool, &k, token.0, &fp, 201, &resp).await?;
+    }
+    Ok((
+        StatusCode::CREATED,
+        [(axum::http::header::CONTENT_TYPE, json_ct)],
+        resp,
     ))
 }
 

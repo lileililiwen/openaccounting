@@ -266,6 +266,20 @@ pub fn fingerprint(body_json: &serde_json::Value) -> String {
     hex::encode(digest)
 }
 
+/// Delete idempotency records past the 24 h replay window. Called by
+/// the scheduler's nightly housekeeping (`openapi-sdk`); bounds
+/// storage growth.
+pub async fn purge_expired_idempotency(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let res = sqlx::query(
+        "DELETE FROM api_idempotency
+         WHERE created_at < now() - make_interval(hours => $1)",
+    )
+    .bind(IDEMPOTENCY_WINDOW_HOURS)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
 pub fn db_problem(e: sqlx::Error) -> Problem {
     Problem::new(
         StatusCode::INTERNAL_SERVER_ERROR,

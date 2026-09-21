@@ -32,6 +32,10 @@ async fn emit_inner(
     event_type: &str,
     data: serde_json::Value,
 ) -> Result<(), sqlx::Error> {
+    // Automation rules fan-out (`openapi-sdk`): independent of webhook
+    // subscriptions, so it runs before the subscription early-return.
+    super::automation::match_and_enqueue(pool, ledger_id, event_type, &data).await;
+
     let subs: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT id FROM webhook_subscriptions
          WHERE ledger_id = $1 AND is_enabled = TRUE AND $2 = ANY(events)",

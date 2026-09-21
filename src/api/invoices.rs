@@ -234,11 +234,27 @@ async fn create(
 async fn transition(
     state: &AppState,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: &axum::http::HeaderMap,
     ledger_id: Uuid,
     id: Uuid,
     new_status: &str,
     reason: Option<String>,
 ) -> Result<Json<serde_json::Value>, Problem> {
+    // Idempotency (`openapi-sdk`): transitions are POSTs and honor
+    // `Idempotency-Key` so a retried void/mark-paid is applied once.
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = fingerprint(&serde_json::json!({ "id": id, "status": new_status }));
+    if let Some(k) = &idem_key {
+        if let Some((_status, resp_body)) = idempotency_lookup(&state.pool, k, token.0, &fp).await?
+        {
+            let v: serde_json::Value = serde_json::from_str(&resp_body).unwrap_or_default();
+            return Ok(Json(v));
+        }
+    }
     require_access(&state.pool, user.0, ledger_id, true).await?;
     let updated: Option<(Uuid,)> = sqlx::query_as(
         "UPDATE invoices SET status = $3, updated_at = now()
@@ -282,20 +298,28 @@ async fn transition(
         )
         .await;
     }
-    Ok(Json(serde_json::json!({ "id": id, "status": new_status })))
+    let resp = serde_json::json!({ "id": id, "status": new_status });
+    if let Some(k) = idem_key {
+        idempotency_store(&state.pool, &k, token.0, &fp, 200, &resp.to_string()).await?;
+    }
+    Ok(Json(resp))
 }
 
 async fn mark_paid(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path((ledger_id, id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<serde_json::Value>, Problem> {
-    transition(&state, user, ledger_id, id, "paid", None).await
+    transition(&state, user, token, &headers, ledger_id, id, "paid", None).await
 }
 
 async fn void(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path((ledger_id, id)): Path<(Uuid, Uuid)>,
     body: Option<Json<serde_json::Value>>,
 ) -> Result<Json<serde_json::Value>, Problem> {
@@ -303,5 +327,5 @@ async fn void(
         .as_ref()
         .and_then(|b| b.get("reason").and_then(|r| r.as_str()))
         .map(str::to_string);
-    transition(&state, user, ledger_id, id, "void", reason).await
+    transition(&state, user, token, &headers, ledger_id, id, "void", reason).await
 }

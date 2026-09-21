@@ -7,6 +7,7 @@ pub mod approval_policies;
 pub mod audit;
 pub mod auth;
 pub mod auth_oidc;
+pub mod automations;
 pub mod backups;
 pub mod bank_feeds;
 pub mod budgets;

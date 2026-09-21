@@ -4,7 +4,7 @@ use axum::response::IntoResponse;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{delete, get},
+    routing::get,
     Json, Router,
 };
 use chrono::NaiveDate;
@@ -14,9 +14,12 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        helpers::{db_problem, next_link, page_from, require_access, with_next_link, PageParams},
+        helpers::{
+            db_problem, fingerprint, idempotency_lookup, idempotency_store, next_link, page_from,
+            require_access, with_next_link, PageParams,
+        },
         problem::Problem,
-        ApiUser,
+        ApiTokenId, ApiUser,
     },
     AppState,
 };
@@ -24,7 +27,10 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/ledgers/{ledger_id}/budgets", get(list).post(create))
-        .route("/ledgers/{ledger_id}/budgets/{id}", delete(remove))
+        .route(
+            "/ledgers/{ledger_id}/budgets/{id}",
+            get(get_one).delete(remove),
+        )
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -79,7 +85,7 @@ async fn list(
             r#"SELECT COALESCE(SUM(p.amount), 0)
                FROM postings p
                JOIN transactions t ON t.id = p.transaction_id
-               WHERE p.account_id = $1 AND t.kind <> 'draft'
+               WHERE p.account_id = $1 AND t.kind NOT IN ('draft', 'pending')
                      AND t.txn_date BETWEEN $2 AND $3"#,
         )
         .bind(b.account_id)
@@ -115,9 +121,26 @@ async fn list(
 async fn create(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path(ledger_id): Path<Uuid>,
     Json(raw): Json<serde_json::Value>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), Problem> {
+    // Idempotency (`openapi-sdk`): replay the stored response within 24 h.
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = fingerprint(&raw);
+    if let Some(k) = &idem_key {
+        if let Some((status, resp_body)) = idempotency_lookup(&state.pool, k, token.0, &fp).await? {
+            let v: serde_json::Value = serde_json::from_str(&resp_body).unwrap_or_default();
+            return Ok((
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
+                Json(v),
+            ));
+        }
+    }
     require_access(&state.pool, user.0, ledger_id, true).await?;
     let body: CreateBudgetBody = serde_json::from_value(raw)
         .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
@@ -164,7 +187,42 @@ async fn create(
     .fetch_one(&state.pool)
     .await
     .map_err(db_problem)?;
-    Ok((StatusCode::CREATED, Json(serde_json::json!({ "id": id }))))
+    let resp = serde_json::json!({ "id": id });
+    if let Some(k) = idem_key {
+        idempotency_store(&state.pool, &k, token.0, &fp, 201, &resp.to_string()).await?;
+    }
+    Ok((StatusCode::CREATED, Json(resp)))
+}
+
+async fn get_one(
+    State(state): State<AppState>,
+    user: ApiUser,
+    Path((ledger_id, id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<serde_json::Value>, Problem> {
+    require_access(&state.pool, user.0, ledger_id, false).await?;
+    let row: Option<(Uuid, String, String, Decimal, Decimal, NaiveDate, NaiveDate)> =
+        sqlx::query_as(
+            r#"SELECT b.id, a.name, b.period, b.amount, b.alert_threshold, b.start_date, b.end_date
+               FROM budgets b JOIN accounts a ON a.id = b.account_id
+               WHERE b.id = $1 AND b.ledger_id = $2"#,
+        )
+        .bind(id)
+        .bind(ledger_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(db_problem)?;
+    let Some((id, account, period, amount, alert_threshold, start_date, end_date)) = row else {
+        return Err(Problem::new(
+            StatusCode::NOT_FOUND,
+            "Not Found",
+            "budget not found",
+        ));
+    };
+    Ok(Json(serde_json::json!({
+        "id": id, "account": account, "period": period,
+        "amount": amount, "alert_threshold": alert_threshold,
+        "start_date": start_date, "end_date": end_date,
+    })))
 }
 
 async fn remove(

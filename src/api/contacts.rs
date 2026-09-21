@@ -12,9 +12,12 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        helpers::{db_problem, next_link, page_from, require_access, with_next_link, PageParams},
+        helpers::{
+            db_problem, fingerprint, idempotency_lookup, idempotency_store, next_link, page_from,
+            require_access, with_next_link, PageParams,
+        },
         problem::Problem,
-        ApiUser,
+        ApiTokenId, ApiUser,
     },
     AppState,
 };
@@ -28,7 +31,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct ContactDto {
     pub id: Uuid,
     pub ledger_id: Uuid,
@@ -99,9 +102,32 @@ async fn get_one(
 async fn create(
     State(state): State<AppState>,
     user: ApiUser,
+    token: ApiTokenId,
+    headers: axum::http::HeaderMap,
     Path(ledger_id): Path<Uuid>,
     Json(raw): Json<serde_json::Value>,
 ) -> Result<(StatusCode, Json<ContactDto>), Problem> {
+    // Idempotency (`openapi-sdk`): replay the stored response within 24 h.
+    let idem_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let fp = fingerprint(&raw);
+    if let Some(k) = &idem_key {
+        if let Some((status, resp_body)) = idempotency_lookup(&state.pool, k, token.0, &fp).await? {
+            let dto: ContactDto = serde_json::from_str(&resp_body).map_err(|e| {
+                Problem::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal Server Error",
+                    e.to_string(),
+                )
+            })?;
+            return Ok((
+                StatusCode::from_u16(status).unwrap_or(StatusCode::CREATED),
+                Json(dto),
+            ));
+        }
+    }
     require_access(&state.pool, user.0, ledger_id, true).await?;
     let body: CreateContactBody = serde_json::from_value(raw)
         .map_err(|e| Problem::new(StatusCode::BAD_REQUEST, "Bad Request", e.to_string()))?;
@@ -133,6 +159,17 @@ async fn create(
     .fetch_one(&state.pool)
     .await
     .map_err(db_problem)?;
+    if let Some(k) = idem_key {
+        idempotency_store(
+            &state.pool,
+            &k,
+            token.0,
+            &fp,
+            201,
+            &serde_json::to_string(&dto).unwrap_or_default(),
+        )
+        .await?;
+    }
     Ok((StatusCode::CREATED, Json(dto)))
 }
 
