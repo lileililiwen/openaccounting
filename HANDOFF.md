@@ -1,11 +1,11 @@
-current_spec: openapi-sdk
+current_spec:
 
 # OpenAccounting handoff
 
 ## State
 
 This checkout contains an implemented v0.1-alpha Rust/PostgreSQL application
-plus eight active OpenSpec packages. The active packages are proposals and
+plus seven active OpenSpec packages. The active packages are proposals and
 delegated implementation work; their presence does not prove that the
 features are implemented, tested, deployed, or release-ready.
 
@@ -13,6 +13,37 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: openapi-sdk (2026-09-21, commit 9f43db3)
+
+Archived as `openspec/changes/archive/2026-09-21-openapi-sdk/`;
+canonical spec `openapi-sdk` created. Evidence: `openspec validate
+openapi-sdk --strict` valid; `cargo fmt --check` clean; clippy
+profile byte-identical to pre-change dirty HEAD (zero new lints;
+repo-wide `-- -D warnings` blocked by pre-existing src/ lints);
+`cargo test --features test-support` 17/17 new integration tests
+in `tests/integration/openapi_sdk.rs` pass (idempotency store /
+replay / 24 h expiry / fingerprint-mismatch 422; route inventory
+asserting every src/api `.route("…")` is documented in
+docs/openapi.yaml; event catalog asserting EVENT_TYPES from
+src/jobs/events.rs appear in docs/event-catalog.md; signed
+incoming-event intake enqueues automation_action and rejects
+bad signature 401 + unknown type 400; owner-only rule CRUD
+via web form; E2E rule → transaction.posted → webhook_delivery
+job chain; PATCH ledgers / accounts; POST transactions/reverse;
+GET /api/openapi.yaml returns 200 text/yaml). API router moved
+to the public axum layer (was incorrectly nested under
+login_required + CSRF, causing bearer-only clients to be
+redirected to /login — `tests/http_coverage.rs
+api_endpoint_without_token_is_unauthorized` reproducibly fails on
+pristine HEAD). All 17 new tests green; full parallel integration
+run still shows the pre-existing date-sensitive
+`automation_platform::scheduler_posts_due_templates_exactly_once_per_due_date`
+flake plus the 6 pre-existing pristine-HEAD failures
+(2 date-sensitive scheduler/recurring, 2 docs-lint specs,
+role_enforcement invoice, recurring_invoices), none of which my
+change touches. Migration 0059 reversibility verified by up/down
+on scratch DB before archive.
 
 ## Completed: pro-close-controls (2026-09-21)
 
