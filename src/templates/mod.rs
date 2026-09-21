@@ -30,6 +30,7 @@ pub mod ledgers;
 pub mod notification_preferences;
 pub mod onboarding;
 pub mod payments;
+pub mod rec_session;
 pub mod reconciliation;
 pub mod reimbursement;
 pub mod reports;

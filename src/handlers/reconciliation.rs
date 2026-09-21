@@ -154,8 +154,10 @@ pub async fn upload_csv(
     let lines: Vec<Line> = match crate::import::statement::sniff_format(&bytes) {
         Some(format) => {
             let qif_order = crate::import::statement::qif::DateOrder::Us;
+            // Filename plus cause: the operator must know WHICH upload
+            // failed and why (`statement-reconciliation` import gate).
             let parsed = crate::import::statement::parse(format, &text, qif_order)
-                .map_err(AppError::Validation)?;
+                .map_err(|e| AppError::Validation(format!("{filename}: {e}")))?;
             parsed.into_iter().map(Line::Stmt).collect()
         }
         None => {

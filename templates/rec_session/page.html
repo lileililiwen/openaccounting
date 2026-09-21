@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Statement Session — {{ ledger_name }}{% endblock %}
+{% block body %}
+{% include "partials/_nav.html" %}
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+  <header>
+    <a href="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}" class="text-sm text-slate-500 hover:text-slate-800">← Reconciliation</a>
+    <h1 class="text-2xl font-semibold mt-1">Statement Session {{ stmt_close_date.format("%Y-%m-%d") }}</h1>
+    <p class="text-slate-500 text-sm">External close {{ stmt_close_balance }} · opening {{ opening_balance }}</p>
+  </header>
+
+  {% if locked %}
+  <div role="status" class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+    <strong>Locked.</strong> This session is closed. Lines cannot be cleared or uncleared.
+    To correct it, unreconcile below with a reason (min 10 characters).
+  </div>
+  {% endif %}
+
+  <section aria-label="Session balances" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Opening</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ opening_balance }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Cleared</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ cleared_sum }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Statement Close</div>
+      <div class="mt-1 text-xl font-semibold tabular">{{ stmt_close_balance }}</div>
+    </div>
+    <div class="rounded-xl bg-white border border-slate-200 p-3">
+      <div class="text-xs uppercase text-slate-500">Difference</div>
+      <div class="mt-1 text-xl font-semibold tabular {% if difference.is_zero() %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ difference }}</div>
+    </div>
+  </section>
+
+  <section class="rounded-xl bg-white border border-slate-200 overflow-hidden">
+    <header class="px-4 py-2 border-b border-slate-200 text-sm font-semibold text-slate-700 bg-slate-50">
+      Statement Lines
+    </header>
+    {% if lines.is_empty() %}
+      <div class="p-6 text-center text-slate-500 text-sm">No statement lines for this account yet. Import a statement first.</div>
+    {% else %}
+      <ul class="divide-y divide-slate-100">
+        {% for line in lines %}
+          <li class="px-4 py-2 text-sm">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-slate-800 font-medium">{{ line.description }}</div>
+                <div class="text-xs text-slate-500">
+                  {{ line.statement_date.format("%Y-%m-%d") }}
+                  {% if line.cleared %}<span class="ml-1 rounded bg-emerald-100 text-emerald-800 px-1.5 py-0.5">cleared</span>{% endif %}
+                  {% match line.suggested_rule %}
+                    {% when Some with (rule) %}<span class="ml-1 rounded bg-sky-100 text-sky-800 px-1.5 py-0.5">suggested by {{ rule }}</span>
+                    {% when None %}
+                  {% endmatch %}
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="tabular font-medium">{{ line.amount }}</div>
+                {% if !locked %}
+                  {% if line.cleared %}
+                    <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/sessions/{{ session_id }}/unclear" class="inline">
+                      <input type="hidden" name="bank_line_id" value="{{ line.id }}" />
+                      <button class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">Unclear</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/sessions/{{ session_id }}/clear" class="inline">
+                      <input type="hidden" name="bank_line_id" value="{{ line.id }}" />
+                      <label class="text-xs text-slate-600"><input type="checkbox" name="confirm" value="1" required class="mr-1" />confirm</label>
+                      <button class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Clear</button>
+                    </form>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <div class="flex gap-2">
+    {% if !locked %}
+      <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/sessions/{{ session_id }}/finish">
+        <button class="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-medium hover:bg-emerald-700">Finish (requires zero difference)</button>
+      </form>
+    {% else %}
+      <form method="post" action="/ledgers/{{ ledger_id }}/reconcile/{{ account_id }}/sessions/{{ session_id }}/unreconcile" class="flex gap-2 items-end">
+        <label class="text-sm">Reason (min 10 chars)
+          <input type="text" name="reason" minlength="10" required class="block border border-slate-300 rounded px-2 py-1 text-sm" />
+        </label>
+        <button class="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium hover:bg-amber-100">Unreconcile</button>
+      </form>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

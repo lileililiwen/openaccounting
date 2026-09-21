@@ -69,6 +69,7 @@ mod security_operations;
 mod session_timeout;
 mod signed_cookies;
 mod smoke;
+mod statement_reconciliation;
 mod stub_cleanup;
 mod tax_transactions;
 mod totp;

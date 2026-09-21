@@ -734,6 +734,34 @@ fn build_router_inner(
             get(handlers::reconciliation::history),
         )
         .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions",
+            post(handlers::rec_sessions::create_session),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}",
+            get(handlers::rec_sessions::show),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}/suggestions",
+            get(handlers::rec_sessions::suggestions),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}/clear",
+            post(handlers::rec_sessions::clear),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}/unclear",
+            post(handlers::rec_sessions::unclear),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}/finish",
+            post(handlers::rec_sessions::finish),
+        )
+        .route(
+            "/ledgers/{id}/reconcile/{account_id}/sessions/{session_id}/unreconcile",
+            post(handlers::rec_sessions::unreconcile),
+        )
+        .route(
             "/ledgers/{id}/payments/new",
             get(handlers::payments::new_page).post(handlers::payments::create),
         )

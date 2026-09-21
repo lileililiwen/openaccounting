@@ -17,6 +17,10 @@ use rust_decimal::Decimal;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Format {
     Ofx,
+    /// QuickBooks Online export: OFX with Intuit headers
+    /// (`INTU.BID`, `INTUIT` aggregates). Parsed via the OFX path —
+    /// no new parser, the SGML shape is identical.
+    Qbo,
     Qif,
     Camt,
     Mt940,
@@ -26,6 +30,7 @@ impl Format {
     pub fn label(&self) -> &'static str {
         match self {
             Format::Ofx => "OFX/QFX",
+            Format::Qbo => "QBO",
             Format::Qif => "QIF",
             Format::Camt => "CAMT.052/053",
             Format::Mt940 => "MT940",
@@ -47,8 +52,13 @@ pub struct StatementLine {
 }
 
 /// Content-sniff the statement format. Extension is ignored.
+/// QBO is checked before OFX: every QBO file carries OFXHEADER too,
+/// but the Intuit aggregates (`INTU.BID`, `INTUIT`) mark it as QBO.
 pub fn sniff_format(bytes: &[u8]) -> Option<Format> {
     let head = String::from_utf8_lossy(&bytes[..bytes.len().min(2048)]).to_ascii_uppercase();
+    if head.contains("INTU.BID") || head.contains("INTUIT") || head.contains("<INTU") {
+        return Some(Format::Qbo);
+    }
     if head.contains("OFXHEADER") || head.contains("<OFX>") {
         return Some(Format::Ofx);
     }
@@ -82,7 +92,13 @@ pub fn parse(
     qif_date_order: qif::DateOrder,
 ) -> Result<Vec<StatementLine>, String> {
     match format {
-        Format::Ofx => ofx::parse(text),
+        Format::Ofx | Format::Qbo => ofx::parse(text).map_err(|e| {
+            if format == Format::Qbo {
+                format!("QBO: {e}")
+            } else {
+                e
+            }
+        }),
         Format::Qif => qif::parse(text, qif_date_order),
         Format::Camt => camt::parse(text),
         Format::Mt940 => mt940::parse(text),
@@ -128,5 +144,64 @@ mod tests {
     fn normalize_collapses_punctuation_and_case() {
         assert_eq!(normalize_payee("  ACME--GmbH  #12!"), "acme gmbh 12");
         assert_eq!(normalize_payee("ACME   GmbH"), normalize_payee("acme-gmbh"));
+    }
+
+    #[test]
+    fn qbo_sniffs_as_qbo_not_ofx() {
+        let qbo = b"OFXHEADER:100\nDATA:OFXSGML\n<INTU.BID>12345\n<OFX>\n<STMTTRN>";
+        assert_eq!(sniff_format(qbo), Some(Format::Qbo));
+        assert_eq!(Format::Qbo.label(), "QBO");
+    }
+
+    #[test]
+    fn qbo_fixture_parses_via_ofx_path() {
+        let qbo = "OFXHEADER:100\nDATA:OFXSGML\nVERSION:102\n<INTU.BID>01234\n<OFX>\n\
+                   <BANKTRANLIST>\n<STMTTRN>\n<TRNTYPE>CREDIT\n<DTPOSTED>20260821\n\
+                   <TRNAMT>250.00\n<FITID>QBO-1\n<NAME>Client Pay Inc\n</STMTTRN>\n\
+                   <STMTTRN>\n<TRNTYPE>DEBIT\n<DTPOSTED>20260822\n<TRNAMT>-42.50\n\
+                   <FITID>QBO-2\n<NAME>ACME GmbH\n</STMTTRN>\n</BANKTRANLIST>";
+        let lines = parse(Format::Qbo, qbo, qif::DateOrder::Us).unwrap();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].payee, "Client Pay Inc");
+        assert_eq!(lines[0].amount, Decimal::new(25000, 2));
+        assert_eq!(lines[1].amount, Decimal::new(-4250, 2));
+    }
+
+    #[test]
+    fn camt_053_three_entries_normalize_with_signs() {
+        let camt = r#"<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+<BkToCstmrStmt><Stmt>
+<Ntry><BookgDt><Dt>2026-08-21</Dt></BookgDt><Amt Ccy="EUR">-42.50</Amt>
+<AddtlNtryInf>ACME GMBH OFFICE SUPPLIES</AddtlNtryInf><AcctSvcrRef>CAMT-1</AcctSvcrRef></Ntry>
+<Ntry><BookgDt><Dt>2026-08-22</Dt></BookgDt><Amt Ccy="EUR">1000.00</Amt>
+<AddtlNtryInf>CLIENT PAY INVOICE 7</AddtlNtryInf><AcctSvcrRef>CAMT-2</AcctSvcrRef></Ntry>
+<Ntry><BookgDt><Dt>2026-08-23</Dt></BookgDt><Amt Ccy="EUR">-5.00</Amt>
+<AddtlNtryInf>KIOSK COFFEE</AddtlNtryInf><AcctSvcrRef>CAMT-3</AcctSvcrRef></Ntry>
+</Stmt></BkToCstmrStmt></Document>"#;
+        let lines = parse(Format::Camt, camt, qif::DateOrder::Us).unwrap();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0].date, NaiveDate::from_ymd_opt(2026, 8, 21).unwrap());
+        assert_eq!(lines[0].amount, Decimal::new(-4250, 2));
+        assert_eq!(lines[1].amount, Decimal::new(100000, 2));
+        assert_eq!(lines[2].date, NaiveDate::from_ymd_opt(2026, 8, 23).unwrap());
+        assert_eq!(lines[2].amount, Decimal::new(-500, 2));
+    }
+
+    #[test]
+    fn unreadable_files_reject_with_cause() {
+        let err = parse(Format::Camt, "<Document></Document>", qif::DateOrder::Us)
+            .expect_err("empty CAMT must fail");
+        assert!(err.contains("Ntry"), "cause must name the problem: {err}");
+        let err = parse(
+            Format::Qbo,
+            "OFXHEADER:100\n<OFX></OFX>",
+            qif::DateOrder::Us,
+        )
+        .expect_err("empty QBO must fail");
+        assert!(
+            err.starts_with("QBO:"),
+            "QBO errors carry the format tag: {err}"
+        );
     }
 }

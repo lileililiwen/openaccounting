@@ -42,6 +42,7 @@ pub mod notification_preferences;
 pub mod notifications;
 pub mod onboarding;
 pub mod payments;
+pub mod rec_sessions;
 pub mod reconciliation;
 pub mod reimbursement;
 pub mod reports;

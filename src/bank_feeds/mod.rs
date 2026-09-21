@@ -1,7 +1,7 @@
 //! Bank feeds — provider-pluggable live transaction sync.
 //!
 //! The `Provider` trait is the single abstraction all adapters implement.
-//! Available providers: plaid, gocardless, salt_edge, simplefin, manual.
+//! Available providers: plaid, gocardless, enable_banking, salt_edge, simplefin, manual.
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -9,6 +9,7 @@ use rust_decimal::Decimal;
 use thiserror::Error;
 
 pub mod crypto;
+pub mod enable_banking;
 pub mod gocardless;
 pub mod manual;
 pub mod plaid;
@@ -53,6 +54,21 @@ pub enum BankFeedError {
 ///
 /// Each impl lives in its own submodule. The `manual` stub is always
 /// available and requires no credentials.
+///
+/// ## EU open-banking aggregator shape (`statement-reconciliation`)
+///
+/// EU aggregators (GoCardless Bank Account Data, Enable Banking) are
+/// normalized to `(date, amount, payee, reference)` at the provider
+/// boundary with the provider tag preserved:
+///
+/// | Provider       | date field                | amount field                  | payee field                        | reference field                  | txn id                          |
+/// |----------------|---------------------------|-------------------------------|----------------------------------|----------------------------------|-----------------------------------|
+/// | GoCardless     | `bookingDate` (YYYY-MM-DD)| `transactionAmount.amount`    | — (remittance only)              | `remittanceInformationUnstructured` | `transactionId`                |
+/// | Enable Banking | `booking_date`/`value_date`| `amount` (signed string)      | `creditor_name`/`debtor_name`    | `remittance`                     | `enable_banking:{entry_id}`       |
+///
+/// Live OAuth credentials cannot be tested in CI, so EU adapters expose
+/// a documented mapping (`enable_banking::map_transaction`) plus a
+/// test-shaped fetch; see `enable_banking.rs`.
 #[async_trait]
 pub trait Provider: Send + Sync {
     /// Fetch new transactions since `cursor`.
@@ -80,6 +96,7 @@ pub fn resolve(name: &str) -> Option<Box<dyn Provider>> {
     match name {
         "plaid" => Some(Box::new(plaid::PlaidProvider)),
         "gocardless" => Some(Box::new(gocardless::GoCardlessProvider)),
+        "enable_banking" => Some(Box::new(enable_banking::EnableBankingProvider)),
         "salt_edge" => Some(Box::new(salt_edge::SaltEdgeProvider)),
         "simplefin" => Some(Box::new(simplefin::SimplefinProvider)),
         _ => Some(Box::new(manual::ManualProvider)),

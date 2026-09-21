@@ -13,6 +13,7 @@ pub mod posting;
 pub mod posting_service;
 pub mod reconciliation_rules;
 pub mod reimbursement;
+pub mod statement_reconciliation;
 pub mod transaction;
 
 pub use account::{Account, AccountSubtype, AccountType};

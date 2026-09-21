@@ -508,6 +508,26 @@ erDiagram
         TEXT memo
         TIMESTAMPTZ created_at
     }
+    rec_lines {
+        UUID id
+        UUID session_id
+        UUID bank_line_id
+        BOOLEAN cleared
+        TIMESTAMPTZ cleared_at
+    }
+    rec_sessions {
+        UUID id
+        UUID ledger_id
+        UUID account_id
+        DATE stmt_close_date
+        NUMERIC stmt_close_balance
+        NUMERIC opening_balance
+        TEXT status
+        UUID created_by
+        UUID closed_by
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ closed_at
+    }
     reconciliation_rules {
         UUID id
         UUID ledger_id
@@ -811,6 +831,12 @@ erDiagram
     posting_taxes }|--|| tax_rates : "tax_rate_id"
     postings }|--|| transactions : "transaction_id"
     postings }|--|| accounts : "account_id"
+    rec_lines }|--|| rec_sessions : "session_id"
+    rec_lines }|--|| bank_statement_lines : "bank_line_id"
+    rec_sessions }|--|| ledgers : "ledger_id"
+    rec_sessions }|--|| accounts : "account_id"
+    rec_sessions }|--|| users : "created_by"
+    rec_sessions }|--|| users : "closed_by"
     reconciliation_rules }|--|| ledgers : "ledger_id"
     reconciliations }|--|| ledgers : "ledger_id"
     reconciliations }|--|| accounts : "account_id"
