@@ -1,4 +1,4 @@
-current_spec: ops-hardening
+current_spec: statement-reconciliation
 
 # OpenAccounting handoff
 
@@ -13,6 +13,22 @@ The current package is `ops-hardening` because it establishes the
 disclosure process, backup targets and restore evidence, RTO/RPO,
 redacted tracing, rate limits, and release attestations needed before
 accounting-control depth.
+
+## Completed: ops-hardening (2026-09-21, commit a6a51ac)
+
+Archived as `openspec/changes/archive/2026-09-21-ops-hardening/`;
+canonical spec `ops-hardening` created. Evidence: `openspec validate
+ops-hardening --strict` valid; all script checks OK
+(`check_security_contact`, `check_doc_commands` added and CI-wired);
+`cargo fmt --check` clean; clippy error profile byte-identical to
+pristine HEAD (zero new lints; repo-wide clean blocked by
+pre-existing src/ lints); `cargo test --features test-support` lib
+251/251 single-threaded, integration 411/414 (8 new ops-hardening
+tests pass; 3 failures are date-sensitive scheduler/recurring tests
+reproduced on pristine HEAD). Test-DB environment repairs only
+(stale shared-DB migration gap 18→55 done last cycle; one stale
+login_attempts cleanup). Next is `statement-reconciliation` per
+`ROADMAP.md` order.
 
 ## Completed: release-readiness (2026-09-21, commit 3c40fde)
 
@@ -68,6 +84,6 @@ next package or push from this workflow.
 
 ## Next action
 
-Implement and verify `release-readiness` from its own tasks. Keep the active
+Implement and verify `statement-reconciliation` from its own tasks. Keep the active
 queue order in `ROADMAP.md`; do not infer completion from documentation or
 strict structural validation alone.
