@@ -1,0 +1,40 @@
+{
+  "locales": {
+    "de": {
+      "code": "de",
+      "missing_keys": [],
+      "missing_pct": 0.0,
+      "present_keys": 34,
+      "total_keys": 34
+    },
+    "es": {
+      "code": "es",
+      "missing_keys": [],
+      "missing_pct": 0.0,
+      "present_keys": 34,
+      "total_keys": 34
+    },
+    "fr": {
+      "code": "fr",
+      "missing_keys": [],
+      "missing_pct": 0.0,
+      "present_keys": 34,
+      "total_keys": 34
+    },
+    "ja": {
+      "code": "ja",
+      "missing_keys": [],
+      "missing_pct": 0.0,
+      "present_keys": 34,
+      "total_keys": 34
+    },
+    "zh-CN": {
+      "code": "zh-CN",
+      "missing_keys": [],
+      "missing_pct": 0.0,
+      "present_keys": 34,
+      "total_keys": 34
+    }
+  },
+  "reference_total": 34
+}

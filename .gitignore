@@ -11,3 +11,15 @@ data/
 *.swp
 *.swo
 *~
+
+# Node / Capacitor tooling
+node_modules/
+mobile/node_modules/
+mobile/dist/
+coverage/
+*.lcov
+
+# Local agent/editor state
+.agent-sessions/
+.codex/
+.agents/

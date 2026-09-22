@@ -1,0 +1,32 @@
+# Generated/build output
+target/
+node_modules/
+mobile/node_modules/
+coverage/
+*.lcov
+
+# Runtime and local state
+data/
+*.log
+.env
+.env.*
+!.env.example
+
+# IDE and agent session state
+.git/
+.idea/
+.vscode/
+.qoder/
+.codex/
+.agents/
+*.swp
+*.swo
+*~
+
+# Binary/media artifacts not needed for code navigation
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.pdf

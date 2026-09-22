@@ -1,0 +1,44 @@
+name: a11y
+
+# Accessibility + locale coverage + mobile promise gate
+# (`u13-ux-a11y-mobile`).
+#
+# Runs the docs-lint scripts that gate the WCAG 2.2 AA claim
+# on no-open-P1 + locale coverage within threshold + README
+# promise agreeing with mobile/README.md. Runs on every push
+# to main and on every PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Docs + locale gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-python@d85fcd27d2b7ca5e8aa86c25e0e942af82b1ff25 # v5.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Locale coverage (publish artifact)
+        run: python3 scripts/check_locale_coverage.py --write-output
+
+      - name: Mobile promise agreement
+        run: python3 scripts/check_mobile_promise.py
+
+      - name: WCAG audit + coverage gate
+        run: python3 scripts/check_a11y_audit.py
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: locale-coverage
+          path: docs/locale-coverage.json
+          if-no-files-found: error

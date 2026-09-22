@@ -2,10 +2,15 @@
 {% block title %}{{ description }} — {{ ledger_name }}{% endblock %}
 {% block body %}
 {% include "partials/_nav.html" %}
-<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4"
+      {% if posted_total.is_some() %}
+        data-htmx-focus="#txn-confirm-heading"
+        data-htmx-announce="Transaction posted. Total {{ posted_total.as_deref().unwrap_or_default() }} {{ currency }}. Focus moved to confirmation."
+      {% endif %}>
   <header>
     <a href="/ledgers/{{ ledger_id }}/transactions" class="text-sm text-slate-500 hover:text-slate-800">← All transactions</a>
-    <h1 class="text-2xl font-semibold mt-1">{{ description }}</h1>
+    <h1 id="txn-confirm-heading" class="text-2xl font-semibold mt-1"
+        {% if posted_total.is_some() %}tabindex="-1"{% endif %}>{{ description }}</h1>
     <p class="text-slate-500 text-sm">
       {{ date }} · {{ currency }}
       {% if !payee.is_empty() %} · {{ payee }}{% endif %}
@@ -97,4 +102,26 @@
     </form>
   </section>
 </main>
+{% if posted_total.is_some() %}
+<script>
+// `u13-ux-a11y-mobile` A1: when a keyboard user posts a
+// transaction, focus the confirmation heading and announce the
+// total. The markers on <main> are picked up by static/js/a11y.js
+// after htmx:afterSwap; for the post-redirect case we trigger
+// the same flow on DOMContentLoaded.
+(function () {
+  function focusAndAnnounce() {
+    var main = document.querySelector('main[data-htmx-focus]');
+    if (!main || !window.oaA11y) return;
+    window.oaA11y.focus(main.getAttribute('data-htmx-focus'));
+    window.oaA11y.announce(main.getAttribute('data-htmx-announce'));
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', focusAndAnnounce);
+  } else {
+    focusAndAnnounce();
+  }
+})();
+</script>
+{% endif %}
 {% endblock %}

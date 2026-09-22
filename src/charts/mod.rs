@@ -3,6 +3,13 @@
 //! We pre-compute every coordinate in Rust and render a simple SVG
 //! template that just does field substitution. This avoids Askama's
 //! template-language arithmetic and keeps the templates tiny.
+//!
+//! Every chart wraps its output in an accessible
+//! `<figure role="img">` with an `aria-label` summary plus a
+//! visually-hidden `<table>` carrying the same data. Screen
+//! readers therefore receive both a one-sentence summary and
+//! the underlying numbers without any new endpoints
+//! (`u13-ux-a11y-mobile`, finding A2).
 
 use askama::Template;
 
@@ -16,7 +23,6 @@ struct LineSvg<'a> {
     y_axis: String,
     x_axis: String,
     legend: String,
-    y_max_label: String,
     _phantom: std::marker::PhantomData<&'a ()>,
 }
 
@@ -30,11 +36,8 @@ pub struct LineSeries {
 #[derive(Template)]
 #[template(path = "partials/charts/donut.html", escape = "none")]
 struct DonutSvg {
-    width: u32,
-    height: u32,
     cx: f64,
     cy: f64,
-    r_outer: f64,
     r_inner: f64,
     paths: String,
     center_label: String,
@@ -183,10 +186,73 @@ pub fn render_line(
         y_axis,
         x_axis,
         legend,
-        y_max_label: format!("{:.0}", y_max),
         _phantom: std::marker::PhantomData,
     };
-    tmpl.render().unwrap_or_default()
+    let svg = tmpl.render().unwrap_or_default();
+
+    let summary = build_line_summary(&x_labels, &series, y_max);
+    let data_table = build_line_data_table(&x_labels, &series);
+    wrap_figure(&svg, &summary, &data_table)
+}
+
+fn build_line_summary(x_labels: &[String], series: &[LineSeries], y_max: f64) -> String {
+    if series.is_empty() || x_labels.is_empty() {
+        return "Empty line chart.".to_string();
+    }
+    let mut parts: Vec<String> = Vec::new();
+    for s in series {
+        let total: f64 = s.values.iter().sum();
+        let peak = s
+            .values
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(i, v)| {
+                format!(
+                    "peak {:.0} at {}",
+                    v,
+                    x_labels.get(i).cloned().unwrap_or_default()
+                )
+            })
+            .unwrap_or_else(|| "no peak".to_string());
+        parts.push(format!("{}: total {:.0}, {}", s.name, total, peak));
+    }
+    format!(
+        "Line chart of {} over {} buckets; y-axis up to {:.0}. {}",
+        series
+            .iter()
+            .map(|s| s.name.clone())
+            .collect::<Vec<_>>()
+            .join(" and "),
+        x_labels.len(),
+        y_max,
+        parts.join("; ")
+    )
+}
+
+fn build_line_data_table(x_labels: &[String], series: &[LineSeries]) -> String {
+    if x_labels.is_empty() {
+        return String::new();
+    }
+    let mut head = String::from("<thead><tr><th scope=\"col\">Bucket</th>");
+    for s in series {
+        head.push_str(&format!("<th scope=\"col\">{}</th>", html_escape(&s.name)));
+    }
+    head.push_str("</tr></thead>");
+    let mut body = String::from("<tbody>");
+    for (i, label) in x_labels.iter().enumerate() {
+        body.push_str(&format!(
+            "<tr><th scope=\"row\">{}</th>",
+            html_escape(label)
+        ));
+        for s in series {
+            let v = s.values.get(i).copied().unwrap_or(0.0);
+            body.push_str(&format!("<td>{:.0}</td>", v));
+        }
+        body.push_str("</tr>");
+    }
+    body.push_str("</tbody>");
+    format!("<table>{}</table>", head + &body)
 }
 
 fn html_escape(s: &str) -> String {
@@ -224,7 +290,11 @@ pub fn render_donut(size: u32, segments: Vec<DonutSegment>, center_label: &str) 
 
     let total: f64 = segments.iter().map(|s| s.value).sum();
     if total <= 0.0 {
-        return String::new();
+        // Still emit an accessible container so a screen-reader
+        // user learns why the chart is empty (`u13-ux-a11y-mobile`
+        // finding A2 — every chart needs a summary).
+        let summary = build_donut_summary(&segments, total, center_label);
+        return wrap_figure("", &summary, "");
     }
 
     let mut paths = String::new();
@@ -247,15 +317,83 @@ pub fn render_donut(size: u32, segments: Vec<DonutSegment>, center_label: &str) 
     }
 
     let tmpl = DonutSvg {
-        width: size,
-        height: size,
         cx,
         cy,
-        r_outer,
         r_inner,
         paths,
         center_label: center_label.to_string(),
         legend,
     };
-    tmpl.render().unwrap_or_default()
+    let svg = tmpl.render().unwrap_or_default();
+
+    let summary = build_donut_summary(&segments, total, center_label);
+    let data_table = build_donut_data_table(&segments, total);
+    wrap_figure(&svg, &summary, &data_table)
+}
+
+fn build_donut_summary(segments: &[DonutSegment], total: f64, center_label: &str) -> String {
+    if segments.is_empty() || total <= 0.0 {
+        return "Empty donut chart.".to_string();
+    }
+    let dominant = segments
+        .iter()
+        .max_by(|a, b| {
+            a.value
+                .partial_cmp(&b.value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|s| format!("{} {:.0}%", s.label, (s.value / total) * 100.0))
+        .unwrap_or_else(|| "no dominant slice".to_string());
+    format!(
+        "Donut chart, total {}; dominant {}.",
+        center_label, dominant
+    )
+}
+
+fn build_donut_data_table(segments: &[DonutSegment], total: f64) -> String {
+    if segments.is_empty() {
+        return String::new();
+    }
+    let head =
+        String::from("<thead><tr><th scope=\"col\">Category</th><th scope=\"col\">Value</th><th scope=\"col\">Percent</th></tr></thead>");
+    let mut body = String::from("<tbody>");
+    for s in segments {
+        let pct = if total > 0.0 {
+            (s.value / total) * 100.0
+        } else {
+            0.0
+        };
+        body.push_str(&format!(
+            "<tr><th scope=\"row\">{}</th><td>{:.0}</td><td>{:.2}%</td></tr>",
+            html_escape(&s.label),
+            s.value,
+            pct
+        ));
+    }
+    body.push_str("</tbody>");
+    format!("<table>{}</table>", head + &body)
+}
+
+/// Wrap the raw SVG in an accessible `<figure>` so that screen
+/// readers receive both a one-line summary and the full data
+/// table. `data-chart="line|donut"` lets E2E tests target each
+/// kind unambiguously.
+fn wrap_figure(svg: &str, summary: &str, data_table: &str) -> String {
+    let kind = if data_table.contains("Bucket") {
+        "line"
+    } else {
+        "donut"
+    };
+    format!(
+        "<figure class=\"oa-chart\" data-chart=\"{kind}\" role=\"img\" aria-label=\"{label}\">\
+{svg}\
+<figcaption class=\"sr-only\">{caption}</figcaption>\
+<div class=\"sr-only\">{table}</div>\
+</figure>",
+        kind = kind,
+        label = html_escape(summary),
+        svg = svg,
+        caption = html_escape(summary),
+        table = data_table,
+    )
 }

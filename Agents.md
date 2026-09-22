@@ -1,4 +1,9 @@
-# Agents.md
+# Agents.md (legacy filename)
+
+> Canonical agent instructions are in [`AGENTS.md`](AGENTS.md). This file is
+> retained for compatibility with tools that look for the historical
+> capitalized filename; if the two files differ, `AGENTS.md` and the linked
+> `.ai-rules/` documents are authoritative.
 
 > This document is the contract for AI agents (and humans) working on the
 > **openaccounting** codebase. It is **normative**: every principle here

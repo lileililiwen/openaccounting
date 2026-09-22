@@ -791,7 +791,7 @@ pub async fn create(
                         Ok(created) => {
                             crate::observability::metrics::postings_created(inputs.len() as u64);
                             return Ok(axum::response::Redirect::to(&format!(
-                                "/ledgers/{}/transactions/{}",
+                                "/ledgers/{}/transactions/{}?posted=1",
                                 ledger_id, created.id
                             ))
                             .into_response());
@@ -883,7 +883,12 @@ pub async fn create(
     let target = if save_as_draft {
         format!("/ledgers/{}/drafts", ledger_id)
     } else {
-        format!("/ledgers/{}/transactions/{}", ledger_id, created.id)
+        // `u13-ux-a11y-mobile` A1: focus + announce after a
+        // keyboard user posts a transaction.
+        format!(
+            "/ledgers/{}/transactions/{}?posted=1",
+            ledger_id, created.id
+        )
     };
     Ok(Redirect::to(&target).into_response())
 }
@@ -892,6 +897,7 @@ pub async fn show(
     auth: AuthSession<Backend>,
     State(state): State<AppState>,
     Path((ledger_id, txn_id)): Path<(Uuid, Uuid)>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Response> {
     let user = auth.user.as_ref().ok_or(AppError::Unauthorized)?;
     let ledger = ledgers::ensure_writer(&state, user.id, ledger_id).await?;
@@ -924,6 +930,21 @@ pub async fn show(
             memo: m.unwrap_or_default(),
         })
         .collect();
+
+    // `u13-ux-a11y-mobile` A1: keyboard users must land on the
+    // confirmation heading after posting. The create handler
+    // redirects with `?posted=1`; we compute the total here so
+    // the announcement can name the amount.
+    let posted_total = if params.get("posted").map(String::as_str) == Some("1") {
+        let total: Decimal = lines
+            .iter()
+            .filter(|l| l.direction == "DEBIT")
+            .map(|l| l.amount)
+            .sum();
+        Some(format_money_two_dp(total))
+    } else {
+        None
+    };
 
     let documents = sqlx::query_as::<_, crate::domain::Document>(
         r#"SELECT id, transaction_id, ledger_id, filename, stored_filename, mime_type, size_bytes, uploaded_by, uploaded_at, category
@@ -970,5 +991,26 @@ pub async fn show(
         flash: String::new(),
         template_id: txn.template_id,
         template_description,
+        posted_total,
     }))
+}
+
+fn format_money_two_dp(amount: Decimal) -> String {
+    let abs = amount.abs();
+    let s = format!("{:.2}", abs);
+    let (int_part, frac_part) = s.split_once('.').unwrap_or((&s, "00"));
+    let mut out = String::new();
+    for (i, ch) in int_part.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    let int_with_commas: String = out.chars().rev().collect();
+    let formatted = format!("{}.{}", int_with_commas, frac_part);
+    if amount.is_sign_negative() {
+        format!("-{}", formatted)
+    } else {
+        formatted
+    }
 }

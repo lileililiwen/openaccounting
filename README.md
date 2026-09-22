@@ -119,7 +119,12 @@ Operations
 
 ## Non-Goals (for v1)
 
-- Native mobile apps (iOS / Android) — responsive web UI only.
+- Native mobile apps (iOS / Android) — install the responsive
+  web UI as a PWA instead. The PWA install path is documented
+  in [`mobile/README.md`](mobile/README.md) and enforced by
+  `scripts/check_mobile_promise.py` so the two READMEs cannot
+  diverge. Offline scope is the cached read-only routes only —
+  there is no offline write queue.
 - Multi-tenant SaaS hosting — single-tenant per deployment.
 - Jurisdiction-specific tax rule packs (US 1099, EU VAT MOSS, etc.) — the tax feature records rates and postings; it does not pick rules by jurisdiction.
 - Bank reconciliation auto-matching beyond the line-level match helper.

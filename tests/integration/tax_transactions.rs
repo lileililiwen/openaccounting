@@ -201,7 +201,11 @@ async fn taxed_transaction_posts_tax_leg_and_linkage() {
         .to_str()
         .unwrap()
         .to_string();
-    let txn_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
+    // The transaction-create redirect may carry `?posted=1`
+    // (a11y focus marker); strip the query string before
+    // extracting the path-tail UUID.
+    let path = loc.split('?').next().unwrap();
+    let txn_id: Uuid = path.rsplit('/').next().unwrap().parse().unwrap();
 
     // Three postings: expense (100 debit), tax leg (10 debit), bank (110 credit).
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM postings WHERE transaction_id = $1")
@@ -356,7 +360,8 @@ async fn no_tax_selected_records_nothing() {
         .to_str()
         .unwrap()
         .to_string();
-    let txn_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
+    let path = loc.split('?').next().unwrap();
+    let txn_id: Uuid = path.rsplit('/').next().unwrap().parse().unwrap();
 
     let pool = server.db().pool();
     let postings: (i64,) =
@@ -484,7 +489,8 @@ async fn reversal_negates_tax_leg() {
         .to_str()
         .unwrap()
         .to_string();
-    let txn_id: Uuid = loc.rsplit('/').next().unwrap().parse().unwrap();
+    let path = loc.split('?').next().unwrap();
+    let txn_id: Uuid = path.rsplit('/').next().unwrap().parse().unwrap();
 
     // Reverse.
     client

@@ -123,6 +123,11 @@ pub struct TransactionShow {
     pub flash: String,
     pub template_id: Option<Uuid>,
     pub template_description: String,
+    /// Set when this render came from a successful POST
+    /// (`u13-ux-a11y-mobile` A1). Drives the focus + live-region
+    /// markers on the confirmation heading so a keyboard user
+    /// lands on the right element after posting.
+    pub posted_total: Option<String>,
 }
 
 #[derive(Clone, Debug)]

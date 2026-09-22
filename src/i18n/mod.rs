@@ -23,6 +23,10 @@
 //!   EUR renders `1.234,56 €`.
 //! * Missing-key fallback: `t()` returns the English string
 //!   and logs a warning so the gap is visible.
+//! * [`coverage::coverage`] — per-language missing-key report
+//!   used by `scripts/check_locale_coverage.py` to gate
+//!   releases above 5 % missing keys for day-1 locales
+//!   (`u13-ux-a11y-mobile`).
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -30,6 +34,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
+
+pub mod coverage;
 
 /// The six day-1 locales.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
