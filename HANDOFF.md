@@ -1,18 +1,51 @@
-current_spec:
+current_spec: none
 
 # OpenAccounting handoff
 
 ## State
 
 This checkout contains an implemented v0.1-alpha Rust/PostgreSQL application
-plus six active OpenSpec packages. The active packages are proposals and
-delegated implementation work; their presence does not prove that the
-features are implemented, tested, deployed, or release-ready.
+plus the eight delegated OpenSpec packages listed under Delivery order
+below, all of which are now archived. The active queue is empty; the
+next change must be opened by the next agent.
 
-The current package is `ops-hardening` because it establishes the
-disclosure process, backup targets and restore evidence, RTO/RPO,
-redacted tracing, rate limits, and release attestations needed before
-accounting-control depth.
+## Completed: ux-a11y-mobile (2026-09-22)
+
+Archived as `openspec/changes/archive/2026-09-22-ux-a11y-mobile/`;
+canonical spec `ux-a11y` created. Evidence: `openspec validate
+ux-a11y --strict` valid; `openspec validate ux-a11y-mobile` (pre-archive)
+valid; `cargo fmt --check` clean; clippy warning profile is two
+warnings lighter than pristine HEAD (the chart refactor removed two
+`field is never read` lints and one `items_after_test_module` lint
+and added no new ones; repo-wide `-- -D warnings` still blocked by
+pre-existing src/ lints unchanged by this change); `cargo test
+--features test-support` lib 285/285, integration 11/11 new
+`chart_a11y.rs` and `ux_a11y.rs` tests pass plus the 3 tax_transactions
+tests whose redirect-parsing I tightened to handle the new
+`?posted=1` query marker (full single-threaded run: 6 pre-existing
+failures reproduced on pristine HEAD — 2 date-sensitive
+scheduler/recurring, 3 docs-lint, 1 role_enforcement — none of which
+this change touches); `scripts/check_a11y_audit.py`,
+`scripts/check_locale_coverage.py` (publishes
+`docs/locale-coverage.json`), and `scripts/check_mobile_promise.py`
+all pass on the real checkout and on fixtures; `openspec validate
+--all --strict` is 95/98 (the 3 failures are pre-existing
+`ux-language-consistency`, `ux-onboarding-flow`, `ux-transaction-entry`
+spec defects, all reproduced on pristine HEAD). WCAG 2.2 AA audit at
+`docs/wcag-audit-2026-09-21.md` records 4 P1 findings, all remediated
+and 0 open at archive; P2/P3 tracked. HTMX partials now carry
+`data-htmx-focus` / `data-htmx-announce` markers and `static/js/a11y.js`
+moves focus + speaks via an `aria-live` region. Charts emit
+`<figure role="img" aria-label="…">` plus a visually-hidden `<table>`
+data summary. Mobile decision: retired `mobile/` Capacitor shell and
+its `mobile-build` workflow; README non-goals and `mobile/README.md`
+both point at the PWA install path and are linted by
+`check_mobile_promise.py`. CI gate `.github/workflows/a11y.yml` runs
+all three docs-lint scripts. Agent infrastructure
+(`AGENTS.md`, `.ai-rules/`, `scripts/check-openspec-change-names.mjs`,
+`.agentignore`, `Agents.md` compatibility shim) shipped alongside so
+the change is the first cycle run under the renamed
+`AGENTS.md` workflow.
 
 ## Completed: compliance-exports (2026-09-21)
 
