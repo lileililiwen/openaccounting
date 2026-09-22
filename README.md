@@ -8,12 +8,13 @@ Web-based, responsive, document-aware. Single binary, PostgreSQL backend, HTMX +
 
 [![Triage SLA](https://img.shields.io/badge/triage-ack%20in%205%20business%20days-blue)](GOVERNANCE.md#triage-sla)
 
-OpenAccounting is v0.1-alpha. The application and core accounting workflows
-are implemented, while the active hardening and expansion queue remains
-OpenSpec-tracked work. Start with [`AGENTS.md`](AGENTS.md),
-[`HANDOFF.md`](HANDOFF.md), and [`ROADMAP.md`](ROADMAP.md) before changing
-the repository. Contribution process and triage expectations are in
-[`GOVERNANCE.md`](GOVERNANCE.md). Operational and accounting treatment guides are in `docs/`.
+OpenAccounting is v0.1-alpha. The application and core accounting
+workflows are implemented; the eight delegated OpenSpec packages in
+[`ROADMAP.md`](ROADMAP.md) have all been archived. Start with
+[`AGENTS.md`](AGENTS.md), [`HANDOFF.md`](HANDOFF.md), and
+[`ROADMAP.md`](ROADMAP.md) before changing the repository. Contribution
+process and triage expectations are in [`GOVERNANCE.md`](GOVERNANCE.md).
+Operational and accounting treatment guides are in `docs/`.
 
 ---
 

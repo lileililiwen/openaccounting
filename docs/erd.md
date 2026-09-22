@@ -69,6 +69,19 @@ erDiagram
         JSONB new_value
         TIMESTAMPTZ created_at
     }
+    automation_rules {
+        UUID id
+        UUID ledger_id
+        TEXT name
+        TEXT trigger
+        JSONB conditions
+        TEXT action
+        JSONB action_config
+        BOOLEAN is_enabled
+        UUID created_by
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
     backup_runs {
         UUID id
         TEXT kind
@@ -526,6 +539,15 @@ erDiagram
         TEXT kind
         TIMESTAMPTZ created_at
     }
+    period_notes {
+        UUID id
+        UUID ledger_id
+        TEXT period_key
+        TEXT body
+        UUID created_by
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
     posting_taxes {
         UUID id
         UUID posting_id
@@ -831,6 +853,8 @@ erDiagram
     api_tokens }|--|| users : "user_id"
     audit_entries }|--|| ledgers : "ledger_id"
     audit_entries }|--|| users : "actor_id"
+    automation_rules }|--|| ledgers : "ledger_id"
+    automation_rules }|--|| users : "created_by"
     backups }|--|| users : "created_by"
     bank_feed_links }|--|| ledgers : "ledger_id"
     bank_feed_links }|--|| accounts : "account_id_in_ledger"
@@ -916,6 +940,8 @@ erDiagram
     payments }|--|| contacts : "contact_id"
     payments }|--|| invoices : "invoice_id"
     payments }|--|| transactions : "transaction_id"
+    period_notes }|--|| ledgers : "ledger_id"
+    period_notes }|--|| users : "created_by"
     posting_taxes }|--|| postings : "posting_id"
     posting_taxes }|--|| tax_rates : "tax_rate_id"
     postings }|--|| transactions : "transaction_id"

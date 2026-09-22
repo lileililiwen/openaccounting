@@ -1,23 +1,27 @@
 # OpenAccounting roadmap
 
 OpenAccounting is currently v0.1-alpha. The repository contains a working
-Rust/PostgreSQL application and an active implementation queue. This roadmap
-records delivery order; OpenSpec proposals and accepted specs remain the
-normative contracts.
+Rust/PostgreSQL application and the eight delegated OpenSpec packages
+listed under Delivery order below, all of which are now archived. This
+roadmap records the delivery order as historical evidence; the
+canonical contracts for each capability live under
+`openspec/specs/<cap>/spec.md`.
 
 ## Current state
 
 - Implemented foundations include double-entry posting, authentication,
-  documents, reports, imports/exports, audit chain, backups, API routes, and
-  responsive web UI.
-- The active queue below is specified but not runtime-complete. An OpenSpec
-  task count of `0/N` is planning evidence, not implementation evidence.
-- The Capacitor mobile shell exists, but its support promise is intentionally
-  unresolved until `ux-a11y-mobile` decides whether it is supported or retired.
-- Jurisdiction-specific tax compliance, multi-tenant SaaS, formal SOC 2/ISO
-  certification, and automatic bank reconciliation remain out of scope.
+  documents, reports, imports/exports, audit chain, backups, API routes,
+  a responsive web UI with WCAG 2.2 AA audit evidence, chart
+  alternatives, a locale coverage gate, and an explicit mobile
+  (PWA-only) promise.
+- The eight delegated OpenSpec packages listed below are all archived
+  under `openspec/changes/archive/`. The active implementation queue is
+  empty; the next change must be opened by the next agent.
+- Jurisdiction-specific tax compliance, multi-tenant SaaS, formal SOC
+  2/ISO certification, and automatic bank reconciliation beyond the
+  line-level match helper remain out of scope.
 
-## Delivery order
+## Delivery order (all archived)
 
 ### Now — foundation and release contract
 
@@ -44,9 +48,13 @@ normative contracts.
 8. **`ux-a11y-mobile`** — WCAG 2.2 AA remediation, focus/live regions,
    chart alternatives, locale coverage, and an explicit mobile decision.
 
-Changes are dependency-ordered for implementation, but they are independent
-OpenSpec packages. Complete one package, archive it, produce the required two
-commits, then re-read this roadmap and `HANDOFF.md`.
+The complete evidence for each archived change lives in
+`HANDOFF.md` under "Completed: …" and in the canonical spec at
+`openspec/specs/<cap>/spec.md`. To pick up the next piece of work,
+read `HANDOFF.md` first, then `openspec/changes/` for any in-flight
+change, then this roadmap; open a new change folder with
+`openspec/changes/<name>/` and a single `current_spec:` line in
+`HANDOFF.md`.
 
 ## v1.0 exit gates
 

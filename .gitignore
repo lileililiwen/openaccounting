@@ -12,10 +12,9 @@ data/
 *.swo
 *~
 
-# Node / Capacitor tooling
+# Node tooling (left in for tooling that may still be run outside the
+# retired `mobile/` Capacitor shell)
 node_modules/
-mobile/node_modules/
-mobile/dist/
 coverage/
 *.lcov
 

@@ -1,7 +1,21 @@
 # openapi-sdk Specification
 
 ## Purpose
-TBD - created by archiving change openapi-sdk. Update Purpose after archive.
+
+The OpenAPI SDK surfaces the binary's HTTP contract to API clients and
+gives automation rules a typed event surface. A versioned OpenAPI 3.1
+document at `/api/openapi.yaml` covers every `/api/v1` route, and a CI
+route-inventory test fails when a router adds a path without a
+corresponding document entry. POST endpoints accept an optional
+`Idempotency-Key` header; replays within 24 hours return the original
+response without re-executing, scoped per token plus ledger. Ledger
+owners can build automation rules mapping an allowlisted trigger plus
+conditions to allowlisted actions, with matching events enqueued on the
+existing scheduler queue with retry and backoff. A checked-in event
+catalog lists every emitted event with payload schema, signing method,
+and at-least-once versus at-most-once guarantee; emitting an
+undocumented event fails tests. Out of scope: provider-specific webhooks
+beyond the allowlisted actions and a managed API gateway.
 ## Requirements
 ### Requirement: OpenAPI Contract
 

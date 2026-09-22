@@ -1,7 +1,24 @@
 # ux-a11y Specification
 
 ## Purpose
-TBD - created by archiving change ux-a11y-mobile. Update Purpose after archive.
+
+The UX / accessibility / mobile-promise capability is the user-facing
+contract that the web UI is usable by keyboard-only and screen-reader
+users, that missing translations are caught before release, and that
+the mobile story is stated honestly. The repo carries a dated
+WCAG 2.2 AA audit report with findings, severity, and fix status; a
+docs-lint gate blocks any release-notes claim of accessibility
+conformance while a P1 finding remains open. HTMX partial swaps carry
+`data-htmx-focus` and `data-htmx-announce` markers; a single
+`static/js/a11y.js` helper moves focus to the named element and speaks
+via a lazily-created `aria-live` region. Charts wrap their SVG in
+`<figure role="img" aria-label="…">` plus a visually-hidden `<table>`
+data summary. A per-language missing-key percentage is published on
+every CI run and a day-1 locale exceeding 5 % missing keys fails the
+build. The mobile promise is stated identically in `README.md` and
+`mobile/README.md` and linted by a dedicated script; the Capacitor
+shell was retired in favour of the installable PWA shipped from the
+binary. Out of scope: a native mobile shell and an offline write queue.
 ## Requirements
 ### Requirement: Audit Evidence
 

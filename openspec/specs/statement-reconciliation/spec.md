@@ -1,7 +1,19 @@
 # statement-reconciliation Specification
 
 ## Purpose
-TBD - created by archiving change statement-reconciliation. Update Purpose after archive.
+
+Statement reconciliation is the owner/editor workflow that proves a bank
+or cash account matches the books for a given period. Each session carries
+an opening balance, a list of cleared lines, and a statement close date
+plus balance; the difference between the statement close balance and
+`opening + sum(cleared)` is the reconciliation gate. Sessions that close
+with a non-zero difference cannot be marked finished, and a closed session
+locks its lines against unclear until an audited reopen (with a mandatory
+reason) is recorded. The capability also ingests CAMT.053 XML and QBO
+files alongside the existing statement formats so the import path is
+uniform across providers. Out of scope: automatic bank-feed matching
+beyond the line-level match helper, and any real-time feed integration
+that bypasses the session gate.
 ## Requirements
 ### Requirement: Reconciliation Sessions
 

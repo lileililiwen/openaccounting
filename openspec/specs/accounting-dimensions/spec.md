@@ -1,7 +1,21 @@
 # accounting-dimensions Specification
 
 ## Purpose
-TBD - created by archiving change accounting-dimensions. Update Purpose after archive.
+
+Accounting dimensions let postings carry additional classification
+without breaking the double-entry invariant. Postings MAY carry an
+optional cost center and project; trial balance and P&L accept
+dimension filters and slice correctly, with untagged postings surfaced
+under Unassigned. The capability also covers recurring journal templates
+(start, frequency, end or occurrence cap, pause/skip) that emit preview
+drafts on the due date and require an explicit post or scheduler
+confirmation, with idempotency per template per period. Inventory and
+depreciation methods are stored explicitly, disclosed on dependent
+reports, and any method switch with non-zero stock is rejected until a
+restatement is posted. Manual FX overrides record actor, timestamp, old
+and new value, and reason; revaluation uses the audited manual rate for
+the day. Out of scope: rule-based automatic dimension inference and
+cross-ledger dimension hierarchies.
 ## Requirements
 ### Requirement: Posting Dimensions
 

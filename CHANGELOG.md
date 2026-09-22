@@ -10,58 +10,39 @@ and this project adheres to
 ## [Unreleased]
 
 ### Added
-- Accounting assurance: canonical synthetic ledger fixtures with
-  exact expected report outputs for trial balance, income
-  statement, balance sheet, and cash flow.
-- Import/export round-trip tests for JSON, beancount, and
-  hledger formats.
-- Treatment records for tax, FX, invoices/AR/AP, amortization,
-  inventory, closing, reversals, and audit chain workflows.
-- Compliance disclaimers in README and treatment record docs.
-- Security and operations baseline: SECURITY.md, CONTRIBUTING.md,
-  CODEOWNERS, CHANGELOG.md.
-- Configuration tests for placeholder secrets, missing APP_ENV,
-  insecure cookies, and invalid database settings.
-- Dependency vulnerability and license scanning in CI.
-- Backup/restore drill documentation and fixtures.
-- Production configuration documentation.
-- Release readiness: ROADMAP.md with delivery order and v1.0 exit
-  gates, GOVERNANCE.md with merge rules and a 5-business-day triage
-  SLA, issue/PR templates, operator docs (data-model ERD, admin
-  runbook, sizing guide, API reference pointer), and
-  docs-consistency CI checks (TBD markers, stale identity, doc
-  paths, roadmap entries, ERD freshness).
-- Operational hardening: operative security contact with disclosure
-  process, threat model, and log-redaction policy; S3 backup target
-  with retention enforcement; nightly restore-verification job;
-  stated RTO/RPO with WAL-archive PITR procedure; opt-in OTel
-  tracing with redacted spans; per-route rate-limit middleware
-  (429 + Retry-After on auth, API, webhook, import routes);
-  release SBOM (CycloneDX) plus signatures with a bundle-completeness
-  gate.
-- Professional close controls: per-ledger hard-close watermark with
-  409 rejection of closed-date writes, audited reopen/override flow
-  with mandatory reason, maker-checker approval queue for
-  over-threshold journals (maker ≠ checker), `accountant` and
-  `auditor` ledger roles (auditors read plus export only), and
-  gapless per-ledger-per-year invoice numbering with void reasons
-  and a gap report distinguishing voids from true gaps.
+- Accessibility and mobile-promise capability (`ux-a11y`): dated
+  WCAG 2.2 AA audit at `docs/wcag-audit-2026-09-21.md` with 4 P1
+  findings all remediated at archive; HTMX focus management plus
+  aria-live announcements via `static/js/a11y.js` reading
+  `data-htmx-focus` and `data-htmx-announce` markers; chart
+  accessibility wrapping every SVG in `<figure role="img">` with an
+  `aria-label` summary and a visually-hidden `<table>` data summary;
+  locale coverage gate (`scripts/check_locale_coverage.py`)
+  publishing `docs/locale-coverage.json` and failing above 5 % missing
+  keys for the six day-1 locales; explicit mobile promise linted
+  between `README.md` and `mobile/README.md`
+  (`scripts/check_mobile_promise.py`); CI gate
+  `.github/workflows/a11y.yml` runs the three docs-lint scripts.
+- Agent infrastructure: canonical `AGENTS.md` plus
+  `.ai-rules/{workflow,completion,architecture}.md`,
+  `scripts/check-openspec-change-names.mjs`, and `.agentignore`; the
+  legacy `Agents.md` is retained as a compatibility shim.
 
 ### Changed
-- Production mode now rejects known fallback credentials and
-  placeholder secrets.
-- docker-compose.yml APP_SECRET uses environment variable
-  substitution with documented fallback.
-- The CI stale-identity check now runs via
-  `scripts/check_identity.py` instead of an inline grep, fixing a
-  self-match on its own pattern.
+- Retired the `mobile/` Capacitor shell; the project ships a single
+  Rust binary with an installable PWA (manifest, service worker, and
+  install button) as the supported mobile story. The
+  `.github/workflows/mobile-build.yml` job is a documented no-op
+  pointing at `mobile/README.md` and the WCAG audit finding A11.
+- Three `tax_transactions` integration tests updated to strip the
+  `?posted=1` a11y focus marker from the redirect URL before parsing
+  the path-tail UUID.
 
 ### Migration notes
-- Migration `0058_pro_close_controls`: adds `closed_periods.closed_through`,
-  `reopen_events`, `journal_approvals`, `invoice_sequences`,
-  `ledgers.approval_threshold`, `invoices.void_reason`, widens
-  `transactions.kind` with `pending` and ledger roles with
-  `accountant`/`auditor`. Reversible (DOWN verified: revert + re-apply clean).
+- No new migrations. The 8 previously archived packages each shipped
+  their own reversible migration; the highest number currently in
+  the tree is 0060 (compliance-exports). `sqlx migrate run --source
+  migrations` is a no-op on a fully-applied checkout.
 - To upgrade a checkout, run `sqlx migrate run --source migrations`
   (renders a no-op when already current). Every migration ships a
   DOWN block verified by the `migrations-reversible` CI job; revert

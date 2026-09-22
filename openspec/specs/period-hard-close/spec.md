@@ -1,7 +1,22 @@
 # period-hard-close Specification
 
 ## Purpose
-TBD - created by archiving change pro-close-controls. Update Purpose after archive.
+
+Period hard close is the accounting-control depth that turns soft closing
+entries into a write barrier. The capability maintains one close
+watermark per ledger and rejects any write that lands on or before the
+closed date with HTTP 409, naming the closed date so the caller can
+correct the input. Reopening or posting into a closed period requires a
+global admin or ledger owner plus a non-empty reason; every override
+writes a reopen event and an audit-chain row. Journals at or above the
+ledger threshold are held in `pending` until a different user (the
+checker) approves them, enforcing maker-checker separation, and the
+`accountant` and `auditor` ledger roles give read-and-export access to
+auditors without write power. Invoices are numbered gaplessly per
+ledger per year, and the gap report distinguishes voids (with reasons)
+from true missing numbers. Out of scope: jurisdiction-specific tax close
+and any cross-ledger consolidation close that bypasses the per-ledger
+watermark.
 ## Requirements
 ### Requirement: Hard Close Watermark
 

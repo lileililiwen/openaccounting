@@ -1,7 +1,20 @@
 # ops-hardening Specification
 
 ## Purpose
-TBD - created by archiving change ops-hardening. Update Purpose after archive.
+
+Operations hardening is the operating-contract layer a self-hosted
+deployment must have before the project is honest about its production
+readiness. SECURITY.md names an operative security contact and a
+disclosure SLA (acknowledge 48h, assess 1 week, fix 30 days for
+critical) with a CI gate against placeholder markers. Scheduled backups
+support filesystem and S3 targets with retention enforcement, a nightly
+restore-verification job, and a documented RTO/RPO plus a WAL-archive
+PITR procedure tested against fixtures. The binary emits OTel traces
+when enabled with redacted spans and enforces per-route rate limits
+returning 429 with Retry-After. Tagged releases publish an SBOM, a
+provenance attestation, and cosign signatures with a bundle-completeness
+gate. Out of scope: SOC 2 or ISO 27001 certification and managed-cloud
+deployment automation.
 ## Requirements
 ### Requirement: Disclosure Process
 

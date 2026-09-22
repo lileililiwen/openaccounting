@@ -1,7 +1,20 @@
 # compliance-exports Specification
 
 ## Purpose
-TBD - created by archiving change compliance-exports. Update Purpose after archive.
+
+Compliance exports turn the books into artifacts an accountant, auditor,
+or regulator can use without re-running the report by hand. Core reports
+and invoices offer server-generated PDF downloads that are byte-stable
+for the same ledger snapshot and carry ledger name, period, generation
+timestamp, and generating version. The export index offers SAF-T lite
+XML, XBRL-GL instance documents, and DATEV-compatible CSV covering
+accounts and GL entries for a chosen period, each validated against a
+checked-in schema or header fixture. P&L and balance sheet show
+prior-period columns computed by the same queries with shifted dates,
+and every amount line links to the filtered general ledger for that
+account and period. Period notes (with author and timestamp) appear on
+P&L and balance sheet print and PDF outputs. Out of scope: certified
+access-point submission and jurisdiction-specific tax form filing.
 ## Requirements
 ### Requirement: Archivable PDFs
 
